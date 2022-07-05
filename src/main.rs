@@ -102,26 +102,26 @@ struct ColumnInfoMapping {
 
     pub (crate) dsOrigContainerIdIndex: ColumnInformation,
 
-    pub (crate) dsSIDIndex: ColumnInformation,
-    pub (crate) dsSAMAccountNameIndex: ColumnInformation,
-    pub (crate) dsUserPrincipalNameIndex: ColumnInformation,
-    pub (crate) dsSAMAccountTypeIndex: ColumnInformation,
-    pub (crate) dsUserAccountControlIndex: ColumnInformation,
-    pub (crate) dsLastLogonIndex: ColumnInformation,
-    pub (crate) dsLastLogonTimeStampIndex: ColumnInformation,
-    pub (crate) dsAccountExpiresIndex: ColumnInformation,
-    pub (crate) dsPasswordLastSetIndex: ColumnInformation,
-    pub (crate) dsBadPwdTimeIndex: ColumnInformation,
-    pub (crate) dsLogonCountIndex: ColumnInformation,
-    pub (crate) dsBadPwdCountIndex: ColumnInformation,
-    pub (crate) dsPrimaryGroupIdIndex: ColumnInformation,
-    pub (crate) dsNTHashIndex: ColumnInformation,
-    pub (crate) dsLMHashIndex: ColumnInformation,
-    pub (crate) dsNTHashHistoryIndex: ColumnInformation,
-    pub (crate) dsLMHashHistoryIndex: ColumnInformation,
-    pub (crate) dsUnixPasswordIndex: ColumnInformation,
-    pub (crate) dsADUserObjectsIndex: ColumnInformation,
-    pub (crate) dsSupplementalCredentialsIndex: ColumnInformation,
+    pub (crate) ds_sidindex: ColumnInformation,
+    pub (crate) ds_samaccount_name_index: ColumnInformation,
+    pub (crate) ds_user_principal_name_index: ColumnInformation,
+    pub (crate) ds_samaccount_type_index: ColumnInformation,
+    pub (crate) ds_user_account_control_index: ColumnInformation,
+    pub (crate) ds_last_logon_index: ColumnInformation,
+    pub (crate) ds_last_logon_time_stamp_index: ColumnInformation,
+    pub (crate) ds_account_expires_index: ColumnInformation,
+    pub (crate) ds_password_last_set_index: ColumnInformation,
+    pub (crate) ds_bad_pwd_time_index: ColumnInformation,
+    pub (crate) ds_logon_count_index: ColumnInformation,
+    pub (crate) ds_bad_pwd_count_index: ColumnInformation,
+    pub (crate) ds_primary_group_id_index: ColumnInformation,
+    pub (crate) ds_nthash_index: ColumnInformation,
+    pub (crate) ds_lmhash_index: ColumnInformation,
+    pub (crate) ds_nthash_history_index: ColumnInformation,
+    pub (crate) ds_lmhash_history_index: ColumnInformation,
+    pub (crate) ds_unix_password_index: ColumnInformation,
+    pub (crate) ds_aduser_objects_index: ColumnInformation,
+    pub (crate) ds_supplemental_credentials_index: ColumnInformation,
 
     pub (crate) dsDNSHostNameIndex: ColumnInformation,
     pub (crate) dsOSNameIndex: ColumnInformation,
@@ -176,26 +176,26 @@ fn main() -> Result<()> {
         dsObjectColIndex: temporary_mapping.remove(DS_OBJECT_COL_INDEX_NAME).unwrap(),
         dsIsDeletedIndex: temporary_mapping.remove(DS_IS_DELETED_INDEX_NAME).unwrap(),
         dsOrigContainerIdIndex: temporary_mapping.remove(DS_ORIG_CONTAINER_ID_INDEX_NAME).unwrap(),
-        dsSIDIndex: temporary_mapping.remove(DS_SIDINDEX_NAME).unwrap(),
-        dsSAMAccountNameIndex: temporary_mapping.remove(DS_SAMACCOUNT_NAME_INDEX_NAME).unwrap(),
-        dsUserPrincipalNameIndex: temporary_mapping.remove(DS_USER_PRINCIPAL_NAME_INDEX_NAME).unwrap(),
-        dsSAMAccountTypeIndex: temporary_mapping.remove(DS_SAMACCOUNT_TYPE_INDEX_NAME).unwrap(),
-        dsUserAccountControlIndex: temporary_mapping.remove(DS_USER_ACCOUNT_CONTROL_INDEX_NAME).unwrap(),
-        dsLastLogonIndex: temporary_mapping.remove(DS_LAST_LOGON_INDEX_NAME).unwrap(),
-        dsLastLogonTimeStampIndex: temporary_mapping.remove(DS_LAST_LOGON_TIME_STAMP_INDEX_NAME).unwrap(),
-        dsAccountExpiresIndex: temporary_mapping.remove(DS_ACCOUNT_EXPIRES_INDEX_NAME).unwrap(),
-        dsPasswordLastSetIndex: temporary_mapping.remove(DS_PASSWORD_LAST_SET_INDEX_NAME).unwrap(),
-        dsBadPwdTimeIndex: temporary_mapping.remove(DS_BAD_PWD_TIME_INDEX_NAME).unwrap(),
-        dsLogonCountIndex: temporary_mapping.remove(DS_LOGON_COUNT_INDEX_NAME).unwrap(),
-        dsBadPwdCountIndex: temporary_mapping.remove(DS_BAD_PWD_COUNT_INDEX_NAME).unwrap(),
-        dsPrimaryGroupIdIndex: temporary_mapping.remove(DS_PRIMARY_GROUP_ID_INDEX_NAME).unwrap(),
-        dsNTHashIndex: temporary_mapping.remove(DS_NTHASH_INDEX_NAME).unwrap(),
-        dsLMHashIndex: temporary_mapping.remove(DS_LMHASH_INDEX_NAME).unwrap(),
-        dsNTHashHistoryIndex: temporary_mapping.remove(DS_NTHASH_HISTORY_INDEX_NAME).unwrap(),
-        dsLMHashHistoryIndex: temporary_mapping.remove(DS_LMHASH_HISTORY_INDEX_NAME).unwrap(),
-        dsUnixPasswordIndex: temporary_mapping.remove(DS_UNIX_PASSWORD_INDEX_NAME).unwrap(),
-        dsADUserObjectsIndex: temporary_mapping.remove(DS_ADUSER_OBJECTS_INDEX_NAME).unwrap(),
-        dsSupplementalCredentialsIndex: temporary_mapping.remove(DS_SUPPLEMENTAL_CREDENTIALS_INDEX_NAME).unwrap(),
+        ds_sidindex: temporary_mapping.remove(DS_SIDINDEX_NAME).unwrap(),
+        ds_samaccount_name_index: temporary_mapping.remove(DS_SAMACCOUNT_NAME_INDEX_NAME).unwrap(),
+        ds_user_principal_name_index: temporary_mapping.remove(DS_USER_PRINCIPAL_NAME_INDEX_NAME).unwrap(),
+        ds_samaccount_type_index: temporary_mapping.remove(DS_SAMACCOUNT_TYPE_INDEX_NAME).unwrap(),
+        ds_user_account_control_index: temporary_mapping.remove(DS_USER_ACCOUNT_CONTROL_INDEX_NAME).unwrap(),
+        ds_last_logon_index: temporary_mapping.remove(DS_LAST_LOGON_INDEX_NAME).unwrap(),
+        ds_last_logon_time_stamp_index: temporary_mapping.remove(DS_LAST_LOGON_TIME_STAMP_INDEX_NAME).unwrap(),
+        ds_account_expires_index: temporary_mapping.remove(DS_ACCOUNT_EXPIRES_INDEX_NAME).unwrap(),
+        ds_password_last_set_index: temporary_mapping.remove(DS_PASSWORD_LAST_SET_INDEX_NAME).unwrap(),
+        ds_bad_pwd_time_index: temporary_mapping.remove(DS_BAD_PWD_TIME_INDEX_NAME).unwrap(),
+        ds_logon_count_index: temporary_mapping.remove(DS_LOGON_COUNT_INDEX_NAME).unwrap(),
+        ds_bad_pwd_count_index: temporary_mapping.remove(DS_BAD_PWD_COUNT_INDEX_NAME).unwrap(),
+        ds_primary_group_id_index: temporary_mapping.remove(DS_PRIMARY_GROUP_ID_INDEX_NAME).unwrap(),
+        ds_nthash_index: temporary_mapping.remove(DS_NTHASH_INDEX_NAME).unwrap(),
+        ds_lmhash_index: temporary_mapping.remove(DS_LMHASH_INDEX_NAME).unwrap(),
+        ds_nthash_history_index: temporary_mapping.remove(DS_NTHASH_HISTORY_INDEX_NAME).unwrap(),
+        ds_lmhash_history_index: temporary_mapping.remove(DS_LMHASH_HISTORY_INDEX_NAME).unwrap(),
+        ds_unix_password_index: temporary_mapping.remove(DS_UNIX_PASSWORD_INDEX_NAME).unwrap(),
+        ds_aduser_objects_index: temporary_mapping.remove(DS_ADUSER_OBJECTS_INDEX_NAME).unwrap(),
+        ds_supplemental_credentials_index: temporary_mapping.remove(DS_SUPPLEMENTAL_CREDENTIALS_INDEX_NAME).unwrap(),
         dsDNSHostNameIndex: temporary_mapping.remove(DS_DNSHOST_NAME_INDEX_NAME).unwrap(),
         dsOSNameIndex: temporary_mapping.remove(DS_OSNAME_INDEX_NAME).unwrap(),
         dsOSVersionIndex: temporary_mapping.remove(DS_OSVERSION_INDEX_NAME).unwrap(),
@@ -276,7 +276,16 @@ fn main() -> Result<()> {
             }
         }
     }
-    
+
+    let person_type_id = map_type_id_by_type_name.get("Person").unwrap();
+
+    for dbrecord in data_table.iter_records()?
+                                    .filter_map(|r| r.ok())
+                                    .map(|r| DbRecord::from(r))
+                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).is_ok())
+                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).unwrap() == **person_type_id) {
+        println!("SAMAccountName: {}", dbrecord.ds_samaccount_name_index(&mapping)?);
+    }
 
     Ok(())
 }

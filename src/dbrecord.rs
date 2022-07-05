@@ -25,6 +25,7 @@ macro_rules! define_str_getter {
         match value {
             Value::Text(val) => Ok(val),
             Value::LargeText(val) => Ok(val),
+            Value::Null => Ok("".to_string()),
             _ => Err(anyhow!("invalid value detected: {:?}", value))
         }
     }
@@ -57,4 +58,6 @@ impl<'a> DbRecord<'a> {
 
     define_str_getter!(ds_object_name_index, dsObjectNameIndex);
     define_str_getter!(ds_object_name2_index, dsObjectName2Index);
+
+    define_str_getter!(ds_samaccount_name_index, ds_samaccount_name_index);
 }
