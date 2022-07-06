@@ -59,5 +59,7 @@ impl<'a> DbRecord<'a> {
     define_str_getter!(ds_object_name_index, dsObjectNameIndex);
     define_str_getter!(ds_object_name2_index, dsObjectName2Index);
 
+    define_str_getter!(ds_sidindex, ds_sidindex);
     define_str_getter!(ds_samaccount_name_index, ds_samaccount_name_index);
+    define_str_getter!(ds_user_principal_name_index, ds_user_principal_name_index);
 }

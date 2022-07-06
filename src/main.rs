@@ -5,9 +5,10 @@ use libesedb::{EseDb, ColumnVariant, Value};
 use simplelog::{SimpleLogger, Config};
 use anyhow::{Result, anyhow};
 
-use crate::dbrecord::DbRecord;
+use crate::{dbrecord::DbRecord, person::Person};
 
 mod dbrecord;
+mod person;
 
 #[derive(Parser)]
 #[clap(name="ntds", author, version, about, long_about = None)]
@@ -279,12 +280,14 @@ fn main() -> Result<()> {
 
     let person_type_id = map_type_id_by_type_name.get("Person").unwrap();
 
-    for dbrecord in data_table.iter_records()?
+    let mut wtr = csv::Writer::from_writer(std::io::stdout());
+    for person in data_table.iter_records()?
                                     .filter_map(|r| r.ok())
                                     .map(|r| DbRecord::from(r))
                                     .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).is_ok())
-                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).unwrap() == **person_type_id) {
-        println!("SAMAccountName: {}", dbrecord.ds_samaccount_name_index(&mapping)?);
+                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).unwrap() == **person_type_id)
+                                    .map(|dbrecord| Person::from(dbrecord, &mapping).unwrap()){
+        wtr.serialize(person)?;
     }
 
     Ok(())
