@@ -224,11 +224,11 @@ fn main() -> Result<()> {
             }
             Ok(record) => {
                 let dbrecord = DbRecord::from(record);
-                let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.to_string();
+                let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.expect("missing object_name2 attribute");
 
                 // special handling for schema root object
                 if object_name2 == "Schema" {
-                    let schema_record_id = dbrecord.ds_record_id_index(&mapping)?;
+                    let schema_record_id = dbrecord.ds_record_id_index(&mapping)?.unwrap();
                     schema_record = Some(dbrecord);
                     log::debug!("found schema record id: {}", schema_record_id);
                     break;                    
@@ -250,7 +250,7 @@ fn main() -> Result<()> {
                                 .map(|r| DbRecord::from(r))
                                 .filter(|dbrecord| dbrecord.ds_parent_record_id_index(&mapping).unwrap() == schema_record_id) {
                 
-        let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.to_string();
+        let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.expect("missing object_name2 attribute");
 
         if type_names.remove(&object_name2[..]) {
             log::trace!("found type definition for '{object_name2}'");
