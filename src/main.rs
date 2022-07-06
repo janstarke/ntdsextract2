@@ -39,7 +39,7 @@ enum Commands {
 
 
 #[derive(Parser)]
-#[clap(name="ntds", author, version, about, long_about = None)]
+#[clap(name="ntdsextract2", author, version, about, long_about = None)]
 struct Args {
 
     #[clap(subcommand)]
