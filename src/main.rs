@@ -1,8 +1,9 @@
 use std::{path::Path, collections::HashMap};
 
 use clap::Parser;
-use libesedb::{EseDb, ColumnVariant, Value};
-use simplelog::{SimpleLogger, Config};
+use libesedb::{EseDb, ColumnVariant, Value, Record};
+use maplit::{hashmap, hashset};
+use simplelog::{SimpleLogger, Config, TermLogger};
 use anyhow::{Result, anyhow};
 
 use crate::{dbrecord::DbRecord, person::Person};
@@ -137,7 +138,11 @@ struct ColumnInfoMapping {
 
 fn main() -> Result<()> {
     let cli = Args::parse();
-    let _ = SimpleLogger::init(cli.verbose.log_level_filter(), Config::default());
+    let _ = TermLogger::init(
+        cli.verbose.log_level_filter(), 
+        Config::default(),
+        simplelog::TerminalMode::Stderr,
+        simplelog::ColorChoice::Auto);
 
     let ntds_path = Path::new(&cli.ntds_file);
     if ! (ntds_path.exists() && ntds_path.is_file()) {
@@ -209,11 +214,8 @@ fn main() -> Result<()> {
     };
 
     log::info!("reading schema information and creating record cache");
-    let mut schema_type_id = None;
-    let mut schema_record_id = None;
-    let mut map_childs_by_record_id = HashMap::new();
-    let mut map_db_id_by_record_id = HashMap::new();
-    let mut record_index = 0;
+
+    let mut schema_record = None;
     for record_res in data_table.iter_records()? {
         match record_res {
             Err(why) => {
@@ -224,71 +226,55 @@ fn main() -> Result<()> {
                 let dbrecord = DbRecord::from(record);
                 let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.to_string();
 
-
-                let record_id = dbrecord.ds_record_id_index(&mapping)?;
-                let parent_record_id = dbrecord.ds_parent_record_id_index(&mapping)?;
-
-                assert!(! map_db_id_by_record_id.contains_key(&record_id));
-                map_db_id_by_record_id.insert(record_id, record_index);
-
-                // connect parent and child objects together
-                if ! map_childs_by_record_id.contains_key(&record_id) {
-                    map_childs_by_record_id.insert(record_id, vec![]);
-                }
-
-                match map_childs_by_record_id.get_mut(&parent_record_id) {
-                    Some(children) => {
-                        children.push(record_id);
-                    }
-                    None => {
-                        map_childs_by_record_id.insert(parent_record_id, vec![record_id]);
-                    }
-                }
-
                 // special handling for schema root object
                 if object_name2 == "Schema" {
-                    schema_type_id = Some(dbrecord.ds_object_type_id_index(&mapping)?);
-                    schema_record_id = Some(dbrecord.ds_record_id_index(&mapping)?);
-                    log::debug!("found schema type id: {}", schema_type_id.unwrap());
+                    let schema_record_id = dbrecord.ds_record_id_index(&mapping)?;
+                    schema_record = Some(dbrecord);
+                    log::debug!("found schema record id: {}", schema_record_id);
+                    break;                    
                 }
-
-                record_index += 1;
-            }
-        }
-    }
-    let mut map_type_id_by_type_name = HashMap::new();
-    let schema_record_id = schema_record_id.expect("missing schema object");
-    log::info!("found {} schema children", map_childs_by_record_id[&schema_record_id].len());
-
-    for schema_children_id in map_childs_by_record_id[&schema_record_id].iter() {
-        let record_index = map_db_id_by_record_id.get(schema_children_id).unwrap();
-        log::trace!("seeking to record id {record_index}");
-
-        match data_table.record(*record_index) {
-            Err(why) => {
-                log::error!("missing schema child: {why}");
-                break;
-            }
-            Ok(record) => {
-                let dbrecord = DbRecord::from(record);
-                let type_name = dbrecord.ds_object_name2_index(&mapping)?;
-                log::trace!("found new type '{type_name}' with id {schema_children_id}");
-                map_type_id_by_type_name.insert(type_name, schema_children_id);
             }
         }
     }
 
-    let person_type_id = map_type_id_by_type_name.get("Person").unwrap();
+    let schema_record = schema_record.expect("missing schema record");
+    let schema_record_id = schema_record.ds_record_id_index(&mapping)?;
+
+    let mut type_names = hashset!{
+        "Person"
+    };
+    let mut type_records = HashMap::new();
+
+    for dbrecord in data_table.iter_records()?
+                                .filter_map(|r| r.ok()) 
+                                .map(|r| DbRecord::from(r))
+                                .filter(|dbrecord| dbrecord.ds_parent_record_id_index(&mapping).unwrap() == schema_record_id) {
+                
+        let object_name2 = dbrecord.ds_object_name2_index(&mapping)?.to_string();
+
+        if type_names.remove(&object_name2[..]) {
+            log::trace!("found type definition for '{object_name2}'");
+            type_records.insert(object_name2, dbrecord);
+        }
+
+        if type_names.is_empty() {
+            break;
+        }
+    }
+    log::info!("found all necessary type definitions");
+
+    let person_type_id = type_records.get("Person").unwrap().ds_record_id_index(&mapping)?;
 
     let mut wtr = csv::Writer::from_writer(std::io::stdout());
     for person in data_table.iter_records()?
                                     .filter_map(|r| r.ok())
                                     .map(|r| DbRecord::from(r))
                                     .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).is_ok())
-                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).unwrap() == **person_type_id)
+                                    .filter(|dbrecord| dbrecord.ds_object_type_id_index(&mapping).unwrap() == person_type_id)
                                     .map(|dbrecord| Person::from(dbrecord, &mapping).unwrap()){
         wtr.serialize(person)?;
     }
+    drop(wtr);
 
     Ok(())
 }
