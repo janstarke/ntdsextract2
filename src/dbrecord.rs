@@ -4,13 +4,13 @@ use std::io::Cursor;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use chrono::{DateTime, Utc, TimeZone, Duration, NaiveDate};
 
-use crate::ColumnInfoMapping;
+use crate::column_info_mapping::ColumnInfoMapping;
 
 macro_rules! define_i32_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<i32>> {
-        let value = self.inner_record.value(mapping.$mapping_name.id)?;
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::I32(val) => Ok(Some(val)),
             Value::Null => Ok(None),
@@ -24,7 +24,7 @@ macro_rules! define_str_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<String>> {
-        let value = self.inner_record.value(mapping.$mapping_name.id)?;
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::Text(val) => Ok(Some(val)),
             Value::LargeText(val) => Ok(Some(val)),
@@ -39,7 +39,7 @@ macro_rules! define_bin_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<String>> {
-        let value = self.inner_record.value(mapping.$mapping_name.id)?;
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::Binary(val) | Value::LargeBinary(val) => {
                 Ok(Some(hex::encode(val)))
@@ -57,7 +57,7 @@ macro_rules! define_sid_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<String>> {
-        let value = self.inner_record.value(mapping.$mapping_name.id)?;
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::Binary(val) | Value::LargeBinary(val) => {
                 //log::debug!("val: {:?}", val);
@@ -92,7 +92,7 @@ macro_rules! define_datetime_getter {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<DateTime<Utc>>> {
         let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-        let value = self.inner_record.value(mapping.$mapping_name.id)?;
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::Currency(val) => {
 
@@ -123,10 +123,10 @@ impl<'a> DbRecord<'a> {
     define_i32_getter!(ds_parent_record_id_index, dsParentRecordIdIndex);
 
     pub fn ds_record_time_index(&self, mapping: &ColumnInfoMapping) -> Result<libesedb::Value, std::io::Error> {
-        self.inner_record.value(mapping.dsRecordTimeIndex.id)
+        self.inner_record.value(mapping.dsRecordTimeIndex.id())
     }
     pub fn ds_ancestors_index(&self, mapping: &ColumnInfoMapping) -> Result<libesedb::Value, std::io::Error> {
-        self.inner_record.value(mapping.dsAncestorsIndex.id)
+        self.inner_record.value(mapping.dsAncestorsIndex.id())
     }
     define_i32_getter!(ds_object_type_id_index, dsObjectTypeIdIndex);
 
