@@ -122,16 +122,15 @@ impl<'a> DbRecord<'a> {
     define_i32_getter!(ds_record_id_index, dsRecordIdIndex);
     define_i32_getter!(ds_parent_record_id_index, dsParentRecordIdIndex);
 
-    pub fn ds_record_time_index(&self, mapping: &ColumnInfoMapping) -> Result<libesedb::Value, std::io::Error> {
-        self.inner_record.value(mapping.dsRecordTimeIndex.id())
-    }
-    pub fn ds_ancestors_index(&self, mapping: &ColumnInfoMapping) -> Result<libesedb::Value, std::io::Error> {
-        self.inner_record.value(mapping.dsAncestorsIndex.id())
-    }
+    define_datetime_getter!(ds_record_time_index, ds_record_time_index);
+    define_i32_getter!(ds_ancestors_index, ds_ancestors_index);
     define_i32_getter!(ds_object_type_id_index, dsObjectTypeIdIndex);
 
     define_str_getter!(ds_object_name_index, dsObjectNameIndex);
     define_str_getter!(ds_object_name2_index, dsObjectName2Index);
+
+    define_datetime_getter!(ds_when_created_index, ds_when_created_index);
+    define_datetime_getter!(ds_when_changed_index, ds_when_changed_index);
 
     define_sid_getter!(ds_sidindex, ds_sidindex);
     define_str_getter!(ds_samaccount_name_index, ds_samaccount_name_index);
