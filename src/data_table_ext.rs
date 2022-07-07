@@ -98,13 +98,14 @@ impl<'a> DataTableExt<'a> {
         self.show_typed_objects::<Computer>(format, TYPENAME_COMPUTER)
     }
 
-    fn show_typed_objects<T: FromDbRecord + Serialize>(&self, _format: &OutputFormat, type_name: &str) -> Result<()> {
+    fn show_typed_objects<T: FromDbRecord + Serialize>(&self, format: &OutputFormat, type_name: &str) -> Result<()> {
         let type_record = self
             .find_type_record(type_name)?
             .expect(&format!("missing record for type '{}'", type_name));
         let type_record_id = type_record.ds_record_id_index(&self.mapping)?;
 
-        let mut wtr = csv::Writer::from_writer(std::io::stdout());
+        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        
         for record in self
             .data_table
             .iter_records()?
@@ -116,9 +117,19 @@ impl<'a> DataTableExt<'a> {
             })
             .map(|dbrecord| T::from(dbrecord, &self.mapping).unwrap())
         {
-            wtr.serialize(record)?;
+            match format {
+                OutputFormat::Csv => {
+                    csv_wtr.serialize(record)?;
+                }
+                OutputFormat::Json => {
+                    println!("{}", serde_json::to_string_pretty(&record)?);
+                }
+                OutputFormat::JsonLines => {
+                    println!("{}", serde_json::to_string(&record)?);
+                }
+            }
         }
-        drop(wtr);
+        drop(csv_wtr);
 
         Ok(())
     }

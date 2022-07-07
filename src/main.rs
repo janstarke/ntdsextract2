@@ -17,20 +17,22 @@ mod data_table_ext;
 
 #[derive(clap::ArgEnum, Clone)]
 enum OutputFormat{
-    CSV
+    Csv,
+    Json,
+    JsonLines
 }
 
 #[derive(Subcommand)]
 enum Commands {
     /// Display user accounts
     User {
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::CSV)]
+        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat
     },
 
     /// display computer accounts
     Computer {
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::CSV)]
+        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat
     },
 
