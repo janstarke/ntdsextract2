@@ -106,6 +106,10 @@ macro_rules! define_datetime_getter {
     };
 }
 
+pub (crate) trait FromDbRecord where Self: Sized {
+    fn from(dbrecord: DbRecord, mapping: &ColumnInfoMapping) -> Result<Self>;
+}
+
 pub (crate) struct DbRecord<'a> {
     inner_record: libesedb::Record<'a>,
 }
@@ -152,4 +156,9 @@ impl<'a> DbRecord<'a> {
     define_str_getter!(ds_unix_password_index, ds_unix_password_index);
     define_bin_getter!(ds_aduser_objects_index, ds_aduser_objects_index);
     define_bin_getter!(ds_supplemental_credentials_index, ds_supplemental_credentials_index);
+
+
+    define_str_getter!(dnshost_name, dnshost_name);
+    define_str_getter!(osname, osname);
+    define_str_getter!(osversion, osversion);
 }

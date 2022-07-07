@@ -4,9 +4,13 @@ use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use libesedb::Table;
 use maplit::hashset;
+use serde::Serialize;
+use crate::computer::Computer;
+use crate::constants::*;
 
+use crate::dbrecord::FromDbRecord;
 use crate::{
-    column_info_mapping::ColumnInfoMapping, dbrecord::DbRecord, person::Person, OutputFormat,
+    column_info_mapping::ColumnInfoMapping, dbrecord::DbRecord, person::Person, OutputFormat, constants::TYPENAME_COMPUTER,
 };
 
 pub(crate) struct DataTableExt<'a> {
@@ -86,14 +90,22 @@ impl<'a> DataTableExt<'a> {
         Ok(type_records)
     }
 
-    pub fn show_users(&self, _format: &OutputFormat) -> Result<()> {
+    pub fn show_users(&self, format: &OutputFormat) -> Result<()> {
+        self.show_typed_objects::<Person>(format, TYPENAME_PERSON)
+    }
+
+    pub fn show_computers(&self, format: &OutputFormat) -> Result<()> {
+        self.show_typed_objects::<Computer>(format, TYPENAME_COMPUTER)
+    }
+
+    fn show_typed_objects<T: FromDbRecord + Serialize>(&self, _format: &OutputFormat, type_name: &str) -> Result<()> {
         let type_record = self
-            .find_type_record("Person")?
-            .expect("missing record for type 'Person'");
+            .find_type_record(type_name)?
+            .expect(&format!("missing record for type '{}'", type_name));
         let type_record_id = type_record.ds_record_id_index(&self.mapping)?;
 
         let mut wtr = csv::Writer::from_writer(std::io::stdout());
-        for person in self
+        for record in self
             .data_table
             .iter_records()?
             .filter_map(|r| r.ok())
@@ -102,23 +114,19 @@ impl<'a> DataTableExt<'a> {
             .filter(|dbrecord| {
                 dbrecord.ds_object_type_id_index(&self.mapping).unwrap() == type_record_id
             })
-            .map(|dbrecord| Person::from(dbrecord, &self.mapping).unwrap())
+            .map(|dbrecord| T::from(dbrecord, &self.mapping).unwrap())
         {
-            wtr.serialize(person)?;
+            wtr.serialize(record)?;
         }
         drop(wtr);
 
         Ok(())
     }
 
-    pub fn show_computers(&self, _format: &OutputFormat) -> Result<()> {
-        todo!()
-    }
-
     pub fn show_timeline(&self) -> Result<()> {
         let type_records = self.find_type_records(hashset! {
-            "Person",
-            "Computer"
+            TYPENAME_PERSON,
+            TYPENAME_COMPUTER
         })?;
         let type_record_ids = type_records
             .iter()
@@ -147,9 +155,13 @@ impl<'a> DataTableExt<'a> {
                     .expect("missing object type id");
                 match type_record_ids.get(&current_type_id) {
                     Some(type_name) => {
-                        if *type_name == "Person" {
+                        if *type_name == TYPENAME_PERSON {
                             Some(Vec::<Bodyfile3Line>::from(
-                                Person::from(dbrecord, &self.mapping).unwrap(),
+                                <Person as FromDbRecord>::from(dbrecord, &self.mapping).unwrap(),
+                            ))
+                        } else if *type_name == TYPENAME_COMPUTER {
+                            Some(Vec::<Bodyfile3Line>::from(
+                                <Computer as FromDbRecord>::from(dbrecord, &self.mapping).unwrap(),
                             ))
                         } else {
                             None

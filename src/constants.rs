@@ -46,3 +46,6 @@ pub (crate) const DS_VOLUME_GUIDINDEX_NAME: &str = "ATTk591822";
 pub (crate) const DS_RECOVERY_GUIDINDEX_NAME: &str = "ATTk591789";
 pub (crate) const DS_DIAL_IN_ACCESS_PERMISSION_NAME: &str = "ATTi590943";
 pub (crate) const DS_PEKINDEX_NAME: &str = "ATTk590689";
+
+pub (crate) const TYPENAME_PERSON: &str = "Person";
+pub (crate) const TYPENAME_COMPUTER: &str = "Computer";
