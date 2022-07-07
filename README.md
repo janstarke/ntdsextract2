@@ -1,5 +1,17 @@
-# ntdsforensics
-This aims to be a collection of tools to forensically analyze Active Directory databases
+# ntdsextract2
+
+This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by @csababarta.
+
+## Why do you write a tool that's already there and working?
+
+1. ntdsxtract is using Python 2.7, which makes it hard to use on modern systems
+1. There has been no change since a lot of time (the last commit is from February 2016), which suggests that Csaba has other stuff to do at the moment. That's OK. But Windows *is* changing, and therefore the tools to analyze Windows Systems has to adapt. As I don't like some architectural decisions Csaba has made, I started my own development.
+
+# Installation
+
+```bash
+cargo install --git https://github.com/janstarke/ntdsextract2.git
+```
 
 # Usage
 ```
