@@ -40,13 +40,14 @@ pub (crate) struct Person {
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
+    comment: Option<String>,
     nthash: Option<String>,
     lmhash: Option<String>,
     nthash_history: Option<String>,
     lmhash_history: Option<String>,
     unix_password: Option<String>,
     aduser_objects: Option<String>,
-    supplemental_credentials: Option<String>,
+    supplemental_credentials: Option<String>
 }
 
 fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
@@ -75,6 +76,7 @@ impl FromDbRecord for Person {
             logon_count: dbrecord.ds_logon_count_index(mapping)?,
             bad_pwd_count: dbrecord.ds_bad_pwd_count_index(mapping)?,
             primary_group_id: dbrecord.ds_primary_group_id_index(mapping)?,
+            comment: dbrecord.ds_att_comment(mapping)?,
             nthash: dbrecord.ds_nthash_index(mapping)?,
             lmhash: dbrecord.ds_lmhash_index(mapping)?,
             nthash_history: dbrecord.ds_nthash_history_index(mapping)?,

@@ -42,6 +42,7 @@ pub (crate) struct ColumnInfoMapping {
     pub (crate) ds_unix_password_index: ColumnInformation,
     pub (crate) ds_aduser_objects_index: ColumnInformation,
     pub (crate) ds_supplemental_credentials_index: ColumnInformation,
+    pub (crate) ds_att_comment: ColumnInformation,
 
     pub (crate) dnshost_name: ColumnInformation,
     pub (crate) osname: ColumnInformation,
@@ -103,6 +104,7 @@ impl ColumnInfoMapping {
             ds_unix_password_index: temporary_mapping.remove(DS_UNIX_PASSWORD_INDEX_NAME).unwrap(),
             ds_aduser_objects_index: temporary_mapping.remove(DS_ADUSER_OBJECTS_INDEX_NAME).unwrap(),
             ds_supplemental_credentials_index: temporary_mapping.remove(DS_SUPPLEMENTAL_CREDENTIALS_INDEX_NAME).unwrap(),
+            ds_att_comment: temporary_mapping.remove(DS_ATT_COMMENT).unwrap(),
             dnshost_name: temporary_mapping.remove(DS_DNSHOST_NAME_INDEX_NAME).unwrap(),
             osname: temporary_mapping.remove(DS_OSNAME_INDEX_NAME).unwrap(),
             osversion: temporary_mapping.remove(DS_OSVERSION_INDEX_NAME).unwrap(),

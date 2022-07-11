@@ -47,6 +47,7 @@ pub (crate) struct Computer {
     lmhash: Option<String>,
     nthash_history: Option<String>,
     lmhash_history: Option<String>,
+    comment: Option<String>,
 
 /*
     DS_RECOVERY_PASSWORD_INDEX_NAME,
@@ -88,6 +89,7 @@ impl FromDbRecord for Computer {
             dnshost_name: dbrecord.dnshost_name(mapping)?,
             osname: dbrecord.osname(mapping)?,
             osversion: dbrecord.osversion(mapping)?,
+            comment: dbrecord.ds_att_comment(mapping)?,
         })
     }
 }

@@ -156,6 +156,7 @@ impl<'a> DbRecord<'a> {
     define_str_getter!(ds_unix_password_index, ds_unix_password_index);
     define_bin_getter!(ds_aduser_objects_index, ds_aduser_objects_index);
     define_bin_getter!(ds_supplemental_credentials_index, ds_supplemental_credentials_index);
+    define_str_getter!(ds_att_comment, ds_att_comment);
 
 
     define_str_getter!(dnshost_name, dnshost_name);
