@@ -53,11 +53,14 @@ pub (crate) struct ColumnInfoMapping {
     pub (crate) dsRecoveryGUIDIndex: ColumnInformation,
     pub (crate) dsDialInAccessPermission: ColumnInformation,
     pub (crate) dsPEKIndex: ColumnInformation,
+
+    column_names: HashMap<i32, String>,
 }
 
 impl ColumnInfoMapping {
     pub fn from(data_table: &Table) -> Result<Self> {
         let mut temporary_mapping = HashMap::new();
+        let mut column_names = HashMap::new();
         for index in 0..data_table.count_columns()? {
             let column_res = data_table.column(index)?;
             let col_info = ColumnInformation::new(
@@ -65,10 +68,12 @@ impl ColumnInfoMapping {
                 column_res.name()?,
                 column_res.variant()?
             );
+            column_names.insert(index, column_res.name()?);
             temporary_mapping.insert(column_res.name()?, col_info);
         }
 
         let mapping = ColumnInfoMapping {
+            column_names,
             dsRecordIdIndex: temporary_mapping.remove(DS_RECORD_ID_INDEX_NAME).unwrap(),
             dsParentRecordIdIndex: temporary_mapping.remove(DS_PARENT_RECORD_ID_INDEX_NAME).unwrap(),
             ds_record_time_index: temporary_mapping.remove(DS_RECORD_TIME_INDEX_NAME).unwrap(),
@@ -117,5 +122,9 @@ impl ColumnInfoMapping {
         };
         
         Ok(mapping)
+    }
+
+    pub fn name_of_column(&self, index: &i32) -> Option<&String> {
+        self.column_names.get(index)
     }
 }

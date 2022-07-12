@@ -43,10 +43,19 @@ pub (crate) struct Computer {
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
+
+    #[serde(skip)]
     nthash: Option<String>,
+
+    #[serde(skip)]
     lmhash: Option<String>,
+
+    #[serde(skip)]
     nthash_history: Option<String>,
+
+    #[serde(skip)]
     lmhash_history: Option<String>,
+    
     comment: Option<String>,
 
 /*

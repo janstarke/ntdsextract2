@@ -35,7 +35,7 @@ pub (crate) const DS_LMHASH_HISTORY_INDEX_NAME: &str = "ATTk589984";
 pub (crate) const DS_UNIX_PASSWORD_INDEX_NAME: &str = "ATTk591734";
 pub (crate) const DS_ADUSER_OBJECTS_INDEX_NAME: &str = "ATTk36";
 pub (crate) const DS_SUPPLEMENTAL_CREDENTIALS_INDEX_NAME: &str = "ATTk589949";
-pub (crate) const DS_ATT_COMMENT: &str = "ATTm131153";
+pub (crate) const DS_ATT_COMMENT: &str = "ATTm13";
 
 pub (crate) const DS_DNSHOST_NAME_INDEX_NAME: &str = "ATTm590443";
 pub (crate) const DS_OSNAME_INDEX_NAME: &str = "ATTm590187";

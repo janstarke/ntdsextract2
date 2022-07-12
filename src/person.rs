@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
@@ -41,13 +43,21 @@ pub (crate) struct Person {
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
     comment: Option<String>,
+    #[serde(skip)]
     nthash: Option<String>,
+    #[serde(skip)]
     lmhash: Option<String>,
+    #[serde(skip)]
     nthash_history: Option<String>,
+    #[serde(skip)]
     lmhash_history: Option<String>,
     unix_password: Option<String>,
     aduser_objects: Option<String>,
-    supplemental_credentials: Option<String>
+    #[serde(skip)]
+    supplemental_credentials: Option<String>,
+
+    #[serde(skip)]
+    all_attributes: HashMap<String, String>,
 }
 
 fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
@@ -84,6 +94,7 @@ impl FromDbRecord for Person {
             unix_password: dbrecord.ds_unix_password_index(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects_index(mapping)?,
             supplemental_credentials: dbrecord.ds_supplemental_credentials_index(mapping)?,
+            all_attributes: dbrecord.all_attributes(mapping),
         })
     }
 }
