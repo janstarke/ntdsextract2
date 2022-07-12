@@ -1,6 +1,6 @@
 use libesedb::{self, Value};
 use anyhow::{anyhow, Result};
-use std::io::Cursor;
+use std::{io::Cursor, collections::HashMap};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use chrono::{DateTime, Utc, TimeZone, Duration, NaiveDate};
 
@@ -91,19 +91,20 @@ macro_rules! define_datetime_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<DateTime<Utc>>> {
-        let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
-            Value::Currency(val) => {
-
-                let duration = Duration::microseconds(val / 10);
-                Ok(Some(dt_base + duration))
-            }
+            Value::Currency(val) => Ok(Some(currency_to_datetime(val))),
             Value::Null => Ok(None),
             _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, stringify!($fn_name)))
         }
     }
     };
+}
+
+fn currency_to_datetime(val: i64) -> DateTime<Utc> {
+    let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
+    let duration = Duration::microseconds(val / 10);
+    dt_base + duration
 }
 
 pub (crate) trait FromDbRecord where Self: Sized {
@@ -156,9 +157,44 @@ impl<'a> DbRecord<'a> {
     define_str_getter!(ds_unix_password_index, ds_unix_password_index);
     define_bin_getter!(ds_aduser_objects_index, ds_aduser_objects_index);
     define_bin_getter!(ds_supplemental_credentials_index, ds_supplemental_credentials_index);
+    define_str_getter!(ds_att_comment, ds_att_comment);
 
 
     define_str_getter!(dnshost_name, dnshost_name);
     define_str_getter!(osname, osname);
     define_str_getter!(osversion, osversion);
+
+    pub fn all_attributes(&self, mapping: &ColumnInfoMapping) -> HashMap<String, String> {
+        let mut attribs = HashMap::new();
+        for index in 0..self.inner_record.count_values().unwrap() {
+            if let Ok(value) = self.inner_record.value(index) {
+                if ! matches!(value, Value::Null) {
+                    if let Some(column_name) = mapping.name_of_column(&index) {
+                        let str_value = match value {
+                            Value::Null => panic!("unreachable code executed"),
+                            Value::Bool(v) => format!("{v}"),
+                            Value::U8(v) => format!("{v}"),
+                            Value::I16(v) => format!("{v}"),
+                            Value::I32(v) => format!("{v}"),
+                            Value::Currency(v) => format!("{v}"),
+                            Value::F32(v) => format!("{v}"),
+                            Value::F64(v) => format!("{v}"),
+                            Value::DateTime(v) => format!("{v}"),
+                            Value::Binary(v) => format!("{}", hex::encode(&v)),
+                            Value::Text(v) => format!("{v}"),
+                            Value::LargeBinary(v) => format!("{}", hex::encode(&v)),
+                            Value::LargeText(v) => v,
+                            Value::SuperLarge(v) => format!("{}", hex::encode(&v)),
+                            Value::U32(v) => format!("{v}"),
+                            Value::I64(v) => format!("{v}"),
+                            Value::Guid(v) => format!("{}", hex::encode(&v)),
+                            Value::U16(v) => format!("{v}"),
+                        };
+                        attribs.insert(column_name.to_owned(), str_value);
+                    }
+                }
+            }
+        }
+        attribs
+    }
 }

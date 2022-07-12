@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping};
+use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, skip_all_attributes};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -40,13 +42,22 @@ pub (crate) struct Person {
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
+    comment: Option<String>,
+    #[serde(skip)]
     nthash: Option<String>,
+    #[serde(skip)]
     lmhash: Option<String>,
+    #[serde(skip)]
     nthash_history: Option<String>,
+    #[serde(skip)]
     lmhash_history: Option<String>,
     unix_password: Option<String>,
     aduser_objects: Option<String>,
+    #[serde(skip)]
     supplemental_credentials: Option<String>,
+
+    #[serde(skip_serializing_if = "skip_all_attributes")]
+    all_attributes: HashMap<String, String>,
 }
 
 fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
@@ -75,6 +86,7 @@ impl FromDbRecord for Person {
             logon_count: dbrecord.ds_logon_count_index(mapping)?,
             bad_pwd_count: dbrecord.ds_bad_pwd_count_index(mapping)?,
             primary_group_id: dbrecord.ds_primary_group_id_index(mapping)?,
+            comment: dbrecord.ds_att_comment(mapping)?,
             nthash: dbrecord.ds_nthash_index(mapping)?,
             lmhash: dbrecord.ds_lmhash_index(mapping)?,
             nthash_history: dbrecord.ds_nthash_history_index(mapping)?,
@@ -82,6 +94,7 @@ impl FromDbRecord for Person {
             unix_password: dbrecord.ds_unix_password_index(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects_index(mapping)?,
             supplemental_credentials: dbrecord.ds_supplemental_credentials_index(mapping)?,
+            all_attributes: dbrecord.all_attributes(mapping),
         })
     }
 }

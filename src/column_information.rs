@@ -1,6 +1,5 @@
 use libesedb::ColumnVariant;
 
-
 pub (crate) struct ColumnInformation {
     id: i32,
     name: String,
