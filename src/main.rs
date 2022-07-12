@@ -14,6 +14,7 @@ mod constants;
 mod column_information;
 mod column_info_mapping;
 mod data_table_ext;
+mod user_account_control;
 
 /// this needs to be a global variable, 
 /// because it is read by serialization code, which has no state by default
@@ -32,6 +33,20 @@ pub (crate) fn skip_all_attributes<T>(_t: &T) -> bool {
 fn set_display_all_attributes(val: bool) {
     unsafe {
         DISPLAY_ALL_ATTRIBUTES = val
+    }
+}
+
+static mut FLAT_SERIALIZATION: bool = true;
+
+pub (crate) fn do_flat_serialization() -> bool {
+    unsafe {
+        FLAT_SERIALIZATION
+    }
+}
+
+fn set_do_flat_serialization(val: bool) {
+    unsafe {
+        FLAT_SERIALIZATION = val
     }
 }
 
@@ -112,6 +127,15 @@ fn main() -> Result<()> {
         Commands::Computer{format: OutputFormat::JsonLines, show_all} => *show_all,
         _ => false,
        } 
+    );
+
+    set_do_flat_serialization(
+        match &cli.command {
+            Commands::User{format: OutputFormat::Csv, ..} |
+            Commands::Computer{format: OutputFormat::Csv, ..} |
+            Commands::Timeline => true,
+            _ => false
+        }  
     );
 
     match &cli.command {

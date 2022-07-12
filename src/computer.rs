@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, constants::TYPENAME_COMPUTER, skip_all_attributes};
+use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, constants::TYPENAME_COMPUTER, skip_all_attributes, user_account_control::UserAccountControl};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -22,7 +22,7 @@ pub (crate) struct Computer {
     sid: Option<String>,
     sam_account_name: Option<String>,
     samaccount_type: Option<i32>,
-    user_account_control: Option<i32>,
+    user_account_control: Option<UserAccountControl>,
 
     dnshost_name: Option<String>,
     osname: Option<String>,

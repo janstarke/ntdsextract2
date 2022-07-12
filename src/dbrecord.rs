@@ -4,7 +4,7 @@ use std::{io::Cursor, collections::HashMap};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use chrono::{DateTime, Utc, TimeZone, Duration, NaiveDate};
 
-use crate::column_info_mapping::ColumnInfoMapping;
+use crate::{column_info_mapping::ColumnInfoMapping, user_account_control::UserAccountControl};
 
 macro_rules! define_i32_getter {
     ($fn_name: ident, $mapping_name: ident) => {
@@ -13,6 +13,21 @@ macro_rules! define_i32_getter {
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
             Value::I32(val) => Ok(Some(val)),
+            Value::Null => Ok(None),
+            _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, stringify!($fn_name)))
+        }
+    }
+    };
+}
+
+macro_rules! define_flags_getter {
+    ($fn_name: ident, $mapping_name: ident, $flags_type: ty) => {
+        
+    pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<$flags_type>> {
+        let value = self.inner_record.value(mapping.$mapping_name.id())?;
+        match value {
+            Value::I32(val) =>
+                Ok(Some(<$flags_type>::from_bits_truncate(u32::from_ne_bytes(val.to_ne_bytes())))),
             Value::Null => Ok(None),
             _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, stringify!($fn_name)))
         }
@@ -141,7 +156,7 @@ impl<'a> DbRecord<'a> {
     define_str_getter!(ds_samaccount_name_index, ds_samaccount_name_index);
     define_str_getter!(ds_user_principal_name_index, ds_user_principal_name_index);
     define_i32_getter!(ds_samaccount_type_index, ds_samaccount_type_index);
-    define_i32_getter!(ds_user_account_control_index, ds_user_account_control_index);
+    define_flags_getter!(ds_user_account_control_index, ds_user_account_control_index, UserAccountControl);
     define_datetime_getter!(ds_last_logon_index, ds_last_logon_index);
     define_datetime_getter!(ds_last_logon_time_stamp_index, ds_last_logon_time_stamp_index);
     define_datetime_getter!(ds_account_expires_index, ds_account_expires_index);
