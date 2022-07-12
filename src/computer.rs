@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, constants::TYPENAME_COMPUTER};
+use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, constants::TYPENAME_COMPUTER, skip_all_attributes};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -55,8 +57,11 @@ pub (crate) struct Computer {
 
     #[serde(skip)]
     lmhash_history: Option<String>,
-    
+
     comment: Option<String>,
+
+    #[serde(skip_serializing_if = "skip_all_attributes")]
+    all_attributes: HashMap<String, String>,
 
 /*
     DS_RECOVERY_PASSWORD_INDEX_NAME,
@@ -99,6 +104,7 @@ impl FromDbRecord for Computer {
             osname: dbrecord.osname(mapping)?,
             osversion: dbrecord.osversion(mapping)?,
             comment: dbrecord.ds_att_comment(mapping)?,
+            all_attributes: dbrecord.all_attributes(mapping),
         })
     }
 }

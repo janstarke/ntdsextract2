@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping};
+use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, skip_all_attributes};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -56,7 +56,7 @@ pub (crate) struct Person {
     #[serde(skip)]
     supplemental_credentials: Option<String>,
 
-    #[serde(skip)]
+    #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
 }
 
