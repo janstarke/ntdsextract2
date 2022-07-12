@@ -7,6 +7,8 @@ repository = "https://www.github.com/janstarke/ntdsextrct2"
 authors = ["Jan Starke <jan.starke@t-systems.com>"]
 license = "GPL-3.0"
 readme = "README.md"
+categories = ["command-line-utilities"]
+keywords = ["cli", "forensics", "security"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
     
