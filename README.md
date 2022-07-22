@@ -1,3 +1,7 @@
+![Crates.io](https://img.shields.io/crates/v/ntdsextract2)
+![Crates.io](https://img.shields.io/crates/l/ntdsextract2)
+![Crates.io (latest)](https://img.shields.io/crates/dv/ntdsextract2)
+
 # ntdsextract2
 
 This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by @csababarta.
