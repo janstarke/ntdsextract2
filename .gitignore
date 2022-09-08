@@ -16,3 +16,5 @@ Cargo.lock
 **/*.csv
 **/*.json
 **/*.bodyfile
+
+tests/*
