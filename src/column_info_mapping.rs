@@ -2,8 +2,9 @@ use std::{collections::HashMap, io::Cursor};
 use byteorder::{BigEndian, ReadBytesExt, LittleEndian};
 use chrono::{DateTime, Utc, NaiveDate, Duration};
 use libesedb::{Table, Value};
-use crate::{column_information::ColumnInformation, user_account_control::UserAccountControl};
-use anyhow::{Result, anyhow};
+use crate::{column_information::ColumnInformation, win32_types::*};
+use anyhow::{Result, anyhow}; 
+use num_traits::FromPrimitive;
 
 fn value_to_i32(value: Value, attrib_name: &str) -> Result<Option<i32>> {
     match value {
@@ -85,6 +86,15 @@ fn value_to_uac_flags(value: Value, attrib_name: &str) -> Result<Option<UserAcco
     }
 }
 
+fn value_to_sam_account_type(value: Value, attrib_name: &str) -> Result<Option<SamAccountType>> {
+    match value {
+        Value::I32(val) =>
+            Ok(FromPrimitive::from_u32(u32::from_ne_bytes(val.to_ne_bytes()))),
+        Value::Null => Ok(None),
+        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
+    }
+}
+
 macro_rules! define_getter_int {
     ($field: ident, $fn_name: ident, $res_type: ident) => {
         #[allow(dead_code)]
@@ -104,6 +114,7 @@ macro_rules! define_getter {
     ($field: ident as binary) => { define_getter_int!($field, value_to_bin, String); };
     ($field: ident as datetime) => { define_getter_int!($field, value_to_datetime, UtcDatetime); };
     ($field: ident as uac_flags) => { define_getter_int!($field, value_to_uac_flags, UserAccountControl); };
+    ($field: ident as sam_account_type) => { define_getter_int!($field, value_to_sam_account_type, SamAccountType); };
 }
 
 
@@ -229,9 +240,9 @@ column_mapping! (
     // DS_ORIG_CONTAINER_ID as i32 from "ATTb590605",
     
     ds_sid as sid from "ATTr589970",
-    ds_samaccount_name as str from "ATTm590045",
+    ds_sam_account_name as str from "ATTm590045",
     ds_user_principal_name as str from "ATTm590480",
-    ds_samaccount_type as i32 from "ATTj590126",
+    ds_sam_account_type as sam_account_type from "ATTj590126",
     ds_user_account_control as uac_flags from "ATTj589832",
     ds_last_logon as datetime from "ATTq589876",
     ds_last_logon_time_stamp as datetime from "ATTq591520",

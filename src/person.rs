@@ -3,12 +3,23 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, user_account_control::UserAccountControl};
+use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
 #[derive(Serialize)]
 pub (crate) struct Person {
+
+    sid: Option<String>,
+    user_principal_name: Option<String>,
+    sam_account_name: Option<String>,
+    sam_account_type: Option<SamAccountType>,
+    user_account_control: Option<UserAccountControl>,
+    logon_count: Option<i32>,
+    bad_pwd_count: Option<i32>,
+    primary_group_id: Option<i32>,
+    comment: Option<String>,
+    aduser_objects: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<DateTime<Utc>>,
@@ -18,12 +29,6 @@ pub (crate) struct Person {
 
     #[serde(serialize_with = "to_ts")]
     when_changed: Option<DateTime<Utc>>,
-
-    sid: Option<String>,
-    sam_account_name: Option<String>,
-    user_principal_name: Option<String>,
-    samaccount_type: Option<i32>,
-    user_account_control: Option<UserAccountControl>,
 
     #[serde(serialize_with = "to_ts")]
     last_logon: Option<DateTime<Utc>>,
@@ -39,11 +44,6 @@ pub (crate) struct Person {
 
     #[serde(serialize_with = "to_ts")]
     bad_pwd_time: Option<DateTime<Utc>>,
-    logon_count: Option<i32>,
-    bad_pwd_count: Option<i32>,
-    primary_group_id: Option<i32>,
-    comment: Option<String>,
-    aduser_objects: Option<String>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
@@ -63,9 +63,9 @@ impl FromDbRecord for Person {
             when_created: dbrecord.ds_when_created(mapping)?,
             when_changed: dbrecord.ds_when_changed(mapping)?,
             sid: dbrecord.ds_sid(mapping)?,
-            sam_account_name: dbrecord.ds_samaccount_name(mapping)?,
+            sam_account_name: dbrecord.ds_sam_account_name(mapping)?,
             user_principal_name: dbrecord.ds_user_principal_name(mapping)?,
-            samaccount_type: dbrecord.ds_samaccount_type(mapping)?,
+            sam_account_type: dbrecord.ds_sam_account_type(mapping)?,
             user_account_control: dbrecord.ds_user_account_control(mapping)?,
             last_logon: dbrecord.ds_last_logon(mapping)?,
             last_logon_time_stamp: dbrecord.ds_last_logon_time_stamp(mapping)?,

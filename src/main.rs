@@ -13,7 +13,7 @@ mod constants;
 mod column_information;
 mod column_info_mapping;
 mod data_table_ext;
-mod user_account_control;
+mod win32_types;
 
 /// this needs to be a global variable, 
 /// because it is read by serialization code, which has no state by default
