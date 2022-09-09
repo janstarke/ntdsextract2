@@ -19,8 +19,6 @@ cargo install --git https://github.com/janstarke/ntdsextract2.git
 
 # Usage
 ```
-ntdsextract2 0.1.0
-
 USAGE:
     ntdsextract2 [OPTIONS] <NTDS_FILE> <SUBCOMMAND>
 
