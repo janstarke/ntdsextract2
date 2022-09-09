@@ -7,7 +7,6 @@ use anyhow::{Result};
 
 use crate::{column_info_mapping::*, data_table_ext::DataTableExt};
 
-//mod dbrecord;
 mod person;
 mod computer;
 mod constants;
