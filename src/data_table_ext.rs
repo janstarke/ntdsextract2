@@ -35,17 +35,17 @@ impl<'a> DataTableExt<'a> {
         let schema_record = data_table
             .iter_records()?
             .filter_map(|r| r.ok())
-            .map(|r| DbRecord::from(r))
+            .map(DbRecord::from)
             .find(|dbrecord| {
                 "Schema"
                     == dbrecord
-                        .ds_object_name2_index(&mapping)
+                        .ds_object_name2_index(mapping)
                         .expect("unable to read object_name2 attribute")
                         .expect("missing object_name2 attribute")
             })
             .expect("no schema record found");
         let schema_record_id = schema_record
-            .ds_record_id_index(&mapping)?
+            .ds_record_id_index(mapping)?
             .expect("Schema record has no record ID");
         Ok(schema_record_id)
     }
@@ -64,7 +64,7 @@ impl<'a> DataTableExt<'a> {
             .data_table
             .iter_records()?
             .filter_map(|r| r.ok())
-            .map(|r| DbRecord::from(r))
+            .map(DbRecord::from)
             .filter(|dbrecord| {
                 dbrecord
                     .ds_parent_record_id_index(&self.mapping)
@@ -101,7 +101,7 @@ impl<'a> DataTableExt<'a> {
     fn show_typed_objects<T: FromDbRecord + Serialize>(&self, format: &OutputFormat, type_name: &str) -> Result<()> {
         let type_record = self
             .find_type_record(type_name)?
-            .expect(&format!("missing record for type '{}'", type_name));
+            .unwrap_or_else(|| panic!("missing record for type '{}'", type_name));
         let type_record_id = type_record.ds_record_id_index(&self.mapping)?;
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
@@ -110,7 +110,7 @@ impl<'a> DataTableExt<'a> {
             .data_table
             .iter_records()?
             .filter_map(|r| r.ok())
-            .map(|r| DbRecord::from(r))
+            .map(DbRecord::from)
             .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).is_ok())
             .filter(|dbrecord| {
                 dbrecord.ds_object_type_id_index(&self.mapping).unwrap() == type_record_id
@@ -156,7 +156,7 @@ impl<'a> DataTableExt<'a> {
             .data_table
             .iter_records()?
             .filter_map(|r| r.ok())
-            .map(|r| DbRecord::from(r))
+            .map(DbRecord::from)
             .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).unwrap().is_some())
             .filter_map(|dbrecord| {

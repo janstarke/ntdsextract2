@@ -43,18 +43,8 @@ pub (crate) struct Person {
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
     comment: Option<String>,
-    #[serde(skip)]
-    nthash: Option<String>,
-    #[serde(skip)]
-    lmhash: Option<String>,
-    #[serde(skip)]
-    nthash_history: Option<String>,
-    #[serde(skip)]
-    lmhash_history: Option<String>,
     unix_password: Option<String>,
     aduser_objects: Option<String>,
-    #[serde(skip)]
-    supplemental_credentials: Option<String>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
@@ -87,13 +77,8 @@ impl FromDbRecord for Person {
             bad_pwd_count: dbrecord.ds_bad_pwd_count_index(mapping)?,
             primary_group_id: dbrecord.ds_primary_group_id_index(mapping)?,
             comment: dbrecord.ds_att_comment(mapping)?,
-            nthash: dbrecord.ds_nthash_index(mapping)?,
-            lmhash: dbrecord.ds_lmhash_index(mapping)?,
-            nthash_history: dbrecord.ds_nthash_history_index(mapping)?,
-            lmhash_history: dbrecord.ds_lmhash_history_index(mapping)?,
             unix_password: dbrecord.ds_unix_password_index(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects_index(mapping)?,
-            supplemental_credentials: dbrecord.ds_supplemental_credentials_index(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
         })
     }

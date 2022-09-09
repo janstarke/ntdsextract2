@@ -130,12 +130,9 @@ fn main() -> Result<()> {
     );
 
     set_do_flat_serialization(
-        match &cli.command {
-            Commands::User{format: OutputFormat::Csv, ..} |
+        matches!(&cli.command, Commands::User{format: OutputFormat::Csv, ..} |
             Commands::Computer{format: OutputFormat::Csv, ..} |
-            Commands::Timeline => true,
-            _ => false
-        }  
+            Commands::Timeline)  
     );
 
     match &cli.command {

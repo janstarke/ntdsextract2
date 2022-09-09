@@ -46,18 +46,6 @@ pub (crate) struct Computer {
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
 
-    #[serde(skip)]
-    nthash: Option<String>,
-
-    #[serde(skip)]
-    lmhash: Option<String>,
-
-    #[serde(skip)]
-    nthash_history: Option<String>,
-
-    #[serde(skip)]
-    lmhash_history: Option<String>,
-
     comment: Option<String>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
@@ -96,10 +84,6 @@ impl FromDbRecord for Computer {
             logon_count: dbrecord.ds_logon_count_index(mapping)?,
             bad_pwd_count: dbrecord.ds_bad_pwd_count_index(mapping)?,
             primary_group_id: dbrecord.ds_primary_group_id_index(mapping)?,
-            nthash: dbrecord.ds_nthash_index(mapping)?,
-            lmhash: dbrecord.ds_lmhash_index(mapping)?,
-            nthash_history: dbrecord.ds_nthash_history_index(mapping)?,
-            lmhash_history: dbrecord.ds_lmhash_history_index(mapping)?,
             dnshost_name: dbrecord.dnshost_name(mapping)?,
             osname: dbrecord.osname(mapping)?,
             osversion: dbrecord.osversion(mapping)?,

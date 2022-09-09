@@ -1,17 +1,20 @@
-use libesedb::ColumnVariant;
+// use libesedb::ColumnVariant;
 
 pub (crate) struct ColumnInformation {
     id: i32,
-    name: String,
-    variant: ColumnVariant,
+    // name: String,
+    // variant: ColumnVariant,
 }
 
 impl ColumnInformation {
-    pub fn new(id: i32, name: String, variant: ColumnVariant) -> Self {
+    pub fn new(id: i32, 
+        // name: String, 
+        // variant: ColumnVariant
+    ) -> Self {
         Self {
             id,
-            name,
-            variant,
+            // name,
+            // variant,
         }
     }
 
@@ -19,11 +22,11 @@ impl ColumnInformation {
         self.id
     }
 
-    pub fn name(&self) -> &str {
-        &self.name
-    }
+    // pub fn name(&self) -> &str {
+    //     &self.name
+    // }
 
-    pub fn variant(&self) -> &ColumnVariant {
-        &self.variant
-    }
+    // pub fn variant(&self) -> &ColumnVariant {
+    //     &self.variant
+    // }
 }

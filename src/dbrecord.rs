@@ -2,13 +2,14 @@ use libesedb::{self, Value};
 use anyhow::{anyhow, Result};
 use std::{io::Cursor, collections::HashMap};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use chrono::{DateTime, Utc, TimeZone, Duration, NaiveDate};
+use chrono::{DateTime, Utc, Duration, NaiveDate};
 
 use crate::{column_info_mapping::ColumnInfoMapping, user_account_control::UserAccountControl};
 
 macro_rules! define_i32_getter {
     ($fn_name: ident, $mapping_name: ident) => {
-        
+    
+    #[allow(dead_code)]
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<i32>> {
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
@@ -23,6 +24,7 @@ macro_rules! define_i32_getter {
 macro_rules! define_flags_getter {
     ($fn_name: ident, $mapping_name: ident, $flags_type: ty) => {
         
+    #[allow(dead_code)]
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<$flags_type>> {
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
@@ -37,7 +39,8 @@ macro_rules! define_flags_getter {
 
 macro_rules! define_str_getter {
     ($fn_name: ident, $mapping_name: ident) => {
-        
+       
+    #[allow(dead_code)] 
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<String>> {
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
@@ -53,6 +56,7 @@ macro_rules! define_str_getter {
 macro_rules! define_bin_getter {
     ($fn_name: ident, $mapping_name: ident) => {
         
+    #[allow(dead_code)] 
     pub fn $fn_name(&self, mapping: &ColumnInfoMapping) -> Result<Option<String>> {
         let value = self.inner_record.value(mapping.$mapping_name.id())?;
         match value {
@@ -139,15 +143,15 @@ impl<'a> From<libesedb::Record<'a>> for DbRecord<'a> {
 }
 
 impl<'a> DbRecord<'a> {
-    define_i32_getter!(ds_record_id_index, dsRecordIdIndex);
-    define_i32_getter!(ds_parent_record_id_index, dsParentRecordIdIndex);
+    define_i32_getter!(ds_record_id_index, ds_record_id_index);
+    define_i32_getter!(ds_parent_record_id_index, ds_parent_record_id_index);
 
     define_datetime_getter!(ds_record_time_index, ds_record_time_index);
     define_i32_getter!(ds_ancestors_index, ds_ancestors_index);
-    define_i32_getter!(ds_object_type_id_index, dsObjectTypeIdIndex);
+    define_i32_getter!(ds_object_type_id_index, ds_object_type_id_index);
 
-    define_str_getter!(ds_object_name_index, dsObjectNameIndex);
-    define_str_getter!(ds_object_name2_index, dsObjectName2Index);
+    define_str_getter!(ds_object_name_index, ds_object_name_index);
+    define_str_getter!(ds_object_name2_index, ds_object_name2_index);
 
     define_datetime_getter!(ds_when_created_index, ds_when_created_index);
     define_datetime_getter!(ds_when_changed_index, ds_when_changed_index);
@@ -165,13 +169,8 @@ impl<'a> DbRecord<'a> {
     define_i32_getter!(ds_logon_count_index, ds_logon_count_index);
     define_i32_getter!(ds_bad_pwd_count_index, ds_bad_pwd_count_index);
     define_i32_getter!(ds_primary_group_id_index, ds_primary_group_id_index);
-    define_bin_getter!(ds_nthash_index, ds_nthash_index);
-    define_bin_getter!(ds_lmhash_index, ds_lmhash_index);
-    define_bin_getter!(ds_nthash_history_index, ds_nthash_history_index);
-    define_bin_getter!(ds_lmhash_history_index, ds_lmhash_history_index);
     define_str_getter!(ds_unix_password_index, ds_unix_password_index);
     define_bin_getter!(ds_aduser_objects_index, ds_aduser_objects_index);
-    define_bin_getter!(ds_supplemental_credentials_index, ds_supplemental_credentials_index);
     define_str_getter!(ds_att_comment, ds_att_comment);
 
 
@@ -195,14 +194,14 @@ impl<'a> DbRecord<'a> {
                             Value::F32(v) => format!("{v}"),
                             Value::F64(v) => format!("{v}"),
                             Value::DateTime(v) => format!("{v}"),
-                            Value::Binary(v) => format!("{}", hex::encode(&v)),
-                            Value::Text(v) => format!("{v}"),
-                            Value::LargeBinary(v) => format!("{}", hex::encode(&v)),
+                            Value::Binary(v) => hex::encode(&v).to_string(),
+                            Value::Text(v) => v.to_string(),
+                            Value::LargeBinary(v) => hex::encode(&v).to_string(),
                             Value::LargeText(v) => v,
-                            Value::SuperLarge(v) => format!("{}", hex::encode(&v)),
+                            Value::SuperLarge(v) => hex::encode(&v).to_string(),
                             Value::U32(v) => format!("{v}"),
                             Value::I64(v) => format!("{v}"),
-                            Value::Guid(v) => format!("{}", hex::encode(&v)),
+                            Value::Guid(v) => hex::encode(&v).to_string(),
                             Value::U16(v) => format!("{v}"),
                         };
                         attribs.insert(column_name.to_owned(), str_value);
