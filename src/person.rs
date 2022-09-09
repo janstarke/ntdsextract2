@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{dbrecord::{DbRecord, FromDbRecord}, ColumnInfoMapping, skip_all_attributes, user_account_control::UserAccountControl};
+use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, user_account_control::UserAccountControl};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -43,7 +43,6 @@ pub (crate) struct Person {
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
     comment: Option<String>,
-    unix_password: Option<String>,
     aduser_objects: Option<String>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
@@ -60,25 +59,24 @@ fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S
 impl FromDbRecord for Person {
     fn from(dbrecord: DbRecord, mapping: &ColumnInfoMapping) -> Result<Self> {
         Ok(Self {
-            record_time: dbrecord.ds_record_time_index(mapping)?,
-            when_created: dbrecord.ds_when_created_index(mapping)?,
-            when_changed: dbrecord.ds_when_changed_index(mapping)?,
-            sid: dbrecord.ds_sidindex(mapping)?,
-            sam_account_name: dbrecord.ds_samaccount_name_index(mapping)?,
-            user_principal_name: dbrecord.ds_user_principal_name_index(mapping)?,
-            samaccount_type: dbrecord.ds_samaccount_type_index(mapping)?,
-            user_account_control: dbrecord.ds_user_account_control_index(mapping)?,
-            last_logon: dbrecord.ds_last_logon_index(mapping)?,
-            last_logon_time_stamp: dbrecord.ds_last_logon_time_stamp_index(mapping)?,
-            account_expires: dbrecord.ds_account_expires_index(mapping)?,
-            password_last_set: dbrecord.ds_password_last_set_index(mapping)?,
-            bad_pwd_time: dbrecord.ds_bad_pwd_time_index(mapping)?,
-            logon_count: dbrecord.ds_logon_count_index(mapping)?,
-            bad_pwd_count: dbrecord.ds_bad_pwd_count_index(mapping)?,
-            primary_group_id: dbrecord.ds_primary_group_id_index(mapping)?,
+            record_time: dbrecord.ds_record_time(mapping)?,
+            when_created: dbrecord.ds_when_created(mapping)?,
+            when_changed: dbrecord.ds_when_changed(mapping)?,
+            sid: dbrecord.ds_sid(mapping)?,
+            sam_account_name: dbrecord.ds_samaccount_name(mapping)?,
+            user_principal_name: dbrecord.ds_user_principal_name(mapping)?,
+            samaccount_type: dbrecord.ds_samaccount_type(mapping)?,
+            user_account_control: dbrecord.ds_user_account_control(mapping)?,
+            last_logon: dbrecord.ds_last_logon(mapping)?,
+            last_logon_time_stamp: dbrecord.ds_last_logon_time_stamp(mapping)?,
+            account_expires: dbrecord.ds_account_expires(mapping)?,
+            password_last_set: dbrecord.ds_password_last_set(mapping)?,
+            bad_pwd_time: dbrecord.ds_bad_pwd_time(mapping)?,
+            logon_count: dbrecord.ds_logon_count(mapping)?,
+            bad_pwd_count: dbrecord.ds_bad_pwd_count(mapping)?,
+            primary_group_id: dbrecord.ds_primary_group_id(mapping)?,
             comment: dbrecord.ds_att_comment(mapping)?,
-            unix_password: dbrecord.ds_unix_password_index(mapping)?,
-            aduser_objects: dbrecord.ds_aduser_objects_index(mapping)?,
+            aduser_objects: dbrecord.ds_aduser_objects(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
         })
     }

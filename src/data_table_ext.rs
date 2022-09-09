@@ -7,10 +7,10 @@ use maplit::hashset;
 use serde::Serialize;
 use crate::computer::Computer;
 use crate::constants::*;
+use crate::{DbRecord, FromDbRecord};
 
-use crate::dbrecord::FromDbRecord;
 use crate::{
-    column_info_mapping::ColumnInfoMapping, dbrecord::DbRecord, person::Person, OutputFormat, constants::TYPENAME_COMPUTER,
+    column_info_mapping::ColumnInfoMapping, person::Person, OutputFormat, constants::TYPENAME_COMPUTER,
 };
 
 pub(crate) struct DataTableExt<'a> {
@@ -39,13 +39,13 @@ impl<'a> DataTableExt<'a> {
             .find(|dbrecord| {
                 "Schema"
                     == dbrecord
-                        .ds_object_name2_index(mapping)
+                        .ds_object_name2(mapping)
                         .expect("unable to read object_name2 attribute")
                         .expect("missing object_name2 attribute")
             })
             .expect("no schema record found");
         let schema_record_id = schema_record
-            .ds_record_id_index(mapping)?
+            .ds_record_id(mapping)?
             .expect("Schema record has no record ID");
         Ok(schema_record_id)
     }
@@ -67,14 +67,14 @@ impl<'a> DataTableExt<'a> {
             .map(DbRecord::from)
             .filter(|dbrecord| {
                 dbrecord
-                    .ds_parent_record_id_index(&self.mapping)
+                    .ds_parent_record_id(&self.mapping)
                     .unwrap()
                     .unwrap()
                     == self.schema_record_id
             })
         {
             let object_name2 = dbrecord
-                .ds_object_name2_index(&self.mapping)?
+                .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
 
             if type_names.remove(&object_name2[..]) {
@@ -102,7 +102,7 @@ impl<'a> DataTableExt<'a> {
         let type_record = self
             .find_type_record(type_name)?
             .unwrap_or_else(|| panic!("missing record for type '{}'", type_name));
-        let type_record_id = type_record.ds_record_id_index(&self.mapping)?;
+        let type_record_id = type_record.ds_record_id(&self.mapping)?;
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
         
@@ -111,9 +111,9 @@ impl<'a> DataTableExt<'a> {
             .iter_records()?
             .filter_map(|r| r.ok())
             .map(DbRecord::from)
-            .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).is_ok())
+            .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| {
-                dbrecord.ds_object_type_id_index(&self.mapping).unwrap() == type_record_id
+                dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id
             })
             .map(|dbrecord| T::from(dbrecord, &self.mapping).unwrap())
         {
@@ -144,7 +144,7 @@ impl<'a> DataTableExt<'a> {
             .map(|(type_name, dbrecord)| {
                 (
                     dbrecord
-                        .ds_record_id_index(&self.mapping)
+                        .ds_record_id(&self.mapping)
                         .expect("unable to read record id")
                         .expect("missing record id"),
                     type_name,
@@ -157,11 +157,11 @@ impl<'a> DataTableExt<'a> {
             .iter_records()?
             .filter_map(|r| r.ok())
             .map(DbRecord::from)
-            .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).is_ok())
-            .filter(|dbrecord| dbrecord.ds_object_type_id_index(&self.mapping).unwrap().is_some())
+            .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
+            .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap().is_some())
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord
-                    .ds_object_type_id_index(&self.mapping)
+                    .ds_object_type_id(&self.mapping)
                     .unwrap()
                     .expect("missing object type id");
                 match type_record_ids.get(&current_type_id) {
