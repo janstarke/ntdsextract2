@@ -98,6 +98,48 @@ impl<'a> DataTableExt<'a> {
         self.show_typed_objects::<Computer>(format, TYPENAME_COMPUTER)
     }
 
+    pub fn show_type_names(&self, format: &OutputFormat) -> Result<()> {
+        let mut type_names = HashSet::new();
+        for dbrecord in self
+            .data_table
+            .iter_records()?
+            .filter_map(|r| r.ok())
+            .map(DbRecord::from)
+            .filter(|dbrecord| {
+                dbrecord
+                    .ds_parent_record_id(&self.mapping)
+                    .unwrap()
+                    .unwrap()
+                    == self.schema_record_id
+            })
+        {
+            let object_name2 = dbrecord
+                .ds_object_name2(&self.mapping)?
+                .expect("missing object_name2 attribute");
+
+            type_names.insert(object_name2);
+
+            if type_names.is_empty() {
+                break;
+            }
+        }
+
+        match format {
+            OutputFormat::Csv => {
+                let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+                csv_wtr.serialize(type_names)?
+            }
+            OutputFormat::Json => {
+                println!("{}", serde_json::to_string_pretty(&type_names)?);
+            }
+            OutputFormat::JsonLines => {
+                println!("{}", serde_json::to_string(&type_names)?);
+            }
+        }
+
+        Ok(())
+    }
+
     fn show_typed_objects<T: FromDbRecord + Serialize>(&self, format: &OutputFormat, type_name: &str) -> Result<()> {
         let type_record = self
             .find_type_record(type_name)?

@@ -81,7 +81,14 @@ enum Commands {
     },
 
     /// create a timeline (in bodyfile format)
-    Timeline
+    Timeline,
+
+    /// list all defined types
+    Types {
+        /// Output format
+        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        format: OutputFormat,
+    }
 }
 
 
@@ -137,6 +144,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Commands::User { format, ..} => data_table.show_users(format),
         Commands::Computer { format, .. } => data_table.show_computers(format),
+        Commands::Types { format, .. } => data_table.show_type_names(format),
         Commands::Timeline => data_table.show_timeline(),
     }
 }
