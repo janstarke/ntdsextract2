@@ -1,6 +1,6 @@
 [package]
 name = "ntdsextract2"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "Display contents of Active Directory database files (ntds.dit)"
 repository = "https://www.github.com/janstarke/ntdsextrct2"
@@ -27,6 +27,7 @@ strum = { version = "0.24", features = ["derive"] }
 num-traits = "0.2.15"
 num-derive = "0.3.3"
 field_names = "0.2.0"
+paste = "1.0"
 
 bodyfile = "0.1.4"
 libesedb = "0.1.3"

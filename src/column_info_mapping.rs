@@ -1,10 +1,12 @@
 use std::{collections::HashMap, io::Cursor};
+use bodyfile::Bodyfile3Line;
 use byteorder::{BigEndian, ReadBytesExt, LittleEndian};
 use chrono::{DateTime, Utc, NaiveDate, Duration};
 use libesedb::{Table, Value};
 use crate::{column_information::ColumnInformation, win32_types::*};
 use anyhow::{Result, anyhow}; 
 use num_traits::FromPrimitive;
+use paste::paste;
 
 fn value_to_i32(value: Value, attrib_name: &str) -> Result<Option<i32>> {
     match value {
@@ -103,6 +105,19 @@ macro_rules! define_getter_int {
                 self.inner_record.value(mapping.$field.id())?,
                 stringify!($field)
             )
+        }
+
+        paste! {
+            #[allow(dead_code)]
+            pub fn [<has_valid_ $field>](&self, mapping: &ColumnInfoMapping) -> bool {
+                match self.inner_record.value(mapping.$field.id()) {
+                    Ok(value) => match $fn_name(value, stringify!($field)) {
+                        Ok(Some(_)) => true,
+                        _ => false
+                    }
+                    _ => false
+                }
+            }
         }
     };
 }
@@ -267,3 +282,41 @@ column_mapping! (
     // DS_DIAL_IN_ACCESS_PERMISSION_NAME as i32 from "ATTi590943",
     // DS_PEK as i32 from "ATTk590689",
 );
+
+pub(crate) trait RecordToBodyfile {
+    fn to_bodyfile(&self, mapping: &ColumnInfoMapping, type_name: &str) -> Result<Vec<Bodyfile3Line>>;
+}
+
+macro_rules! add_bodyfile_timestamp {
+    ($res: tt, $field: expr, $object_name: expr, $type_name: expr, $caption: expr) => {
+        if let Some(ts) = $field {
+            if ts.timestamp() > 0 {
+                $res.push(
+                    Bodyfile3Line::new()
+                        .with_owned_name(format!("{} ({}, {})", $object_name, $type_name, $caption))
+                        .with_crtime(i64::max(0,ts.timestamp()))
+                );
+            }
+        }
+    };
+}
+
+impl RecordToBodyfile for DbRecord<'_> {
+    fn to_bodyfile(&self, mapping: &ColumnInfoMapping, type_name: &str) -> Result<Vec<Bodyfile3Line>> {
+        let mut res = Vec::new();
+
+        let object_name = self.ds_object_name(mapping)?
+            .or(self.ds_object_name2(mapping)?)
+            .unwrap_or_else(|| "unknown".to_owned());
+
+        add_bodyfile_timestamp!(res, self.ds_record_time(mapping)?, object_name, type_name, "record creation time");
+        add_bodyfile_timestamp!(res, self.ds_when_created(mapping)?, object_name, type_name, "object created");
+        add_bodyfile_timestamp!(res, self.ds_when_changed(mapping)?, object_name, type_name, "object changed");
+        add_bodyfile_timestamp!(res, self.ds_last_logon(mapping)?, object_name, type_name, "last logon on this DC");
+        add_bodyfile_timestamp!(res, self.ds_last_logon_time_stamp(mapping)?, object_name, type_name, "last logon on any DC");
+        add_bodyfile_timestamp!(res, self.ds_bad_pwd_time(mapping)?, object_name, type_name, "bad pwd time");
+        add_bodyfile_timestamp!(res, self.ds_password_last_set(mapping)?, object_name, type_name, "password last set");
+
+        Ok(res)
+    }
+}

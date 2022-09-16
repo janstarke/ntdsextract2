@@ -81,7 +81,11 @@ enum Commands {
     },
 
     /// create a timeline (in bodyfile format)
-    Timeline,
+    Timeline {
+        /// show objects of any type (this might be a lot)
+        #[clap(long("all-objects"))]
+        all_objects: bool
+    },
 
     /// list all defined types
     Types {
@@ -136,16 +140,17 @@ fn main() -> Result<()> {
     );
 
     set_do_flat_serialization(
-        matches!(&cli.command, Commands::User{format: OutputFormat::Csv, ..} |
+        matches!(&cli.command, 
+            Commands::User{format: OutputFormat::Csv, ..} |
             Commands::Computer{format: OutputFormat::Csv, ..} |
-            Commands::Timeline)  
+            Commands::Timeline { .. })  
     );
 
     match &cli.command {
         Commands::User { format, ..} => data_table.show_users(format),
         Commands::Computer { format, .. } => data_table.show_computers(format),
         Commands::Types { format, .. } => data_table.show_type_names(format),
-        Commands::Timeline => data_table.show_timeline(),
+        Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
     }
 }
 
