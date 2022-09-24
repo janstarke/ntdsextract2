@@ -112,7 +112,7 @@ enum Commands {
     /// display the directory information tree
     Tree {
         /// maximum recursion depth 
-        #[clap(long("max-depth"), default_value_t=3)]
+        #[clap(long("max-depth"), default_value_t=4)]
         max_depth: u8
     }
 }
