@@ -1,15 +1,21 @@
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::iter::Filter;
+use std::rc::{Rc, Weak};
 
 use crate::column_info_mapping::RecordToBodyfile;
 use crate::computer::Computer;
 use crate::constants::*;
+use crate::esedb_utils::*;
+use crate::group::Group;
+use crate::link_table_ext::LinkTableExt;
+use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{DbRecord, FromDbRecord};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use bodyfile::Bodyfile3Line;
 use libesedb::Table;
 use maplit::hashset;
 use serde::Serialize;
+use termtree::Tree;
 
 use crate::{
     column_info_mapping::ColumnInfoMapping, constants::TYPENAME_COMPUTER, person::Person,
@@ -20,51 +26,27 @@ use crate::{
 /// This class assumes the a NTDS datatable is being wrapped
 pub(crate) struct DataTableExt<'a> {
     data_table: Table<'a>,
+    link_table: LinkTableExt,
     mapping: ColumnInfoMapping,
     schema_record_id: i32,
+    object_tree: Rc<ObjectTreeEntry>,
 }
 
 impl<'a> DataTableExt<'a> {
     /// create a new datatable wrapper
-    pub fn from(table: Table<'a>) -> Result<Self> {
+    pub fn from(table: Table<'a>, link_table: LinkTableExt) -> Result<Self> {
         log::info!("reading schema information and creating record cache");
         let mapping = ColumnInfoMapping::from(&table)?;
+        let object_tree = ObjectTreeEntry::from(&table, &mapping)?;
         let schema_record_id = Self::get_schema_record_id(&table, &mapping)?;
+        log::debug!("found the schema record id is '{}'", schema_record_id);
         Ok(Self {
             data_table: table,
+            link_table,
             mapping,
             schema_record_id,
+            object_tree
         })
-    }
-
-    fn iter_records<'b>(data_table: &'b Table<'a>) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
-    where
-        'a: 'b,
-    {
-        Box::new(
-            data_table
-                .iter_records()
-                .expect("unable to iterate this table")
-                .filter_map(|r| r.ok())
-                .map(DbRecord::from),
-        )
-    }
-
-    fn filter_records_from<'b, P>(
-        data_table: &'b Table<'a>,
-        predicate: P,
-    ) -> Filter<Box<dyn Iterator<Item = DbRecord<'b>> + 'b>, P>
-    where
-        P: FnMut(&DbRecord<'b>) -> bool,
-    {
-        Self::iter_records(data_table).filter(predicate)
-    }
-
-    fn find_record_from<'b, P>(data_table: &'b Table<'a>, predicate: P) -> Option<DbRecord<'b>>
-    where
-        P: FnMut(&DbRecord<'b>) -> bool,
-    {
-        Self::iter_records(data_table).find(predicate)
     }
 
     fn find_children_of<'b>(&'a self, parent_id: i32) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
@@ -74,7 +56,9 @@ impl<'a> DataTableExt<'a> {
         let data_table = &self.data_table;
         let mapping = &self.mapping;
 
-        Box::new(Self::filter_records_from(
+        log::debug!("searching for children of record '{}'", parent_id);
+
+        Box::new(filter_records_from(
             data_table,
             move |dbrecord: &DbRecord| {
                 dbrecord.ds_parent_record_id(mapping).unwrap().unwrap() == parent_id
@@ -85,7 +69,7 @@ impl<'a> DataTableExt<'a> {
     /// returns the record id of the record which contains the Schema object
     /// (which is identified by its name "Schema" in the object_name2 attribute)
     fn get_schema_record_id(data_table: &Table<'a>, mapping: &ColumnInfoMapping) -> Result<i32> {
-        let schema_record = Self::find_record_from(data_table, |dbrecord| {
+        let schema_record = find_record_from(data_table, |dbrecord| {
             "Schema"
                 == dbrecord
                     .ds_object_name2(mapping)
@@ -122,13 +106,18 @@ impl<'a> DataTableExt<'a> {
         mut type_names: HashSet<&str>,
     ) -> Result<HashMap<String, DbRecord>> {
         let mut type_records = HashMap::new();
+        let children = self.find_children_of(self.schema_record_id);
+        anyhow::ensure!(children.count() > 0, "The schema record has no children");
+
         for dbrecord in self.find_children_of(self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
+            
+            log::trace!("found a new type definition: '{}'", object_name2);
 
             if type_names.remove(&object_name2[..]) {
-                log::trace!("found type definition for '{object_name2}'");
+                log::debug!("found requested type definition for '{object_name2}'");
                 type_records.insert(object_name2, dbrecord);
             }
 
@@ -136,12 +125,16 @@ impl<'a> DataTableExt<'a> {
                 break;
             }
         }
-        log::info!("found all required type definitions");
+        log::info!("found {} type definitions", type_records.len());
         Ok(type_records)
     }
 
     pub fn show_users(&self, format: &OutputFormat) -> Result<()> {
         self.show_typed_objects::<Person>(format, TYPENAME_PERSON)
+    }
+
+    pub fn show_groups(&self, format: &OutputFormat) -> Result<()> {
+        self.show_typed_objects::<Group>(format, TYPENAME_GROUP)
     }
 
     pub fn show_computers(&self, format: &OutputFormat) -> Result<()> {
@@ -178,6 +171,12 @@ impl<'a> DataTableExt<'a> {
         Ok(())
     }
 
+    pub fn show_tree(&self, max_depth: u8) -> Result<()> {
+        let tree = ObjectTreeEntry::to_tree(&self.object_tree, max_depth);
+        println!("{}", tree);
+        Ok(())
+    }
+
     fn show_typed_objects<T: FromDbRecord + Serialize>(
         &self,
         format: &OutputFormat,
@@ -190,7 +189,7 @@ impl<'a> DataTableExt<'a> {
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
 
-        for record in Self::iter_records(&self.data_table)
+        for record in iter_records(&self.data_table)
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
             .map(|dbrecord| T::from(dbrecord, &self.mapping).unwrap())
@@ -235,7 +234,7 @@ impl<'a> DataTableExt<'a> {
             .collect::<HashMap<i32, &String>>())
         };
 
-        for bf_lines in Self::iter_records(&self.data_table)
+        for bf_lines in iter_records(&self.data_table)
             .filter(|dbrecord| dbrecord.has_valid_ds_object_type_id(&self.mapping))
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord

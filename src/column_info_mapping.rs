@@ -165,7 +165,7 @@ macro_rules! column_mapping {
                     let mapping = Self {
                         column_names,
                         $(
-                            $field: temporary_mapping.remove($internal_id).unwrap(),
+                            $field: temporary_mapping.remove($internal_id).expect(&format!("missing column '{}'", $internal_id)),
                         )+
                     };
                     Ok(mapping)
@@ -267,7 +267,7 @@ column_mapping! (
     ds_logon_count as i32 from "ATTj589993",
     ds_bad_pwd_count as i32 from "ATTj589836",
     ds_primary_group_id as i32 from "ATTj589922",
-    ds_unix_password as i32 from "ATTk591734",
+    // ds_unix_password as i32 from "ATTk591734",
     ds_aduser_objects as binary from "ATTk36",
     ds_att_comment as str from "ATTm13",
     
@@ -318,5 +318,19 @@ impl RecordToBodyfile for DbRecord<'_> {
         add_bodyfile_timestamp!(res, self.ds_password_last_set(mapping)?, object_name, type_name, "password last set");
 
         Ok(res)
+    }
+}
+
+pub (crate) trait IsMemberOf {
+    fn member_of(&self) -> Vec<Box<dyn HasMembers>>;
+}
+
+pub (crate) trait HasMembers {
+    fn members(&self) -> Vec<Box<dyn IsMemberOf>>;
+}
+
+impl IsMemberOf for DbRecord<'_> {
+    fn member_of(&self) -> Vec<Box<dyn HasMembers>> {
+        todo!()
     }
 }

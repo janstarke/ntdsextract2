@@ -5,15 +5,19 @@ use libesedb::{EseDb};
 use simplelog::{Config, TermLogger};
 use anyhow::{Result};
 
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt};
+use crate::{column_info_mapping::*, data_table_ext::DataTableExt, link_table_ext::LinkTableExt};
 
 mod person;
 mod computer;
+mod group;
 mod constants;
 mod column_information;
 mod column_info_mapping;
 mod data_table_ext;
+mod link_table_ext;
 mod win32_types;
+mod esedb_utils;
+mod object_tree_entry;
 
 /// this needs to be a global variable, 
 /// because it is read by serialization code, which has no state by default
@@ -69,6 +73,17 @@ enum Commands {
         show_all: bool
     },
 
+    /// Display groups
+    Group {
+        /// Output format
+        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        format: OutputFormat,
+
+        /// show all non-empty values. This option is ignored when CSV-Output is selected
+        #[clap(short('A'), long("show-all"))]
+        show_all: bool
+    },
+
     /// display computer accounts
     Computer {
         /// Output format
@@ -92,6 +107,13 @@ enum Commands {
         /// Output format
         #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
+    },
+
+    /// display the directory information tree
+    Tree {
+        /// maximum recursion depth 
+        #[clap(long("max-depth"), default_value_t=3)]
+        max_depth: u8
     }
 }
 
@@ -127,7 +149,8 @@ fn main() -> Result<()> {
     let esedb = EseDb::open(&cli.ntds_file)?;
     log::info!("Db load finished");
 
-    let data_table  = DataTableExt::from(esedb.table_by_name("datatable")?)?;
+    let link_table: LinkTableExt = LinkTableExt::from(esedb.table_by_name("link_table")?)?;
+    let data_table = DataTableExt::from(esedb.table_by_name("datatable")?, link_table)?;
 
     set_display_all_attributes(
        match &cli.command {
@@ -147,10 +170,12 @@ fn main() -> Result<()> {
     );
 
     match &cli.command {
+        Commands::Group { format, .. } => data_table.show_groups(format),
         Commands::User { format, ..} => data_table.show_users(format),
         Commands::Computer { format, .. } => data_table.show_computers(format),
         Commands::Types { format, .. } => data_table.show_type_names(format),
         Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
+        Commands::Tree { max_depth } => data_table.show_tree(*max_depth)
     }
 }
 

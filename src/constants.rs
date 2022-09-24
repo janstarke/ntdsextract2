@@ -5,4 +5,5 @@ macro_rules! str_attribute {
 }
 
 str_attribute!(TYPENAME_PERSON, "Person");
+str_attribute!(TYPENAME_GROUP, "Group");
 str_attribute!(TYPENAME_COMPUTER, "Computer");
