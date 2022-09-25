@@ -63,4 +63,5 @@ impl LinkTableExt {
     pub (crate) fn members(&self, dnt: &i32) -> Option<&HashSet<i32>> {
         self.forward_map.get(dnt)
     }
+    
 }

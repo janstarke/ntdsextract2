@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt};
-use anyhow::Result;
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use anyhow::{Result, bail};
 use chrono::{Utc, DateTime};
+use crate::serialization::*;
 
 #[derive(Serialize)]
 pub (crate) struct Person {
@@ -20,6 +21,9 @@ pub (crate) struct Person {
     primary_group_id: Option<i32>,
     comment: Option<String>,
     aduser_objects: Option<String>,
+
+    #[serde(serialize_with = "serialize_object_list")]
+    member_of: Vec<String>,
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<DateTime<Utc>>,
@@ -49,16 +53,23 @@ pub (crate) struct Person {
     all_attributes: HashMap<String, String>,
 }
 
-fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    match ts {
-        Some(ts) => s.serialize_str(&ts.to_rfc3339()),
-        None => s.serialize_str("")
-    }
-}
-
 impl FromDbRecord for Person {
     fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
         let mapping = data_table.mapping();
+        let object_id = match dbrecord.ds_record_id(mapping)? {
+            Some(id) => id,
+            None => bail!("object has no record id"),
+        };
+        let member_of = if let Some(children) = data_table.link_table().members(&object_id) {
+            children.iter().map(|child_id| {
+                find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
+            }).filter_map(|r| r)
+            .map(|record| record.ds_object_name2(mapping).expect("error while reading object name").expect("missing object name"))
+            .collect()
+        } else {
+            vec![]
+        };
+        
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,
@@ -78,6 +89,7 @@ impl FromDbRecord for Person {
             primary_group_id: dbrecord.ds_primary_group_id(mapping)?,
             comment: dbrecord.ds_att_comment(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects(mapping)?,
+            member_of,
             all_attributes: dbrecord.all_attributes(mapping),
         })
     }

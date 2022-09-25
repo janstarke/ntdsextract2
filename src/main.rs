@@ -18,10 +18,12 @@ mod link_table_ext;
 mod win32_types;
 mod esedb_utils;
 mod object_tree_entry;
+mod serialization;
 
-/// this needs to be a global variable, 
+/// this needs to be global, 
 /// because it is read by serialization code, which has no state by default
 static mut DISPLAY_ALL_ATTRIBUTES: bool = false;
+static mut FLAT_SERIALIZATION: bool = true;
 
 pub (crate) fn display_all_attributes() -> bool {
     unsafe {
@@ -38,8 +40,6 @@ fn set_display_all_attributes(val: bool) {
         DISPLAY_ALL_ATTRIBUTES = val
     }
 }
-
-static mut FLAT_SERIALIZATION: bool = true;
 
 pub (crate) fn do_flat_serialization() -> bool {
     unsafe {
@@ -182,6 +182,7 @@ fn main() -> Result<()> {
         matches!(&cli.command, 
             Commands::User{format: OutputFormat::Csv, ..} |
             Commands::Computer{format: OutputFormat::Csv, ..} |
+            Commands::Group{format: OutputFormat::Csv, ..} |
             Commands::Timeline { .. })  
     );
 

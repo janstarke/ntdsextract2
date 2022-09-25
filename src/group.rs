@@ -1,11 +1,12 @@
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use bodyfile::Bodyfile3Line;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
-use anyhow::{Result, ensure, bail};
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use anyhow::{Result, bail};
 use chrono::{Utc, DateTime};
+use crate::serialization::*;
 
 #[derive(Serialize)]
 pub (crate) struct Group {
@@ -15,6 +16,8 @@ pub (crate) struct Group {
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
+
+    #[serde(serialize_with = "serialize_object_list")]
     members: Vec<String>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
@@ -48,13 +51,6 @@ pub (crate) struct Group {
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
-}
-
-fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    match ts {
-        Some(ts) => s.serialize_str(&ts.to_rfc3339()),
-        None => s.serialize_str("")
-    }
 }
 
 impl FromDbRecord for Group {

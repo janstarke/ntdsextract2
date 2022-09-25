@@ -1,4 +1,4 @@
-use std::{hash::Hash, rc::{Weak, Rc}, collections::{HashSet, HashMap}, cell::RefCell, fmt::Display};
+use std::{hash::Hash, rc::Rc, collections::{HashSet, HashMap}, cell::RefCell, fmt::Display};
 
 use libesedb::Table;
 use termtree::Tree;
@@ -10,7 +10,7 @@ use anyhow::{Result, bail};
 pub (crate) struct ObjectTreeEntry {
     name: String,
     id: i32,
-    parent: Option<Weak<ObjectTreeEntry>>,
+    //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>
 }
 
@@ -54,11 +54,12 @@ impl ObjectTreeEntry {
             tree
         }
     }
-
+/*
     pub(crate) fn parent(&self) -> Option<Rc<ObjectTreeEntry>> {
         self.parent.as_ref().and_then(|p| p.upgrade())
     }
-
+*/
+/*
     pub (crate) fn get_by_path(&self, mut path: Vec<&str>) -> Option<Rc<ObjectTreeEntry>> {
         if let Some(next_folder) = path.pop() {
             match self.children.borrow().iter().find(|c| c.name == next_folder) {
@@ -75,7 +76,7 @@ impl ObjectTreeEntry {
             None
         }
     }
-
+*/
     fn populate_object_tree<'a>(data_table: &Table<'a>, mapping: &ColumnInfoMapping) -> Result<Rc<ObjectTreeEntry>> {
 
         log::info!("populating the object tree");
@@ -111,7 +112,7 @@ impl ObjectTreeEntry {
         Self::create_tree_node(0, None, &downlinks, &uplinks, &mut names)
     }
 
-    fn create_tree_node(object_id: i32, parent: Option<&Rc<ObjectTreeEntry>>, downlinks: &HashMap<i32, HashSet<i32>>, uplinks: &HashMap<i32, i32>, names: &mut HashMap<i32, String>) -> Result<Rc<ObjectTreeEntry>> {
+    fn create_tree_node(object_id: i32, _parent: Option<&Rc<ObjectTreeEntry>>, downlinks: &HashMap<i32, HashSet<i32>>, uplinks: &HashMap<i32, i32>, names: &mut HashMap<i32, String>) -> Result<Rc<ObjectTreeEntry>> {
         let name = if object_id == 0 {
             String::new()
         } else {
@@ -123,7 +124,7 @@ impl ObjectTreeEntry {
         let my_object = Rc::new(ObjectTreeEntry {
             name,
             id: object_id,
-            parent: parent.and_then(|p| Some(Rc::downgrade(p))),
+            //parent: parent.and_then(|p| Some(Rc::downgrade(p))),
             children: RefCell::new(HashSet::new()),
         });
 

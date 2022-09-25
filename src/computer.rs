@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, constants::TYPENAME_COMPUTER, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt};
+use crate::{DbRecord, FromDbRecord, constants::TYPENAME_COMPUTER, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
+use crate::serialization::*;
 
 #[derive(Serialize)]
 pub (crate) struct Computer {
@@ -59,13 +60,6 @@ pub (crate) struct Computer {
     DS_VOLUME_GUIDINDEX_NAME,
     DS_RECOVERY_GUIDINDEX_NAME
      */
-}
-
-fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    match ts {
-        Some(ts) => s.serialize_str(&ts.to_rfc3339()),
-        None => s.serialize_str("")
-    }
 }
 
 impl FromDbRecord for Computer {
