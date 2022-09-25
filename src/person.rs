@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}};
+use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 
@@ -57,7 +57,8 @@ fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S
 }
 
 impl FromDbRecord for Person {
-    fn from(dbrecord: DbRecord, mapping: &ColumnInfoMapping) -> Result<Self> {
+    fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
+        let mapping = data_table.mapping();
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,

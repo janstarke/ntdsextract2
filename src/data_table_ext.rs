@@ -48,6 +48,18 @@ impl<'a> DataTableExt<'a> {
         })
     }
 
+    pub(crate) fn mapping(&self) -> &ColumnInfoMapping {
+        &self.mapping
+    }
+
+    pub(crate) fn link_table(&self) -> &LinkTableExt {
+        &self.link_table
+    }
+
+    pub(crate) fn data_table(&self) -> &Table<'a> {
+        &self.data_table
+    }
+
     fn find_children_of<'b>(&'a self, parent_id: i32) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
     where
         'a: 'b,
@@ -281,7 +293,7 @@ impl<'a> DataTableExt<'a> {
         for record in iter_records(&self.data_table)
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
-            .map(|dbrecord| T::from(dbrecord, &self.mapping).unwrap())
+            .map(|dbrecord| T::from(dbrecord, self).unwrap())
         {
             match format {
                 OutputFormat::Csv => {
@@ -340,12 +352,12 @@ impl<'a> DataTableExt<'a> {
                         Some(type_name) => {
                             if *type_name == TYPENAME_PERSON {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Person as FromDbRecord>::from(dbrecord, &self.mapping)
+                                    <Person as FromDbRecord>::from(dbrecord, self)
                                         .unwrap(),
                                 ))
                             } else if *type_name == TYPENAME_COMPUTER {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Computer as FromDbRecord>::from(dbrecord, &self.mapping)
+                                    <Computer as FromDbRecord>::from(dbrecord, self)
                                         .unwrap(),
                                 ))
                             } else {

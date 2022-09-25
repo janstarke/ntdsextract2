@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::{Serialize, Serializer};
 
-use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}};
-use anyhow::Result;
+use crate::{DbRecord, FromDbRecord, ColumnInfoMapping, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use anyhow::{Result, ensure, bail};
 use chrono::{Utc, DateTime};
 
 #[derive(Serialize)]
@@ -15,6 +15,7 @@ pub (crate) struct Group {
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
+    members: Vec<String>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
@@ -57,7 +58,22 @@ fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S
 }
 
 impl FromDbRecord for Group {
-    fn from(dbrecord: DbRecord, mapping: &ColumnInfoMapping) -> Result<Self> {
+    fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
+        let mapping = data_table.mapping();
+        let object_id = match dbrecord.ds_record_id(mapping)? {
+            Some(id) => id,
+            None => bail!("object has no record id"),
+        };
+        let members = if let Some(children) = data_table.link_table().member_of(&object_id) {
+            children.iter().map(|child_id| {
+                find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
+            }).filter_map(|r| r)
+            .map(|record| record.ds_object_name2(mapping).expect("error while reading object name").expect("missing object name"))
+            .collect()
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,
@@ -66,6 +82,7 @@ impl FromDbRecord for Group {
             sam_account_name: dbrecord.ds_sam_account_name(mapping)?,
             user_principal_name: dbrecord.ds_user_principal_name(mapping)?,
             sam_account_type: dbrecord.ds_sam_account_type(mapping)?,
+            members,
             user_account_control: dbrecord.ds_user_account_control(mapping)?,
             last_logon: dbrecord.ds_last_logon(mapping)?,
             last_logon_time_stamp: dbrecord.ds_last_logon_time_stamp(mapping)?,

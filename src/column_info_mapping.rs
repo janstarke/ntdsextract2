@@ -4,7 +4,7 @@ use byteorder::{BigEndian, ReadBytesExt, LittleEndian};
 use chrono::{DateTime, Utc, NaiveDate, Duration};
 use libesedb::Value;
 use term_table::{row::Row, table_cell::{TableCell, Alignment}};
-use crate::{column_information::ColumnInformation, win32_types::*};
+use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt};
 use anyhow::{Result, anyhow}; 
 use num_traits::FromPrimitive;
 use paste::paste;
@@ -220,7 +220,7 @@ macro_rules! column_mapping {
             }
 
             pub (crate) trait FromDbRecord where Self: Sized {
-                fn from(dbrecord: $RecordStructName, mapping: &$StructName) -> Result<Self>;
+                fn from(dbrecord: $RecordStructName, data_table: &DataTableExt) -> Result<Self>;
             }
 
             impl<'a> From<libesedb::Record<'a>> for $RecordStructName<'a> {
