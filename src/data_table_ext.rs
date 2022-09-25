@@ -214,8 +214,9 @@ impl<'a> DataTableExt<'a> {
 
         table_columns.push("DNT_col".to_owned());
         table_columns.push("PDNT_col".to_owned());
-        table_columns.push("ATTm3".to_owned());
-        table_columns.push("ATTm589825".to_owned());
+        table_columns.push("ATTm3".to_owned());      // object name
+        table_columns.push("ATTm589825".to_owned()); // object name 2
+        table_columns.push("ATTb590606".to_owned()); // object type id
 
         let mut records = Vec::new();
 
