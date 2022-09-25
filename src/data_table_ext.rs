@@ -1,6 +1,5 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use crate::column_info_mapping::{FormatDbRecordForCli, RecordToBodyfile};
 use crate::computer::Computer;
@@ -10,13 +9,12 @@ use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{DbRecord, FromDbRecord};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use libesedb::Table;
 use maplit::hashset;
 use regex::Regex;
 use serde::Serialize;
-use termtree::Tree;
 
 use crate::{
     column_info_mapping::ColumnInfoMapping, constants::TYPENAME_COMPUTER, person::Person,
