@@ -32,7 +32,7 @@ impl Hash for ObjectTreeEntry {
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{} (id={})", self.name, self.id)
     }
 }
 
