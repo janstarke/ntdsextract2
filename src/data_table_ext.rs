@@ -9,7 +9,7 @@ use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{DbRecord, FromDbRecord};
-use anyhow::Result;
+use anyhow::{bail, Result};
 use bodyfile::Bodyfile3Line;
 use libesedb::Table;
 use maplit::hashset;
@@ -67,19 +67,34 @@ impl<'a> DataTableExt<'a> {
 
     /// returns the record id of the record which contains the Schema object
     /// (which is identified by its name "Schema" in the object_name2 attribute)
-    fn get_schema_record_id(data_table: &Table<'a>, mapping: &ColumnInfoMapping) -> Result<i32> {
-        let schema_record = find_record_from(data_table, |dbrecord| {
+    fn get_schema_record_id<'b>(
+        data_table: &'b Table<'a>,
+        mapping: &ColumnInfoMapping,
+    ) -> Result<i32>
+    where
+        'a: 'b,
+    {
+        for record in filter_records_from(data_table, |dbrecord| {
             "Schema"
                 == dbrecord
                     .ds_object_name2(mapping)
                     .expect("unable to read object_name2 attribute")
                     .expect("missing object_name2 attribute")
-        })
-        .expect("no schema record found");
-        let schema_record_id = schema_record
-            .ds_record_id(mapping)?
-            .expect("Schema record has no record ID");
-        Ok(schema_record_id)
+        }) {
+            if let Some(schema_parent_id) = record.ds_parent_record_id(mapping)? {
+                if let Some(schema_parent) = find_by_id(data_table, mapping, schema_parent_id) {
+                    if let Some(parent_name) = schema_parent.ds_object_name2(mapping)? {
+                        if parent_name == "Configuration" {
+                            return Ok(record
+                                .ds_record_id(mapping)?
+                                .expect("Schema record has no record ID"));
+                        }
+                    }
+                }
+            }
+        }
+
+        bail!("no schema record found");
     }
 
     fn find_type_record(&self, type_name: &str) -> Result<Option<DbRecord>> {
@@ -212,34 +227,41 @@ impl<'a> DataTableExt<'a> {
 
         table_columns.push("DNT_col".to_owned());
         table_columns.push("PDNT_col".to_owned());
-        table_columns.push("ATTm3".to_owned());      // object name
+        table_columns.push("ATTm3".to_owned()); // object name
         table_columns.push("ATTm589825".to_owned()); // object name 2
         table_columns.push("ATTb590606".to_owned()); // object type id
 
         let mut records = Vec::new();
 
         for record in iter_records(&self.data_table) {
-            let matching_columns = record.all_attributes(mapping)
+            let matching_columns = record
+                .all_attributes(mapping)
                 .iter()
                 .filter(|(_, v)| re.is_match(v))
                 .map(|(a, v)| (a.to_owned(), v.to_owned()))
                 .collect::<Vec<(String, String)>>();
             if matching_columns.len() > 0 {
                 for (a, _) in matching_columns {
-                    if ! table_columns.contains(&a) {
+                    if !table_columns.contains(&a) {
                         table_columns.push(a);
                     }
                 }
                 records.push(record);
             }
         }
-    
+
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
         let empty_string = "".to_owned();
         csv_wtr.write_record(&table_columns)?;
         for record in records.into_iter() {
             let all_attributes = record.all_attributes(mapping);
-            csv_wtr.write_record(table_columns.iter().map(|a| all_attributes.get(a).unwrap_or(&empty_string).replace('\n', "\\n").replace('\r', "\\r")))?;
+            csv_wtr.write_record(table_columns.iter().map(|a| {
+                all_attributes
+                    .get(a)
+                    .unwrap_or(&empty_string)
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+            }))?;
         }
         Ok(())
     }
