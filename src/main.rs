@@ -120,6 +120,16 @@ enum Commands {
     Entry {
         /// id of the entry to show
         entry_id: i32,
+    },
+
+    /// search for entries whose values match to some regular expression
+    Search {
+        /// regular expression to match against
+        regex: String,
+
+        /// case-insensitive search (ignore case)
+        #[clap(short('i'), long("ignore-case"))]
+        ignore_case: bool
     }
 }
 
@@ -183,6 +193,14 @@ fn main() -> Result<()> {
         Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
         Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
         Commands::Entry { entry_id } => data_table.show_entry(*entry_id),
+        Commands::Search { regex , ignore_case} => {
+            let regex = if *ignore_case {
+                format!("(?i:{regex})")
+            } else {
+                regex.to_owned()
+            };
+            data_table.search_entries(&regex)
+        }
     }
 }
 

@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-use crate::column_info_mapping::{RecordToBodyfile, FormatDbRecordForCli};
+use crate::column_info_mapping::{FormatDbRecordForCli, RecordToBodyfile};
 use crate::computer::Computer;
 use crate::constants::*;
 use crate::esedb_utils::*;
@@ -10,10 +10,11 @@ use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{DbRecord, FromDbRecord};
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use bodyfile::Bodyfile3Line;
 use libesedb::Table;
 use maplit::hashset;
+use regex::Regex;
 use serde::Serialize;
 use termtree::Tree;
 
@@ -45,7 +46,7 @@ impl<'a> DataTableExt<'a> {
             link_table,
             mapping,
             schema_record_id,
-            object_tree
+            object_tree,
         })
     }
 
@@ -95,7 +96,7 @@ impl<'a> DataTableExt<'a> {
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
 
-                type_records.insert(dbrecord.ds_record_id(&self.mapping)?.unwrap(), object_name2);
+            type_records.insert(dbrecord.ds_record_id(&self.mapping)?.unwrap(), object_name2);
         }
         log::info!("found all required type definitions");
         Ok(type_records)
@@ -113,7 +114,7 @@ impl<'a> DataTableExt<'a> {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
-            
+
             log::trace!("found a new type definition: '{}'", object_name2);
 
             if type_names.remove(&object_name2[..]) {
@@ -179,28 +180,68 @@ impl<'a> DataTableExt<'a> {
 
     pub fn show_entry(&self, entry_id: i32) -> Result<()> {
         let mapping = &self.mapping;
-        match find_record_from(&self.data_table, move |r| 
+        match find_record_from(&self.data_table, move |r| {
             r.ds_record_id(mapping)
                 .expect("unable to read ds_record_id attribute")
-                .expect("object has no ds_record_id attribute") == entry_id) {
-                    None => println!("no object with id '{entry_id} found"),
-                    Some(entry) => {
-                        let mut table = entry.to_table(&self.mapping);
-                        termsize::get().map(|size| {
-                            let attrib_size = 20;
-                            let value_size = if size.cols > attrib_size {
-                                size.cols - attrib_size
-                            } else {
-                                0
-                            };
-                            table.set_max_column_widths(vec![
-                                (0, attrib_size.into()),
-                                (1, value_size.into()),
-                            ])
-                        });
-                        println!("{}", table.render())
+                .expect("object has no ds_record_id attribute")
+                == entry_id
+        }) {
+            None => println!("no object with id '{entry_id} found"),
+            Some(entry) => {
+                let mut table = entry.to_table(&self.mapping);
+                termsize::get().map(|size| {
+                    let attrib_size = 20;
+                    let value_size = if size.cols > attrib_size {
+                        size.cols - attrib_size
+                    } else {
+                        0
+                    };
+                    table.set_max_column_widths(vec![
+                        (0, attrib_size.into()),
+                        (1, value_size.into()),
+                    ])
+                });
+                println!("{}", table.render())
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn search_entries(&self, regex: &str) -> Result<()> {
+        let mapping = &self.mapping;
+        let re = Regex::new(regex)?;
+        let mut table_columns = Vec::new();
+
+        table_columns.push("DNT_col".to_owned());
+        table_columns.push("PDNT_col".to_owned());
+        table_columns.push("ATTm3".to_owned());
+        table_columns.push("ATTm589825".to_owned());
+
+        let mut records = Vec::new();
+
+        for record in iter_records(&self.data_table) {
+            let matching_columns = record.all_attributes(mapping)
+                .iter()
+                .filter(|(_, v)| re.is_match(v))
+                .map(|(a, v)| (a.to_owned(), v.to_owned()))
+                .collect::<Vec<(String, String)>>();
+            if matching_columns.len() > 0 {
+                for (a, _) in matching_columns {
+                    if ! table_columns.contains(&a) {
+                        table_columns.push(a);
                     }
                 }
+                records.push(record);
+            }
+        }
+    
+        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        let empty_string = "".to_owned();
+        csv_wtr.write_record(&table_columns)?;
+        for record in records.into_iter() {
+            let all_attributes = record.all_attributes(mapping);
+            csv_wtr.write_record(table_columns.iter().map(|a| all_attributes.get(a).unwrap_or(&empty_string).replace('\n', "\\n").replace('\r', "\\r")))?;
+        }
         Ok(())
     }
 
@@ -240,25 +281,28 @@ impl<'a> DataTableExt<'a> {
 
     pub fn show_timeline(&self, all_objects: bool) -> Result<()> {
         let type_records = self.find_type_records(hashset! {
-            TYPENAME_PERSON,
-            TYPENAME_COMPUTER})?;
-        
+        TYPENAME_PERSON,
+        TYPENAME_COMPUTER})?;
+
         let all_type_records = self.find_all_type_names()?;
 
         let type_record_ids = if all_objects {
             None
-        } else { 
-            Some(type_records.iter()
-            .map(|(type_name, dbrecord)| {
-                (
-                    dbrecord
-                        .ds_record_id(&self.mapping)
-                        .expect("unable to read record id")
-                        .expect("missing record id"),
-                    type_name,
-                )
-            })
-            .collect::<HashMap<i32, &String>>())
+        } else {
+            Some(
+                type_records
+                    .iter()
+                    .map(|(type_name, dbrecord)| {
+                        (
+                            dbrecord
+                                .ds_record_id(&self.mapping)
+                                .expect("unable to read record id")
+                                .expect("missing record id"),
+                            type_name,
+                        )
+                    })
+                    .collect::<HashMap<i32, &String>>(),
+            )
         };
 
         for bf_lines in iter_records(&self.data_table)
@@ -268,18 +312,20 @@ impl<'a> DataTableExt<'a> {
                     .ds_object_type_id(&self.mapping)
                     .unwrap()
                     .expect("missing object type id");
-                
+
                 // `type_record_ids` is None if `all_objects` is True
                 if let Some(record_ids) = type_record_ids.as_ref() {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == TYPENAME_PERSON {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Person as FromDbRecord>::from(dbrecord, &self.mapping).unwrap(),
+                                    <Person as FromDbRecord>::from(dbrecord, &self.mapping)
+                                        .unwrap(),
                                 ))
                             } else if *type_name == TYPENAME_COMPUTER {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Computer as FromDbRecord>::from(dbrecord, &self.mapping).unwrap(),
+                                    <Computer as FromDbRecord>::from(dbrecord, &self.mapping)
+                                        .unwrap(),
                                 ))
                             } else {
                                 None
@@ -288,7 +334,11 @@ impl<'a> DataTableExt<'a> {
                         _ => None,
                     }
                 } else {
-                    Some(dbrecord.to_bodyfile(&self.mapping, &all_type_records[&current_type_id][..]).expect("unable to create timeline from DbRecord"))
+                    Some(
+                        dbrecord
+                            .to_bodyfile(&self.mapping, &all_type_records[&current_type_id][..])
+                            .expect("unable to create timeline from DbRecord"),
+                    )
                 }
             })
             .flatten()
