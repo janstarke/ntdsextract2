@@ -33,7 +33,13 @@ OPTIONS:
 
 SUBCOMMANDS:
     computer    display computer accounts
+    entry       display one single entry from the directory information tree
+    group       Display groups
     help        Print this message or the help of the given subcommand(s)
+    search      search for entries whose values match to some regular expression
     timeline    create a timeline (in bodyfile format)
+    tree        display the directory information tree
+    types       list all defined types
     user        Display user accounts
+
 ```
