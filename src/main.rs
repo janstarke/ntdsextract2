@@ -114,6 +114,12 @@ enum Commands {
         /// maximum recursion depth 
         #[clap(long("max-depth"), default_value_t=4)]
         max_depth: u8
+    },
+
+    /// display one single entry from the directory information tree
+    Entry {
+        /// id of the entry to show
+        entry_id: i32,
     }
 }
 
@@ -175,7 +181,8 @@ fn main() -> Result<()> {
         Commands::Computer { format, .. } => data_table.show_computers(format),
         Commands::Types { format, .. } => data_table.show_type_names(format),
         Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
-        Commands::Tree { max_depth } => data_table.show_tree(*max_depth)
+        Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
+        Commands::Entry { entry_id } => data_table.show_entry(*entry_id),
     }
 }
 

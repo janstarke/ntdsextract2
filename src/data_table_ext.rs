@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-use crate::column_info_mapping::RecordToBodyfile;
+use crate::column_info_mapping::{RecordToBodyfile, FormatDbRecordForCli};
 use crate::computer::Computer;
 use crate::constants::*;
 use crate::esedb_utils::*;
@@ -174,6 +174,33 @@ impl<'a> DataTableExt<'a> {
     pub fn show_tree(&self, max_depth: u8) -> Result<()> {
         let tree = ObjectTreeEntry::to_tree(&self.object_tree, max_depth);
         println!("{}", tree);
+        Ok(())
+    }
+
+    pub fn show_entry(&self, entry_id: i32) -> Result<()> {
+        let mapping = &self.mapping;
+        match find_record_from(&self.data_table, move |r| 
+            r.ds_record_id(mapping)
+                .expect("unable to read ds_record_id attribute")
+                .expect("object has no ds_record_id attribute") == entry_id) {
+                    None => println!("no object with id '{entry_id} found"),
+                    Some(entry) => {
+                        let mut table = entry.to_table(&self.mapping);
+                        termsize::get().map(|size| {
+                            let attrib_size = 20;
+                            let value_size = if size.cols > attrib_size {
+                                size.cols - attrib_size
+                            } else {
+                                0
+                            };
+                            table.set_max_column_widths(vec![
+                                (0, attrib_size.into()),
+                                (1, value_size.into()),
+                            ])
+                        });
+                        println!("{}", table.render())
+                    }
+                }
         Ok(())
     }
 

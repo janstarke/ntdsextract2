@@ -2,7 +2,8 @@ use std::{collections::HashMap, io::Cursor};
 use bodyfile::Bodyfile3Line;
 use byteorder::{BigEndian, ReadBytesExt, LittleEndian};
 use chrono::{DateTime, Utc, NaiveDate, Duration};
-use libesedb::{Table, Value};
+use libesedb::Value;
+use term_table::{row::Row, table_cell::{TableCell, Alignment}};
 use crate::{column_information::ColumnInformation, win32_types::*};
 use anyhow::{Result, anyhow}; 
 use num_traits::FromPrimitive;
@@ -148,7 +149,7 @@ macro_rules! column_mapping {
             }
 
             impl $StructName {
-                pub fn from(data_table: &Table) -> Result<Self> {
+                pub fn from(data_table: &libesedb::Table) -> Result<Self> {
                     let mut temporary_mapping = HashMap::new();
                     let mut column_names = HashMap::new();
                     for index in 0..data_table.count_columns()? {
@@ -282,6 +283,37 @@ column_mapping! (
     // DS_DIAL_IN_ACCESS_PERMISSION_NAME as i32 from "ATTi590943",
     // DS_PEK as i32 from "ATTk590689",
 );
+
+pub (crate) trait FormatDbRecordForCli {
+    fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
+}
+
+impl FormatDbRecordForCli for DbRecord<'_> {
+    fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table {
+        let mut table = term_table::Table::new();
+        let all_attributes = self.all_attributes(mapping);
+        let mut keys = all_attributes.keys().collect::<Vec<&String>>();
+        keys.sort();
+
+        table.add_row(Row::new(
+            vec![
+                TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
+                TableCell::new_with_alignment("Value", 1, Alignment::Center)
+            ]
+        ));
+
+        for key in keys {
+            table.add_row(Row::new(
+                vec![
+                    TableCell::new(key),
+                    TableCell::new(all_attributes[key].to_string())
+                ]
+            ));
+        }
+
+        table
+    }
+}
 
 pub(crate) trait RecordToBodyfile {
     fn to_bodyfile(&self, mapping: &ColumnInfoMapping, type_name: &str) -> Result<Vec<Bodyfile3Line>>;
