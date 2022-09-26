@@ -43,7 +43,7 @@ impl ObjectTreeEntry {
     }
 
     pub (crate)fn to_tree(me:&Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
-        let tree = Tree::new(Rc::clone(&me));
+        let tree = Tree::new(Rc::clone(me));
         if max_depth > 0 {
             let leaves: Vec<Tree<Rc<ObjectTreeEntry>>> = me
                 .children.borrow()
@@ -103,7 +103,7 @@ impl ObjectTreeEntry {
 
             names.insert(id, name);
             uplinks.insert(id, parent_id);
-            downlinks.entry(parent_id).or_insert(HashSet::new()).insert(id);
+            downlinks.entry(parent_id).or_insert_with(HashSet::new).insert(id);
         }
 
         log::debug!("found {} entries in the DIT", names.len());
@@ -116,7 +116,7 @@ impl ObjectTreeEntry {
         let name = if object_id == 0 {
             String::new()
         } else {
-            names.remove(&object_id).expect(&format!("missing name for object with id '{object_id}'"))
+            names.remove(&object_id).unwrap_or_else(|| panic!("missing name for object with id '{object_id}'"))
         };
 
         //log::trace!("inserting new object '{}'", name);

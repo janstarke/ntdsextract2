@@ -61,9 +61,9 @@ impl FromDbRecord for Person {
             None => bail!("object has no record id"),
         };
         let member_of = if let Some(children) = data_table.link_table().members(&object_id) {
-            children.iter().map(|child_id| {
+            children.iter().filter_map(|child_id| {
                 find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
-            }).filter_map(|r| r)
+            })
             .map(|record| record.ds_object_name2(mapping).expect("error while reading object name").expect("missing object name"))
             .collect()
         } else {

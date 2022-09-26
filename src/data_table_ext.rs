@@ -214,10 +214,11 @@ impl<'a> DataTableExt<'a> {
             None => println!("no object with id '{entry_id} found"),
             Some(entry) => {
                 let mut table = entry.to_table(&self.mapping);
-                termsize::get().map(|size| {
+
+                if let Some(size) = termsize::get() {
                     let attrib_size = 20;
-                    let value_size = if size.cols > attrib_size {
-                        size.cols - attrib_size
+                    let value_size = if size.cols > (attrib_size + 2) {
+                        size.cols - (attrib_size + 2)
                     } else {
                         0
                     };
@@ -225,7 +226,7 @@ impl<'a> DataTableExt<'a> {
                         (0, attrib_size.into()),
                         (1, value_size.into()),
                     ])
-                });
+                }
                 println!("{}", table.render())
             }
         }
@@ -235,13 +236,13 @@ impl<'a> DataTableExt<'a> {
     pub(crate) fn search_entries(&self, regex: &str) -> Result<()> {
         let mapping = &self.mapping;
         let re = Regex::new(regex)?;
-        let mut table_columns = Vec::new();
-
-        table_columns.push("DNT_col".to_owned());
-        table_columns.push("PDNT_col".to_owned());
-        table_columns.push("ATTm3".to_owned()); // object name
-        table_columns.push("ATTm589825".to_owned()); // object name 2
-        table_columns.push("ATTb590606".to_owned()); // object type id
+        let mut table_columns = vec![
+            "DNT_col".to_owned(),
+            "PDNT_col".to_owned(),
+            "ATTm3".to_owned(),
+            "ATTm589825".to_owned(),
+            "ATTb590606".to_owned(),
+        ];
 
         let mut records = Vec::new();
 
@@ -252,7 +253,7 @@ impl<'a> DataTableExt<'a> {
                 .filter(|(_, v)| re.is_match(v))
                 .map(|(a, v)| (a.to_owned(), v.to_owned()))
                 .collect::<Vec<(String, String)>>();
-            if matching_columns.len() > 0 {
+            if !matching_columns.is_empty() {
                 for (a, _) in matching_columns {
                     if !table_columns.contains(&a) {
                         table_columns.push(a);
@@ -352,13 +353,11 @@ impl<'a> DataTableExt<'a> {
                         Some(type_name) => {
                             if *type_name == TYPENAME_PERSON {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Person as FromDbRecord>::from(dbrecord, self)
-                                        .unwrap(),
+                                    <Person as FromDbRecord>::from(dbrecord, self).unwrap(),
                                 ))
                             } else if *type_name == TYPENAME_COMPUTER {
                                 Some(Vec::<Bodyfile3Line>::from(
-                                    <Computer as FromDbRecord>::from(dbrecord, self)
-                                        .unwrap(),
+                                    <Computer as FromDbRecord>::from(dbrecord, self).unwrap(),
                                 ))
                             } else {
                                 None

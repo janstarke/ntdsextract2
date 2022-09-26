@@ -46,8 +46,8 @@ impl LinkTableExt {
                 _ => bail!("column backlink_DNT has an unexpected type"),
             };
 
-            forward_map.entry(forward_link).or_insert(HashSet::new()).insert(backward_link);
-            backward_map.entry(backward_link).or_insert(HashSet::new()).insert(forward_link);
+            forward_map.entry(forward_link).or_insert_with(HashSet::new).insert(backward_link);
+            backward_map.entry(backward_link).or_insert_with(HashSet::new).insert(forward_link);
         }
 
         Ok(Self {
