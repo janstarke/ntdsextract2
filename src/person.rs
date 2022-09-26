@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::{find_by_id, find_by_rid}};
 use anyhow::{Result, bail};
 use chrono::{Utc, DateTime};
 use crate::serialization::*;
@@ -18,7 +18,13 @@ pub (crate) struct Person {
     user_account_control: Option<UserAccountControl>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
+
+    //#[serde(skip_serializing)]
+    #[allow(dead_code)]
     primary_group_id: Option<i32>,
+
+    primary_group: Option<String>,
+
     comment: Option<String>,
     aduser_objects: Option<String>,
 
@@ -56,10 +62,20 @@ pub (crate) struct Person {
 impl FromDbRecord for Person {
     fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
         let mapping = data_table.mapping();
+        let table = data_table.data_table();
         let object_id = match dbrecord.ds_record_id(mapping)? {
             Some(id) => id,
             None => bail!("object has no record id"),
         };
+
+        let primary_group_id = dbrecord.ds_primary_group_id(mapping)?;
+        let primary_group = primary_group_id.and_then(|group_id| {
+            find_by_rid(table, mapping, group_id.try_into().unwrap()).and_then(|group| {
+                group.ds_object_name2(mapping)
+                    .expect("unable to read object name2")
+            })
+        });
+
         let member_of = if let Some(children) = data_table.link_table().members(&object_id) {
             children.iter().filter_map(|child_id| {
                 find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
@@ -86,7 +102,8 @@ impl FromDbRecord for Person {
             bad_pwd_time: dbrecord.ds_bad_pwd_time(mapping)?,
             logon_count: dbrecord.ds_logon_count(mapping)?,
             bad_pwd_count: dbrecord.ds_bad_pwd_count(mapping)?,
-            primary_group_id: dbrecord.ds_primary_group_id(mapping)?,
+            primary_group_id,
+            primary_group,
             comment: dbrecord.ds_att_comment(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects(mapping)?,
             member_of,

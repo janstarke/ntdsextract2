@@ -80,6 +80,28 @@ fn value_to_sid(value: Value, attrib_name: &str) -> Result<Option<String>> {
     }
 }
 
+pub (crate) fn value_to_rid(value: Value, attrib_name: &str) -> Result<Option<u32>> {
+    match value {
+        Value::Binary(val) | Value::LargeBinary(val) => {
+            //log::debug!("val: {:?}", val);
+            let mut rdr = Cursor::new(val);
+            let _revision = rdr.read_u8()?;
+            let number_of_dashes = rdr.read_u8()?;
+            let _authority = rdr.read_u48::<BigEndian>()?;
+
+            //log::debug!("authority: {:012x}", authority);
+
+            for _i in 0..number_of_dashes-1 {
+                let _ = rdr.read_u32::<LittleEndian>()?;
+            }
+            let rid = rdr.read_u32::<BigEndian>()?;
+            Ok(Some(rid))
+        }
+        Value::Null => Ok(None),
+        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
+    }
+}
+
 fn value_to_uac_flags(value: Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
     match value {
         Value::I32(val) =>
@@ -118,6 +140,13 @@ macro_rules! define_getter_int {
                     }
                     _ => false
                 }
+            }
+        }
+
+        paste! {
+            #[allow(dead_code)]
+            pub fn [<value_of_ $field>](&self, mapping: &ColumnInfoMapping) -> Option<Value> {
+                self.inner_record.value(mapping.$field.id()).ok()
             }
         }
     };
