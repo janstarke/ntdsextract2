@@ -1,4 +1,4 @@
-![Crates.io](https://img.shields.io/crates/v/ntdsextract2)
+[![Crates.io](https://img.shields.io/crates/v/ntdsextract2)](https://crates.io/crates/ntdsextract2)
 ![Crates.io](https://img.shields.io/crates/l/ntdsextract2)
 ![Crates.io (latest)](https://img.shields.io/crates/dv/ntdsextract2)
 
@@ -42,4 +42,124 @@ SUBCOMMANDS:
     types       list all defined types
     user        Display user accounts
 
+```
+
+## Search for entries
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> search [OPTIONS] <REGEX>
+
+ARGS:
+    <REGEX>    regular expression to match against
+
+OPTIONS:
+    -h, --help           Print help information
+    -i, --ignore-case    case-insensitive search (ignore case)
+    -q, --quiet          Less output per occurrence
+    -v, --verbose        More output per occurrence
+```
+
+## Displaying a single entry
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> entry [OPTIONS] <ENTRY_ID>
+
+ARGS:
+    <ENTRY_ID>    id of the entry to show
+
+OPTIONS:
+    -h, --help       Print help information
+    -q, --quiet      Less output per occurrence
+        --sid        search for SID instead for NTDS.DIT entry id. <ENTRY_ID> will be interpreted as
+                     RID, wich is the last part of the SID; e.g. 500 will return the Administrator
+                     account
+    -v, --verbose    More output per occurrence
+```
+
+## Displaying the tree structure of the AD
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> tree [OPTIONS]
+
+OPTIONS:
+    -h, --help                     Print help information
+        --max-depth <MAX_DEPTH>    maximum recursion depth [default: 4]
+    -q, --quiet                    Less output per occurrence
+    -v, --verbose                  More output per occurrence
+```
+
+## Creating a timeline
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> timeline [OPTIONS]
+
+OPTIONS:
+        --all-objects    show objects of any type (this might be a lot)
+    -h, --help           Print help information
+    -q, --quiet          Less output per occurrence
+    -v, --verbose        More output per occurrence
+```
+
+## Enumerating ...
+
+### ... users
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> user [OPTIONS]
+
+OPTIONS:
+    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
+                             selected
+    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
+    -h, --help               Print help information
+    -q, --quiet              Less output per occurrence
+    -v, --verbose            More output per occurrence
+```
+
+### ... groups
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> group [OPTIONS]
+
+OPTIONS:
+    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
+                             selected
+    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
+    -h, --help               Print help information
+    -q, --quiet              Less output per occurrence
+    -v, --verbose            More output per occurrence
+```
+
+### ... computers
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> computer [OPTIONS]
+
+OPTIONS:
+    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
+                             selected
+    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
+    -h, --help               Print help information
+    -q, --quiet              Less output per occurrence
+    -v, --verbose            More output per occurrence
+```
+
+### ... types
+
+```
+USAGE:
+    ntdsextract2 <NTDS_FILE> types [OPTIONS]
+
+OPTIONS:
+    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
+    -h, --help               Print help information
+    -q, --quiet              Less output per occurrence
+    -v, --verbose            More output per occurrence
 ```
