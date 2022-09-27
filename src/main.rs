@@ -5,7 +5,7 @@ use libesedb::{EseDb};
 use simplelog::{Config, TermLogger};
 use anyhow::{Result};
 
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt, link_table_ext::LinkTableExt};
+use crate::{column_info_mapping::*, data_table_ext::DataTableExt, link_table_ext::LinkTableExt, entry_id::EntryId};
 
 mod person;
 mod computer;
@@ -19,6 +19,7 @@ mod win32_types;
 mod esedb_utils;
 mod object_tree_entry;
 mod serialization;
+mod entry_id;
 
 /// this needs to be global, 
 /// because it is read by serialization code, which has no state by default
@@ -120,6 +121,12 @@ enum Commands {
     Entry {
         /// id of the entry to show
         entry_id: i32,
+
+        /// search for SID instead for NTDS.DIT entry id.
+        /// <ENTRY_ID> will be interpreted as RID, wich is the last part of the SID;
+        /// e.g. 500 will return the Administrator account
+        #[clap(long("sid"))]
+        use_sid: bool
     },
 
     /// search for entries whose values match to some regular expression
@@ -193,7 +200,14 @@ fn main() -> Result<()> {
         Commands::Types { format, .. } => data_table.show_type_names(format),
         Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
         Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
-        Commands::Entry { entry_id } => data_table.show_entry(*entry_id),
+        Commands::Entry { entry_id , use_sid} => {
+            let id = if *use_sid {
+                EntryId::Rid((*entry_id).try_into().unwrap())
+            } else {
+                EntryId::Id(*entry_id)
+            };
+            data_table.show_entry(id)
+        }
         Commands::Search { regex , ignore_case} => {
             let regex = if *ignore_case {
                 format!("(?i:{regex})")

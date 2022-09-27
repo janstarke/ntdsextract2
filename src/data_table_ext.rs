@@ -4,6 +4,7 @@ use std::rc::Rc;
 use crate::column_info_mapping::{FormatDbRecordForCli, RecordToBodyfile};
 use crate::computer::Computer;
 use crate::constants::*;
+use crate::entry_id::EntryId;
 use crate::esedb_utils::*;
 use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
@@ -203,15 +204,16 @@ impl<'a> DataTableExt<'a> {
         Ok(())
     }
 
-    pub fn show_entry(&self, entry_id: i32) -> Result<()> {
+    pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
         let mapping = &self.mapping;
-        match find_record_from(&self.data_table, move |r| {
-            r.ds_record_id(mapping)
-                .expect("unable to read ds_record_id attribute")
-                .expect("object has no ds_record_id attribute")
-                == entry_id
-        }) {
-            None => println!("no object with id '{entry_id} found"),
+
+        let record = match entry_id {
+            EntryId::Id(id) => find_by_id(&self.data_table, mapping, id),
+            EntryId::Rid(rid) => find_by_rid(&self.data_table, mapping, rid)
+        };
+
+        match record {
+            None => println!("no matching object found"),
             Some(entry) => {
                 let mut table = entry.to_table(&self.mapping);
 
