@@ -2,7 +2,7 @@ use num_derive::FromPrimitive;
 use serde::Serialize;
 use strum::EnumString;
 
-#[derive(EnumString, FromPrimitive, Serialize)]
+#[derive(EnumString, FromPrimitive, Serialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub (crate) enum SamAccountType {
 

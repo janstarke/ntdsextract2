@@ -20,15 +20,15 @@ where
 pub(crate) fn filter_records_from<'a, 'b, P>(
     data_table: &'b Table<'a>,
     predicate: P,
-) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
+) -> impl Iterator<Item = DbRecord<'b>> + 'b
 where
     P: FnMut(&DbRecord<'b>) -> bool + 'b,
     'a: 'b,
 {
-    Box::new(iter_records(data_table).filter(predicate).map(|r| {
+    iter_records(data_table).filter(predicate).map(|r| {
         log::trace!("found one object");
         r
-    }))
+    })
 }
 
 pub(crate) fn find_record_from<'a, 'b, P>(

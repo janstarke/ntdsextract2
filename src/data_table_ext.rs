@@ -34,14 +34,18 @@ pub(crate) struct DataTableExt<'a> {
 
 impl<'a> DataTableExt<'a> {
     /// create a new datatable wrapper
-    pub fn from(table: Table<'a>, link_table: LinkTableExt) -> Result<Self> {
+    pub fn from(data_table: Table<'a>, link_table: Table<'_>) -> Result<Self> {
         log::info!("reading schema information and creating record cache");
-        let mapping = ColumnInfoMapping::from(&table)?;
-        let object_tree = ObjectTreeEntry::from(&table, &mapping)?;
-        let schema_record_id = Self::get_schema_record_id(&table, &mapping)?;
+        let mapping = ColumnInfoMapping::from(&data_table)?;
+        let object_tree = ObjectTreeEntry::from(&data_table, &mapping)?;
+        let schema_record_id = Self::get_schema_record_id(&data_table, &mapping)?;
+
+
+        let link_table: LinkTableExt = LinkTableExt::from(link_table, &data_table, &mapping, schema_record_id)?;
+
         log::debug!("found the schema record id is '{}'", schema_record_id);
         Ok(Self {
-            data_table: table,
+            data_table,
             link_table,
             mapping,
             schema_record_id,
@@ -61,21 +65,27 @@ impl<'a> DataTableExt<'a> {
         &self.data_table
     }
 
-    fn find_children_of<'b>(&'a self, parent_id: i32) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
+    pub(crate) fn find_children_of<'b>(data_table: &'a Table<'_>, mapping: &'a ColumnInfoMapping, parent_id: i32) -> impl Iterator<Item = DbRecord<'b>> + 'b
+    where
+        'a: 'b,
+    {
+        log::debug!("searching for children of record '{}'", parent_id);
+
+        filter_records_from(
+            data_table,
+            move |dbrecord: &DbRecord| {
+                dbrecord.ds_parent_record_id(mapping).unwrap().unwrap() == parent_id
+            },
+        )
+    }
+
+    fn find_children_of_int<'b>(&'a self, parent_id: i32) -> impl Iterator<Item = DbRecord<'b>> + 'b
     where
         'a: 'b,
     {
         let data_table = &self.data_table;
         let mapping = &self.mapping;
-
-        log::debug!("searching for children of record '{}'", parent_id);
-
-        Box::new(filter_records_from(
-            data_table,
-            move |dbrecord: &DbRecord| {
-                dbrecord.ds_parent_record_id(mapping).unwrap().unwrap() == parent_id
-            },
-        ))
+        Self::find_children_of(data_table, mapping, parent_id)
     }
 
     /// returns the record id of the record which contains the Schema object
@@ -117,7 +127,7 @@ impl<'a> DataTableExt<'a> {
 
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
-        for dbrecord in self.find_children_of(self.schema_record_id) {
+        for dbrecord in self.find_children_of_int(self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -133,10 +143,10 @@ impl<'a> DataTableExt<'a> {
         mut type_names: HashSet<&str>,
     ) -> Result<HashMap<String, DbRecord>> {
         let mut type_records = HashMap::new();
-        let children = self.find_children_of(self.schema_record_id);
+        let children = self.find_children_of_int(self.schema_record_id);
         anyhow::ensure!(children.count() > 0, "The schema record has no children");
 
-        for dbrecord in self.find_children_of(self.schema_record_id) {
+        for dbrecord in self.find_children_of_int(self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -170,7 +180,7 @@ impl<'a> DataTableExt<'a> {
 
     pub fn show_type_names(&self, format: &OutputFormat) -> Result<()> {
         let mut type_names = HashSet::new();
-        for dbrecord in self.find_children_of(self.schema_record_id) {
+        for dbrecord in self.find_children_of_int(self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
