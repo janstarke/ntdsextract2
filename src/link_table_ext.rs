@@ -4,18 +4,12 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{column_info_mapping::ColumnInfoMapping, data_table_ext::DataTableExt};
 
-/// wraps a ESEDB Table.
-/// This class assumes the a NTDS link_table is being wrapped
-pub(crate) struct LinkTableExt {
-    forward_map: HashMap<i32, HashSet<i32>>,
-    backward_map: HashMap<i32, HashSet<i32>>,
-}
-
 struct LinkTableBuilder<'a, 'b, 'c> {
     link_table: Table<'b>,
     data_table: &'a Table<'b>,
     mapping: &'c ColumnInfoMapping,
     schema_record_id: i32,
+    columns: HashMap<String, i32>,
 }
 
 impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
@@ -24,47 +18,68 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
         data_table: &'a Table<'b>,
         mapping: &'c ColumnInfoMapping,
         schema_record_id: i32,
-    ) -> Self {
-        Self {
+    ) -> Result<Self> {
+        let columns = Self::read_column_names(&link_table)?;
+
+        Ok(Self {
             link_table,
             data_table,
             mapping,
             schema_record_id,
+            columns,
+        })
+    }
+
+    fn read_column_names(link_table: &Table<'_>) -> Result<HashMap<String, i32>> {
+        let mut columns = HashMap::new();
+        for index in 0..link_table.count_columns()? - 1 {
+            let column = link_table.column(index)?;
+            columns.insert(column.name()?, index);
+        }
+        Ok(columns)
+    }
+
+    fn column_id(&self, name: &str) -> Result<i32> {
+        match self.columns.get(name) {
+            Some(id) => Ok(*id),
+            None => bail!("no column by that name: '{name}'"),
         }
     }
 
     pub fn build(self) -> Result<LinkTableExt> {
-        let (member_link_id, member_of_link_id) =
-            self.find_member_link_id_pair()?;
-
-        let mut columns = HashMap::new();
-        for index in 0..self.link_table.count_columns()? - 1 {
-            let column = self.link_table.column(index)?;
-            columns.insert(column.name()?, index);
-        }
-        let link_dnt_id = match columns.get("link_DNT") {
-            Some(v) => v,
-            _ => bail!("missing link_DNT column"),
-        };
-
-        let backward_dnt_id = match columns.get("backlink_DNT") {
-            Some(v) => v,
-            _ => bail!("missing backlink_DNT column"),
-        };
+        let (member_link_id, member_of_link_id) = self.find_member_link_id_pair()?;
+        let link_base = member_link_id / 2;
+        let link_dnt_id = self.column_id("link_DNT")?;
+        let backward_dnt_id = self.column_id("backlink_DNT")?;
+        let link_base_id = self.column_id("link_base")?;
 
         let mut forward_map = HashMap::new();
         let mut backward_map = HashMap::new();
-        for record in self.link_table
+
+        for record in self
+            .link_table
             .iter_records()
             .expect("unable to iterate this table")
             .filter_map(|r| r.ok())
+            .filter(|r| match 
+              r.value(link_base_id){
+                Ok(Value::U32(v)) => v == member_link_id,
+                Ok(Value::I32(v)) => {
+                  let v: Result<u32, std::num::TryFromIntError> = v.try_into();
+                  match v {
+                    Ok(v) => v == link_base,
+                    _ => false
+                  }
+                }
+                _ => false,
+            })
         {
-            let forward_link = match record.value(*link_dnt_id)? {
+            let forward_link = match record.value(link_dnt_id)? {
                 Value::I32(v) => v,
                 _ => bail!("column link_DNT has an unexpected type"),
             };
 
-            let backward_link = match record.value(*backward_dnt_id)? {
+            let backward_link = match record.value(backward_dnt_id)? {
                 Value::I32(v) => v,
                 _ => bail!("column backlink_DNT has an unexpected type"),
             };
@@ -94,6 +109,11 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
         let member_of_link_id = self.find_link_id(&String::from("Is-Member-Of-DL"))?;
 
         ensure!(
+            member_link_id & 1 == 0,
+            "the forward LinkID must be a even number"
+        );
+
+        ensure!(
             member_link_id + 1 == member_of_link_id,
             "invalid LinkID values: {} and {}",
             member_link_id,
@@ -109,11 +129,21 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
         {
             Some(record) => match record.ds_link_id(self.mapping)? {
                 Some(id) => Ok(id),
-                None => bail!("record '{}' (name is '{attribute_name}') has no LinkId attribute", record.ds_record_id(self.mapping)?.unwrap()),
+                None => bail!(
+                    "record '{}' (name is '{attribute_name}') has no LinkId attribute",
+                    record.ds_record_id(self.mapping)?.unwrap()
+                ),
             },
             None => bail!("found no record by that name: '{attribute_name}'"),
         }
     }
+}
+
+/// wraps a ESEDB Table.
+/// This class assumes the a NTDS link_table is being wrapped
+pub(crate) struct LinkTableExt {
+    forward_map: HashMap<i32, HashSet<i32>>,
+    backward_map: HashMap<i32, HashSet<i32>>,
 }
 
 impl LinkTableExt {
@@ -126,7 +156,7 @@ impl LinkTableExt {
     ) -> Result<Self> {
         log::info!("reading link information and creating link_table cache");
 
-        let builder = LinkTableBuilder::from(link_table, data_table, mapping, schema_record_id);
+        let builder = LinkTableBuilder::from(link_table, data_table, mapping, schema_record_id)?;
         builder.build()
     }
 

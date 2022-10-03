@@ -1,183 +1,19 @@
-use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt};
-use anyhow::{anyhow, Result};
+use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt, esedb_utils::*};
+use anyhow::Result;
 use bodyfile::Bodyfile3Line;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use chrono::{DateTime, Duration, NaiveDate, Utc};
 use libesedb::Value;
-use num_traits::FromPrimitive;
 use paste::paste;
-use std::{collections::HashMap, io::Cursor};
+use std::{collections::HashMap};
 use term_table::{
     row::Row,
     table_cell::{Alignment, TableCell},
 };
 
-fn value_to_i32(value: Value, attrib_name: &str) -> Result<Option<i32>> {
-    match value {
-        Value::I32(val) => Ok(Some(val)),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-fn value_to_u32(value: Value, attrib_name: &str) -> Result<Option<u32>> {
-    match value {
-        Value::U8(val) => Ok(Some(val.into())),
-        Value::U16(val) => Ok(Some(val.into())),
-        Value::U32(val) => Ok(Some(val)),
-        Value::I16(val) => Ok(Some(val.try_into()?)),
-        Value::I32(val) => Ok(Some(val.try_into()?)),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-fn value_to_str(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Text(val) => Ok(Some(val)),
-        Value::LargeText(val) => Ok(Some(val)),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-type UtcDatetime = DateTime<Utc>;
-fn value_to_datetime(value: Value, attrib_name: &str) -> Result<Option<UtcDatetime>> {
-    match value {
-        Value::Currency(val) => Ok(Some(currency_to_datetime(val))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-fn currency_to_datetime(val: i64) -> DateTime<Utc> {
-    let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-    let duration = Duration::microseconds(val / 10);
-    dt_base + duration
-}
-
-fn value_to_bin(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(hex::encode(val))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-/// https://devblogs.microsoft.com/oldnewthing/20040315-00/?p=40253
-fn value_to_sid(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => {
-            //log::debug!("val: {:?}", val);
-            let mut rdr = Cursor::new(val);
-            let revision = rdr.read_u8()?;
-            let number_of_dashes = rdr.read_u8()?;
-            let authority = rdr.read_u48::<BigEndian>()?;
-
-            //log::debug!("authority: {:012x}", authority);
-
-            let mut numbers = vec![];
-            for _i in 0..number_of_dashes - 1 {
-                numbers.push(rdr.read_u32::<LittleEndian>()?);
-            }
-            numbers.push(rdr.read_u32::<BigEndian>()?);
-
-            let numbers = numbers
-                .into_iter()
-                .map(|n| format!("{n}"))
-                .collect::<Vec<String>>()
-                .join("-");
-
-            Ok(Some(format!("S-{revision}-{authority}-{numbers}")))
-        }
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-pub(crate) fn value_to_rid(value: Value, attrib_name: &str) -> Result<Option<u32>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => {
-            //log::debug!("val: {:?}", val);
-            let mut rdr = Cursor::new(val);
-            let _revision = rdr.read_u8()?;
-            let number_of_dashes = rdr.read_u8()?;
-            let _authority = rdr.read_u48::<BigEndian>()?;
-
-            //log::debug!("authority: {:012x}", authority);
-
-            for _i in 0..number_of_dashes - 1 {
-                let _ = rdr.read_u32::<LittleEndian>()?;
-            }
-            let rid = rdr.read_u32::<BigEndian>()?;
-            Ok(Some(rid))
-        }
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-fn value_to_uac_flags(value: Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
-    match value {
-        Value::I32(val) => Ok(Some(<UserAccountControl>::from_bits_truncate(
-            u32::from_ne_bytes(val.to_ne_bytes()),
-        ))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
-fn value_to_sam_account_type(value: Value, attrib_name: &str) -> Result<Option<SamAccountType>> {
-    match value {
-        Value::I32(val) => Ok(FromPrimitive::from_u32(u32::from_ne_bytes(
-            val.to_ne_bytes(),
-        ))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!(
-            "invalid value detected: {:?} in field {}",
-            value,
-            attrib_name
-        )),
-    }
-}
-
 macro_rules! define_getter_int {
-    ($field: ident, $fn_name: ident, $res_type: ident) => {
+    ($field: ident, $res_type: ident) => {
         #[allow(dead_code)]
         pub fn $field(&self, mapping: &ColumnInfoMapping) -> Result<Option<$res_type>> {
-            $fn_name(
+            $res_type::from_value_opt(
                 self.inner_record.value(mapping.$field.id())?,
                 stringify!($field)
             )
@@ -187,7 +23,7 @@ macro_rules! define_getter_int {
             #[allow(dead_code)]
             pub fn [<has_valid_ $field>](&self, mapping: &ColumnInfoMapping) -> bool {
                 match self.inner_record.value(mapping.$field.id()) {
-                    Ok(value) => match $fn_name(value, stringify!($field)) {
+                    Ok(value) => match $res_type::from_value_opt(value, stringify!($field)) {
                         Ok(Some(_)) => true,
                         _ => false
                     }
@@ -217,28 +53,28 @@ macro_rules! define_getter_int {
 
 macro_rules! define_getter {
     ($field: ident as i32) => {
-        define_getter_int!($field, value_to_i32, i32);
+        define_getter_int!($field, i32);
     };
     ($field: ident as u32) => {
-        define_getter_int!($field, value_to_u32, u32);
+        define_getter_int!($field, u32);
     };
     ($field: ident as str) => {
-        define_getter_int!($field, value_to_str, String);
+        define_getter_int!($field, String);
     };
     ($field: ident as sid) => {
-        define_getter_int!($field, value_to_sid, String);
+        define_getter_int!($field, Sid);
     };
     ($field: ident as binary) => {
-        define_getter_int!($field, value_to_bin, String);
+        define_getter_int!($field, String);
     };
     ($field: ident as datetime) => {
-        define_getter_int!($field, value_to_datetime, UtcDatetime);
+        define_getter_int!($field, UtcDatetime);
     };
     ($field: ident as uac_flags) => {
-        define_getter_int!($field, value_to_uac_flags, UserAccountControl);
+        define_getter_int!($field, UserAccountControl);
     };
     ($field: ident as sam_account_type) => {
-        define_getter_int!($field, value_to_sam_account_type, SamAccountType);
+        define_getter_int!($field, SamAccountType);
     };
 }
 

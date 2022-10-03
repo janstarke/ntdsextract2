@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, constants::TYPENAME_COMPUTER, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt};
+use crate::{DbRecord, FromDbRecord, constants::TYPENAME_COMPUTER, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid}, data_table_ext::DataTableExt};
 use anyhow::Result;
 use chrono::{Utc, DateTime};
 use crate::serialization::*;
@@ -12,7 +12,7 @@ use crate::serialization::*;
 pub (crate) struct Computer {
 
 
-    sid: Option<String>,
+    sid: Option<Sid>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,

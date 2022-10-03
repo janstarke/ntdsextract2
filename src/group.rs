@@ -3,7 +3,7 @@ use std::{collections::HashMap};
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
 use anyhow::{Result, bail};
 use chrono::{Utc, DateTime};
 use crate::serialization::*;
@@ -11,7 +11,7 @@ use crate::serialization::*;
 #[derive(Serialize)]
 pub (crate) struct Group {
 
-    sid: Option<String>,
+    sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,

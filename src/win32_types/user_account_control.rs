@@ -1,8 +1,10 @@
 use bitflags::bitflags;
 use field_names::FieldNames;
+use libesedb::Value;
 use serde::Serialize;
+use anyhow::{anyhow, Result};
 
-use crate::do_flat_serialization;
+use crate::{do_flat_serialization, esedb_utils::FromValue};
 
 bitflags! {
 
@@ -125,4 +127,20 @@ impl Serialize for UserAccountControl {
                 flags.serialize(serializer)
             }
     }
+}
+
+impl FromValue for UserAccountControl {
+  fn from_value_opt(value: Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
+      match value {
+          Value::I32(val) => Ok(Some(<UserAccountControl>::from_bits_truncate(
+              u32::from_ne_bytes(val.to_ne_bytes()),
+          ))),
+          Value::Null => Ok(None),
+          _ => Err(anyhow!(
+              "invalid value detected: {:?} in field {}",
+              value,
+              attrib_name
+          )),
+      }
+  }
 }
