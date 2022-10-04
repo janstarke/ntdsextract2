@@ -5,7 +5,7 @@ use libesedb::{EseDb};
 use simplelog::{Config, TermLogger};
 use anyhow::{Result};
 
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt, link_table_ext::LinkTableExt, entry_id::EntryId};
+use crate::{column_info_mapping::*, data_table_ext::DataTableExt, entry_id::EntryId};
 
 mod person;
 mod computer;
@@ -20,6 +20,7 @@ mod esedb_utils;
 mod object_tree_entry;
 mod serialization;
 mod entry_id;
+//mod cached_table;
 
 /// this needs to be global, 
 /// because it is read by serialization code, which has no state by default
@@ -46,6 +47,10 @@ pub (crate) fn do_flat_serialization() -> bool {
     unsafe {
         FLAT_SERIALIZATION
     }
+}
+
+pub (crate) fn serde_flat_serialization<T>(_t: &T) -> bool {
+    do_flat_serialization()
 }
 
 fn set_do_flat_serialization(val: bool) {
@@ -172,8 +177,9 @@ fn main() -> Result<()> {
     let esedb = EseDb::open(&cli.ntds_file)?;
     log::info!("Db load finished");
 
-    let link_table: LinkTableExt = LinkTableExt::from(esedb.table_by_name("link_table")?)?;
-    let data_table = DataTableExt::from(esedb.table_by_name("datatable")?, link_table)?;
+    let raw_data_table = esedb.table_by_name("datatable")?;
+    let raw_link_table = esedb.table_by_name("link_table")?;
+    let data_table = DataTableExt::from(raw_data_table, raw_link_table)?;
 
     set_display_all_attributes(
        match &cli.command {

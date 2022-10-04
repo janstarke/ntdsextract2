@@ -3,21 +3,22 @@ use std::{collections::HashMap};
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
 use anyhow::{Result, bail};
 use chrono::{Utc, DateTime};
 use crate::serialization::*;
+use crate::serde_flat_serialization;
 
 #[derive(Serialize)]
 pub (crate) struct Group {
 
-    sid: Option<String>,
+    sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
 
-    #[serde(serialize_with = "serialize_object_list")]
+    #[serde(skip_serializing_if = "serde_flat_serialization", serialize_with = "serialize_object_list")]
     members: Vec<String>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
@@ -60,7 +61,7 @@ impl FromDbRecord for Group {
             Some(id) => id,
             None => bail!("object has no record id"),
         };
-        let members = if let Some(children) = data_table.link_table().member_of(&object_id) {
+        let members = if let Some(children) = data_table.link_table().members(&object_id) {
             children.iter().filter_map(|child_id| {
                 find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
             })

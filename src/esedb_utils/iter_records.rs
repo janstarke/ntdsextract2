@@ -1,34 +1,34 @@
 use libesedb::Table;
 
-use crate::column_info_mapping::{ColumnInfoMapping, DbRecord, value_to_rid};
+use crate::{column_info_mapping::{ColumnInfoMapping, DbRecord}, win32_types::Sid};
+
+use super::FromValue;
 
 pub(crate) fn iter_records<'a, 'b>(
     data_table: &'b Table<'a>,
-) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
+) -> impl Iterator<Item = DbRecord<'b>> + 'b
 where
     'a: 'b,
 {
-    Box::new(
-        data_table
-            .iter_records()
-            .expect("unable to iterate this table")
-            .filter_map(|r| r.ok())
-            .map(DbRecord::from),
-    )
+    data_table
+        .iter_records()
+        .expect("unable to iterate this table")
+        .filter_map(|r| r.ok())
+        .map(DbRecord::from)
 }
 
 pub(crate) fn filter_records_from<'a, 'b, P>(
     data_table: &'b Table<'a>,
     predicate: P,
-) -> Box<dyn Iterator<Item = DbRecord<'b>> + 'b>
+) -> impl Iterator<Item = DbRecord<'b>> + 'b
 where
     P: FnMut(&DbRecord<'b>) -> bool + 'b,
     'a: 'b,
 {
-    Box::new(iter_records(data_table).filter(predicate).map(|r| {
+    iter_records(data_table).filter(predicate).map(|r| {
         log::trace!("found one object");
         r
-    }))
+    })
 }
 
 pub(crate) fn find_record_from<'a, 'b, P>(
@@ -69,7 +69,11 @@ where
     find_record_from(table, |d| {
         d.value_of_ds_sid(mapping)
             .and_then(|sid| {
-                value_to_rid(sid, "ATTj589922").ok().flatten().map(|rid| rid == object_rid)
-            }).unwrap_or(false)
+                Sid::from_value_opt(sid, "ATTj589922")
+                    .ok()
+                    .flatten()
+                    .map(|sid| sid.get_rid() == &object_rid)
+            })
+            .unwrap_or(false)
     })
 }

@@ -1,130 +1,19 @@
-use std::{collections::HashMap, io::Cursor};
+use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt, esedb_utils::*};
+use anyhow::Result;
 use bodyfile::Bodyfile3Line;
-use byteorder::{BigEndian, ReadBytesExt, LittleEndian};
-use chrono::{DateTime, Utc, NaiveDate, Duration};
 use libesedb::Value;
-use term_table::{row::Row, table_cell::{TableCell, Alignment}};
-use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt};
-use anyhow::{Result, anyhow}; 
-use num_traits::FromPrimitive;
 use paste::paste;
-
-fn value_to_i32(value: Value, attrib_name: &str) -> Result<Option<i32>> {
-    match value {
-        Value::I32(val) => Ok(Some(val)),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-fn value_to_str(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Text(val) => Ok(Some(val)),
-        Value::LargeText(val) => Ok(Some(val)),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-type UtcDatetime = DateTime<Utc>;
-fn value_to_datetime(value: Value, attrib_name: &str) -> Result<Option<UtcDatetime>> {
-    match value {
-        Value::Currency(val) => Ok(Some(currency_to_datetime(val))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-fn currency_to_datetime(val: i64) -> DateTime<Utc> {
-    let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-    let duration = Duration::microseconds(val / 10);
-    dt_base + duration
-}
-
-fn value_to_bin(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => {
-            Ok(Some(hex::encode(val)))
-        }
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-/// https://devblogs.microsoft.com/oldnewthing/20040315-00/?p=40253
-fn value_to_sid(value: Value, attrib_name: &str) -> Result<Option<String>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => {
-            //log::debug!("val: {:?}", val);
-            let mut rdr = Cursor::new(val);
-            let revision = rdr.read_u8()?;
-            let number_of_dashes = rdr.read_u8()?;
-            let authority = rdr.read_u48::<BigEndian>()?;
-
-            //log::debug!("authority: {:012x}", authority);
-
-            let mut numbers = vec![];
-            for _i in 0..number_of_dashes-1 {
-                numbers.push(rdr.read_u32::<LittleEndian>()?);
-            }
-            numbers.push(rdr.read_u32::<BigEndian>()?);
-
-            let numbers = numbers
-                .into_iter()
-                .map(|n| format!("{n}")).collect::<Vec<String>>().join("-");
-
-            Ok(Some(format!("S-{revision}-{authority}-{numbers}")))
-        }
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-pub (crate) fn value_to_rid(value: Value, attrib_name: &str) -> Result<Option<u32>> {
-    match value {
-        Value::Binary(val) | Value::LargeBinary(val) => {
-            //log::debug!("val: {:?}", val);
-            let mut rdr = Cursor::new(val);
-            let _revision = rdr.read_u8()?;
-            let number_of_dashes = rdr.read_u8()?;
-            let _authority = rdr.read_u48::<BigEndian>()?;
-
-            //log::debug!("authority: {:012x}", authority);
-
-            for _i in 0..number_of_dashes-1 {
-                let _ = rdr.read_u32::<LittleEndian>()?;
-            }
-            let rid = rdr.read_u32::<BigEndian>()?;
-            Ok(Some(rid))
-        }
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-fn value_to_uac_flags(value: Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
-    match value {
-        Value::I32(val) =>
-            Ok(Some(<UserAccountControl>::from_bits_truncate(u32::from_ne_bytes(val.to_ne_bytes())))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
-
-fn value_to_sam_account_type(value: Value, attrib_name: &str) -> Result<Option<SamAccountType>> {
-    match value {
-        Value::I32(val) =>
-            Ok(FromPrimitive::from_u32(u32::from_ne_bytes(val.to_ne_bytes()))),
-        Value::Null => Ok(None),
-        _ => Err(anyhow!("invalid value detected: {:?} in field {}", value, attrib_name))
-    }
-}
+use std::{collections::HashMap};
+use term_table::{
+    row::Row,
+    table_cell::{Alignment, TableCell},
+};
 
 macro_rules! define_getter_int {
-    ($field: ident, $fn_name: ident, $res_type: ident) => {
+    ($field: ident, $res_type: ident) => {
         #[allow(dead_code)]
         pub fn $field(&self, mapping: &ColumnInfoMapping) -> Result<Option<$res_type>> {
-            $fn_name(
+            $res_type::from_value_opt(
                 self.inner_record.value(mapping.$field.id())?,
                 stringify!($field)
             )
@@ -134,7 +23,7 @@ macro_rules! define_getter_int {
             #[allow(dead_code)]
             pub fn [<has_valid_ $field>](&self, mapping: &ColumnInfoMapping) -> bool {
                 match self.inner_record.value(mapping.$field.id()) {
-                    Ok(value) => match $fn_name(value, stringify!($field)) {
+                    Ok(value) => match $res_type::from_value_opt(value, stringify!($field)) {
                         Ok(Some(_)) => true,
                         _ => false
                     }
@@ -149,19 +38,45 @@ macro_rules! define_getter_int {
                 self.inner_record.value(mapping.$field.id()).ok()
             }
         }
+
+        paste! {
+            #[allow(dead_code)]
+            pub fn [<$field _equals>](&self, mapping: &ColumnInfoMapping, value: &$res_type) -> bool {
+              match self.$field(mapping) {
+                Ok(Some(ref v)) => v == value,
+                _ => false
+              }
+            }
+        }
     };
 }
 
 macro_rules! define_getter {
-    ($field: ident as i32) => { define_getter_int!($field, value_to_i32, i32); };
-    ($field: ident as str) => { define_getter_int!($field, value_to_str, String); };
-    ($field: ident as sid) => { define_getter_int!($field, value_to_sid, String); };
-    ($field: ident as binary) => { define_getter_int!($field, value_to_bin, String); };
-    ($field: ident as datetime) => { define_getter_int!($field, value_to_datetime, UtcDatetime); };
-    ($field: ident as uac_flags) => { define_getter_int!($field, value_to_uac_flags, UserAccountControl); };
-    ($field: ident as sam_account_type) => { define_getter_int!($field, value_to_sam_account_type, SamAccountType); };
+    ($field: ident as i32) => {
+        define_getter_int!($field, i32);
+    };
+    ($field: ident as u32) => {
+        define_getter_int!($field, u32);
+    };
+    ($field: ident as str) => {
+        define_getter_int!($field, String);
+    };
+    ($field: ident as sid) => {
+        define_getter_int!($field, Sid);
+    };
+    ($field: ident as binary) => {
+        define_getter_int!($field, String);
+    };
+    ($field: ident as datetime) => {
+        define_getter_int!($field, UtcDatetime);
+    };
+    ($field: ident as uac_flags) => {
+        define_getter_int!($field, UserAccountControl);
+    };
+    ($field: ident as sam_account_type) => {
+        define_getter_int!($field, SamAccountType);
+    };
 }
-
 
 macro_rules! column_mapping {
     (
@@ -171,7 +86,7 @@ macro_rules! column_mapping {
     ) => {
             #[allow(dead_code)]
             pub(crate) struct $StructName {
-                $(                    
+                $(
                     pub (crate) $field: ColumnInformation,
                 )+
                 $($manual_fields)*
@@ -191,7 +106,7 @@ macro_rules! column_mapping {
                         column_names.insert(index, column_res.name()?);
                         temporary_mapping.insert(column_res.name()?, col_info);
                     }
-            
+
                     let mapping = Self {
                         column_names,
                         $(
@@ -223,21 +138,21 @@ macro_rules! column_mapping {
                                         Value::Null => panic!("unreachable code executed"),
                                         Value::Bool(v) => format!("{v}"),
                                         Value::U8(v) => format!("{v}"),
+                                        Value::U16(v) => format!("{v}"),
+                                        Value::U32(v) => format!("{v}"),
                                         Value::I16(v) => format!("{v}"),
                                         Value::I32(v) => format!("{v}"),
-                                        Value::Currency(v) => format!("{v}"),
+                                        Value::I64(v) => format!("{v}"),
                                         Value::F32(v) => format!("{v}"),
                                         Value::F64(v) => format!("{v}"),
+                                        Value::Currency(v) => format!("{v}"),
                                         Value::DateTime(v) => format!("{v}"),
                                         Value::Binary(v) => hex::encode(&v).to_string(),
                                         Value::Text(v) => v.to_string(),
                                         Value::LargeBinary(v) => hex::encode(&v).to_string(),
                                         Value::LargeText(v) => v,
                                         Value::SuperLarge(v) => hex::encode(&v).to_string(),
-                                        Value::U32(v) => format!("{v}"),
-                                        Value::I64(v) => format!("{v}"),
                                         Value::Guid(v) => hex::encode(&v).to_string(),
-                                        Value::U16(v) => format!("{v}"),
                                     };
                                     attribs.insert(column_name.to_owned(), str_value);
                                 }
@@ -262,6 +177,7 @@ macro_rules! column_mapping {
         }
     }
 
+// This mapping should be defined in `%WINDIR%\ntds\schema.ini`
 column_mapping! (
     ColumnInfoMapping {
         column_names: HashMap<i32, String>,
@@ -281,9 +197,9 @@ column_mapping! (
     // DS_USNCHANGED as datetime from "ATTq131192",
     // DS_OBJECT_COL as i32 from "OBJ_col",
     // DS_IS_DELETED as i32 from "ATTi131120",
-    
+
     // DS_ORIG_CONTAINER_ID as i32 from "ATTb590605",
-    
+
     ds_sid as sid from "ATTr589970",
     ds_sam_account_name as str from "ATTm590045",
     ds_user_principal_name as str from "ATTm590480",
@@ -300,11 +216,14 @@ column_mapping! (
     // ds_unix_password as i32 from "ATTk591734",
     ds_aduser_objects as binary from "ATTk36",
     ds_att_comment as str from "ATTm13",
-    
+
     ds_dns_host_name as str from "ATTm590443",
     ds_os_name as str from "ATTm590187",
     ds_os_version as str from "ATTm590188",
-    
+
+    ds_link_id as u32 from "ATTj131122",
+    ds_ldap_display_name as str from "ATTm131532",
+
     // DS_RECOVERY_PASSWORD as i32 from "ATTm591788",
     // DS_FVEKEY_PACKAGE as i32 from "ATTk591823",
     // DS_VOLUME_GUID as i32 from "ATTk591822",
@@ -313,7 +232,7 @@ column_mapping! (
     // DS_PEK as i32 from "ATTk590689",
 );
 
-pub (crate) trait FormatDbRecordForCli {
+pub(crate) trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }
 
@@ -324,20 +243,16 @@ impl FormatDbRecordForCli for DbRecord<'_> {
         let mut keys = all_attributes.keys().collect::<Vec<&String>>();
         keys.sort();
 
-        table.add_row(Row::new(
-            vec![
-                TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
-                TableCell::new_with_alignment("Value", 1, Alignment::Center)
-            ]
-        ));
+        table.add_row(Row::new(vec![
+            TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
+            TableCell::new_with_alignment("Value", 1, Alignment::Center),
+        ]));
 
         for key in keys {
-            table.add_row(Row::new(
-                vec![
-                    TableCell::new(key),
-                    TableCell::new(all_attributes[key].to_string())
-                ]
-            ));
+            table.add_row(Row::new(vec![
+                TableCell::new(key),
+                TableCell::new(all_attributes[key].to_string()),
+            ]));
         }
 
         table
@@ -345,7 +260,11 @@ impl FormatDbRecordForCli for DbRecord<'_> {
 }
 
 pub(crate) trait RecordToBodyfile {
-    fn to_bodyfile(&self, mapping: &ColumnInfoMapping, type_name: &str) -> Result<Vec<Bodyfile3Line>>;
+    fn to_bodyfile(
+        &self,
+        mapping: &ColumnInfoMapping,
+        type_name: &str,
+    ) -> Result<Vec<Bodyfile3Line>>;
 }
 
 macro_rules! add_bodyfile_timestamp {
@@ -355,7 +274,7 @@ macro_rules! add_bodyfile_timestamp {
                 $res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} ({}, {})", $object_name, $type_name, $caption))
-                        .with_crtime(i64::max(0,ts.timestamp()))
+                        .with_crtime(i64::max(0, ts.timestamp())),
                 );
             }
         }
@@ -363,30 +282,77 @@ macro_rules! add_bodyfile_timestamp {
 }
 
 impl RecordToBodyfile for DbRecord<'_> {
-    fn to_bodyfile(&self, mapping: &ColumnInfoMapping, type_name: &str) -> Result<Vec<Bodyfile3Line>> {
+    fn to_bodyfile(
+        &self,
+        mapping: &ColumnInfoMapping,
+        type_name: &str,
+    ) -> Result<Vec<Bodyfile3Line>> {
         let mut res = Vec::new();
 
-        let object_name = self.ds_object_name(mapping)?
+        let object_name = self
+            .ds_object_name(mapping)?
             .or(self.ds_object_name2(mapping)?)
             .unwrap_or_else(|| "unknown".to_owned());
 
-        add_bodyfile_timestamp!(res, self.ds_record_time(mapping)?, object_name, type_name, "record creation time");
-        add_bodyfile_timestamp!(res, self.ds_when_created(mapping)?, object_name, type_name, "object created");
-        add_bodyfile_timestamp!(res, self.ds_when_changed(mapping)?, object_name, type_name, "object changed");
-        add_bodyfile_timestamp!(res, self.ds_last_logon(mapping)?, object_name, type_name, "last logon on this DC");
-        add_bodyfile_timestamp!(res, self.ds_last_logon_time_stamp(mapping)?, object_name, type_name, "last logon on any DC");
-        add_bodyfile_timestamp!(res, self.ds_bad_pwd_time(mapping)?, object_name, type_name, "bad pwd time");
-        add_bodyfile_timestamp!(res, self.ds_password_last_set(mapping)?, object_name, type_name, "password last set");
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_record_time(mapping)?,
+            object_name,
+            type_name,
+            "record creation time"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_when_created(mapping)?,
+            object_name,
+            type_name,
+            "object created"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_when_changed(mapping)?,
+            object_name,
+            type_name,
+            "object changed"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_last_logon(mapping)?,
+            object_name,
+            type_name,
+            "last logon on this DC"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_last_logon_time_stamp(mapping)?,
+            object_name,
+            type_name,
+            "last logon on any DC"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_bad_pwd_time(mapping)?,
+            object_name,
+            type_name,
+            "bad pwd time"
+        );
+        add_bodyfile_timestamp!(
+            res,
+            self.ds_password_last_set(mapping)?,
+            object_name,
+            type_name,
+            "password last set"
+        );
 
         Ok(res)
     }
 }
 
-pub (crate) trait IsMemberOf {
+pub(crate) trait IsMemberOf {
     fn member_of(&self) -> Vec<Box<dyn HasMembers>>;
 }
 
-pub (crate) trait HasMembers {
+pub(crate) trait HasMembers {
     fn members(&self) -> Vec<Box<dyn IsMemberOf>>;
 }
 
