@@ -313,6 +313,12 @@ column_mapping! (
     // DS_PEK as i32 from "ATTk590689",
 );
 
+impl FromDbRecord for DbRecord<'_> {
+    fn from(dbrecord:DbRecord,data_table: &DataTableExt)->Result<Self> {
+        Ok(dbrecord)
+    }
+}
+
 pub (crate) trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }

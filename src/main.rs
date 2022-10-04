@@ -197,7 +197,7 @@ fn main() -> Result<()> {
         Commands::Group { format, .. } => data_table.show_groups(format),
         Commands::User { format, ..} => data_table.show_users(format),
         Commands::Computer { format, .. } => data_table.show_computers(format),
-        Commands::Types { format, .. } => data_table.show_type_names(format),
+        Commands::Types { format, .. } => data_table.show_types(format),
         Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
         Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
         Commands::Entry { entry_id , use_sid} => {

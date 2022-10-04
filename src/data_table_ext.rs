@@ -168,18 +168,15 @@ impl<'a> DataTableExt<'a> {
         self.show_typed_objects::<Computer>(format, TYPENAME_COMPUTER)
     }
 
-    pub fn show_type_names(&self, format: &OutputFormat) -> Result<()> {
+    pub fn show_types(&self, format: &OutputFormat) -> Result<()> {
         let mut type_names = HashSet::new();
+        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
         for dbrecord in self.find_children_of(self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
 
-            type_names.insert(object_name2);
-
-            if type_names.is_empty() {
-                break;
-            }
+                write_record(format, &mut csv_wtr, dbrecord)?;
         }
 
         match format {
@@ -209,7 +206,7 @@ impl<'a> DataTableExt<'a> {
 
         let record = match entry_id {
             EntryId::Id(id) => find_by_id(&self.data_table, mapping, id),
-            EntryId::Rid(rid) => find_by_rid(&self.data_table, mapping, rid)
+            EntryId::Rid(rid) => find_by_rid(&self.data_table, mapping, rid),
         };
 
         match record {
@@ -298,17 +295,7 @@ impl<'a> DataTableExt<'a> {
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
             .map(|dbrecord| T::from(dbrecord, self).unwrap())
         {
-            match format {
-                OutputFormat::Csv => {
-                    csv_wtr.serialize(record)?;
-                }
-                OutputFormat::Json => {
-                    println!("{}", serde_json::to_string_pretty(&record)?);
-                }
-                OutputFormat::JsonLines => {
-                    println!("{}", serde_json::to_string(&record)?);
-                }
-            }
+            write_record(format, &mut csv_wtr, record)?;
         }
         drop(csv_wtr);
 
@@ -381,4 +368,26 @@ impl<'a> DataTableExt<'a> {
         }
         Ok(())
     }
+}
+
+fn write_record<T>(
+    format: &OutputFormat,
+    csv_wtr: &mut csv::Writer<std::io::Stdout>,
+    record: T,
+) -> Result<(), anyhow::Error>
+where
+    T: FromDbRecord + Serialize,
+{
+    match format {
+        OutputFormat::Csv => {
+            csv_wtr.serialize(record)?;
+        }
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(&record)?);
+        }
+        OutputFormat::JsonLines => {
+            println!("{}", serde_json::to_string(&record)?);
+        }
+    };
+    Ok(())
 }
