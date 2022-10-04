@@ -1,5 +1,5 @@
 use anyhow::{bail, ensure, Result};
-use libesedb::{Table, Value, Record};
+use libesedb::{Table, Value};
 use std::collections::{HashMap, HashSet};
 
 use crate::{column_info_mapping::ColumnInfoMapping, data_table_ext::DataTableExt};
@@ -55,7 +55,7 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
     pub fn build(self) -> Result<LinkTableExt> {
         log::info!("building link table associations");
 
-        let (member_link_id, member_of_link_id) = self.find_member_link_id_pair()?;
+        let (member_link_id, _member_of_link_id) = self.find_member_link_id_pair()?;
         let link_base = member_link_id / 2;
         let link_dnt_id = self.column_id("link_DNT")?;
         let backward_dnt_id = self.column_id("backlink_DNT")?;
