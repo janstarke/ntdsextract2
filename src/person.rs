@@ -76,7 +76,7 @@ impl FromDbRecord for Person {
             })
         });
 
-        let member_of = if let Some(children) = data_table.link_table().members(&object_id) {
+        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
             children.iter().filter_map(|child_id| {
                 find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
             })

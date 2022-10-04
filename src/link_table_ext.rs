@@ -1,8 +1,9 @@
 use anyhow::{bail, ensure, Result};
-use libesedb::{Table, Value};
+use libesedb::{Table, Value, Record};
 use std::collections::{HashMap, HashSet};
 
 use crate::{column_info_mapping::ColumnInfoMapping, data_table_ext::DataTableExt};
+use crate::esedb_utils::FromValue;
 
 struct LinkTableBuilder<'a, 'b, 'c> {
     link_table: Table<'b>,
@@ -45,8 +46,15 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
             None => bail!("no column by that name: '{name}'"),
         }
     }
-
+/*
+    fn from_column<I: FromValue>(&self, record: &Record, name: &str) -> Result<I> {
+        let id = self.column_id(name)?;
+        I::from_value(record.value(id)?, name)
+    }
+*/
     pub fn build(self) -> Result<LinkTableExt> {
+        log::info!("building link table associations");
+
         let (member_link_id, member_of_link_id) = self.find_member_link_id_pair()?;
         let link_base = member_link_id / 2;
         let link_dnt_id = self.column_id("link_DNT")?;
@@ -74,15 +82,8 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
                 _ => false,
             })
         {
-            let forward_link = match record.value(link_dnt_id)? {
-                Value::I32(v) => v,
-                _ => bail!("column link_DNT has an unexpected type"),
-            };
-
-            let backward_link = match record.value(backward_dnt_id)? {
-                Value::I32(v) => v,
-                _ => bail!("column backlink_DNT has an unexpected type"),
-            };
+            let forward_link = i32::from_value(record.value(link_dnt_id)?, "link_DNT")?;
+            let backward_link = i32::from_value(record.value(backward_dnt_id)?, "backlink_DNT")?;
 
             forward_map
                 .entry(forward_link)
@@ -98,6 +99,12 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
             log::info!("found link {key} --> {value:?}");
         }
 
+        for (key, value) in backward_map.iter() {
+            log::info!("found backlink {key} --> {value:?}");
+        }
+
+        log::debug!("found {} forward links and {} backward links", forward_map.len(), backward_map.len());
+
         Ok(LinkTableExt {
             forward_map,
             backward_map,
@@ -105,6 +112,8 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
     }
 
     fn find_member_link_id_pair(&self) -> Result<(u32, u32)> {
+        log::info!("searching for link attributes 'Member' and 'Is-Member-Of-DL'");
+
         let member_link_id = self.find_link_id(&String::from("Member"))?;
         let member_of_link_id = self.find_link_id(&String::from("Is-Member-Of-DL"))?;
 

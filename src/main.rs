@@ -20,6 +20,7 @@ mod esedb_utils;
 mod object_tree_entry;
 mod serialization;
 mod entry_id;
+//mod cached_table;
 
 /// this needs to be global, 
 /// because it is read by serialization code, which has no state by default
@@ -46,6 +47,10 @@ pub (crate) fn do_flat_serialization() -> bool {
     unsafe {
         FLAT_SERIALIZATION
     }
+}
+
+pub (crate) fn serde_flat_serialization<T>(_t: &T) -> bool {
+    do_flat_serialization()
 }
 
 fn set_do_flat_serialization(val: bool) {
