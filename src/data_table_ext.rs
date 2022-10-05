@@ -35,10 +35,21 @@ pub(crate) struct DataTableExt<'a> {
 impl<'a> DataTableExt<'a> {
     /// create a new datatable wrapper
     pub fn from(data_table: Table<'a>, link_table: Table<'_>) -> Result<Self> {
+
+
         log::info!("reading schema information and creating record cache");
         let mapping = ColumnInfoMapping::from(&data_table)?;
-        let object_tree = ObjectTreeEntry::from(&data_table, &mapping)?;
+
+        let mut x = 0;
+        log::error!("AAA");
+        let record_cache =
+        iter_records(&data_table).map(|record|
+            (record.ds_record_id(&mapping).unwrap().unwrap(), record)
+        ).collect::<HashMap<i32, DbRecord>>();
+        log::error!("BBB");
+
         let schema_record_id = Self::get_schema_record_id(&data_table, &mapping)?;
+        let object_tree = ObjectTreeEntry::from(&data_table, &mapping)?;
 
 
         let link_table: LinkTableExt = LinkTableExt::from(link_table, &data_table, &mapping, schema_record_id)?;

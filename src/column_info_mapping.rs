@@ -187,6 +187,7 @@ column_mapping! (
     ds_parent_record_id as i32 from "PDNT_col",
     ds_record_time as datetime from "time_col",
     ds_ancestors as i32 from "Ancestors_col",
+    ds_rdn_typ_id as i32 from "RDNTyp_col",
     ds_object_type_id as i32 from "ATTb590606",
     ds_object_name as str from "ATTm3",
     ds_object_name2 as str from "ATTm589825",
