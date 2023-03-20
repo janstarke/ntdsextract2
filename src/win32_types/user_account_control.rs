@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use field_names::FieldNames;
 use libesedb::Value;
 use serde::Serialize;
 use anyhow::{anyhow, Result};
@@ -9,7 +8,7 @@ use crate::{do_flat_serialization, esedb_utils::FromValue};
 bitflags! {
 
     /// Source: https://docs.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol
-    #[derive(FieldNames)]
+    #[derive(PartialEq, Eq)]
     pub (crate) struct UserAccountControl : u32 {
 
         /// The logon script is executed.

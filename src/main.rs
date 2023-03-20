@@ -59,7 +59,7 @@ fn set_do_flat_serialization(val: bool) {
     }
 }
 
-#[derive(clap::ArgEnum, Clone)]
+#[derive(clap::ValueEnum, Clone)]
 enum OutputFormat{
     Csv,
     Json,
@@ -71,7 +71,7 @@ enum Commands {
     /// Display user accounts
     User {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -82,7 +82,7 @@ enum Commands {
     /// Display groups
     Group {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -93,7 +93,7 @@ enum Commands {
     /// display computer accounts
     Computer {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -111,7 +111,7 @@ enum Commands {
     /// list all defined types
     Types {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
     },
 
