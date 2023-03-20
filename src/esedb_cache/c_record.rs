@@ -13,7 +13,7 @@ impl<'a> TryFrom<Record<'a>> for CRecord {
             let value = match value {
                 Ok(v) => v,
                 Err(why) => {
-                    //log::warn!("unable to read value: {why}");
+                    log::trace!("unable to read value: {why}, replacing it with Null");
                     Value::Null(())
                 }
             };

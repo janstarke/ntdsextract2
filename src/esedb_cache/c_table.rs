@@ -28,6 +28,7 @@ where
     fn try_from(table: Table<'a>) -> Result<Self, Self::Error> {
         let mut records = Vec::new();
         let mut columns = Vec::new();
+
         for record in table.iter_records()? {
             records.push(R::try_from(record?)?);
         }
@@ -154,7 +155,10 @@ impl CTable<DbRecord> {
                 if let Some(schema_parent) = self.find_by_id(mapping, schema_parent_id) {
                     if let Some(parent_name) = schema_parent.ds_object_name2(mapping)? {
                         if parent_name == "Configuration" {
-                            log::info!("found record id to be {}", record.ds_record_id(mapping)?.unwrap());
+                            log::info!(
+                                "found record id to be {}",
+                                record.ds_record_id(mapping)?.unwrap()
+                            );
                             return Ok(record
                                 .ds_record_id(mapping)?
                                 .expect("Schema record has no record ID"));
