@@ -1,22 +1,23 @@
 use anyhow::{bail, ensure, Result};
-use libesedb::{Table, Value};
+use libesedb::Value;
 use std::collections::{HashMap, HashSet};
 
-use crate::{column_info_mapping::ColumnInfoMapping, data_table_ext::DataTableExt};
+use crate::esedb_cache::{CDataTable, CLinkTable};
 use crate::esedb_utils::FromValue;
+use crate::column_info_mapping::ColumnInfoMapping;
 
-struct LinkTableBuilder<'a, 'b, 'c> {
-    link_table: Table<'b>,
-    data_table: &'a Table<'b>,
+struct LinkTableBuilder<'a, 'c > {
+    link_table: CLinkTable,
+    data_table: &'a CDataTable,
     mapping: &'c ColumnInfoMapping,
     schema_record_id: i32,
     columns: HashMap<String, i32>,
 }
 
-impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
+impl<'a, 'c> LinkTableBuilder<'a, 'c> {
     pub fn from(
-        link_table: Table<'b>,
-        data_table: &'a Table<'b>,
+        link_table: CLinkTable,
+        data_table: &'a CDataTable,
         mapping: &'c ColumnInfoMapping,
         schema_record_id: i32,
     ) -> Result<Self> {
@@ -31,11 +32,11 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
         })
     }
 
-    fn read_column_names(link_table: &Table<'_>) -> Result<HashMap<String, i32>> {
+    fn read_column_names(link_table: &CLinkTable) -> Result<HashMap<String, i32>> {
         let mut columns = HashMap::new();
-        for index in 0..link_table.count_columns()? - 1 {
-            let column = link_table.column(index)?;
-            columns.insert(column.name()?, index);
+        for index in 0..link_table.count_columns() - 1 {
+            let column = link_table.column(index).unwrap();
+            columns.insert(column.name().to_owned(), index);
         }
         Ok(columns)
     }
@@ -46,12 +47,12 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
             None => bail!("no column by that name: '{name}'"),
         }
     }
-/*
-    fn from_column<I: FromValue>(&self, record: &Record, name: &str) -> Result<I> {
-        let id = self.column_id(name)?;
-        I::from_value(record.value(id)?, name)
-    }
-*/
+    /*
+        fn from_column<I: FromValue>(&self, record: &Record, name: &str) -> Result<I> {
+            let id = self.column_id(name)?;
+            I::from_value(record.value(id)?, name)
+        }
+    */
     pub fn build(self) -> Result<LinkTableExt> {
         log::info!("building link table associations");
 
@@ -64,26 +65,21 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
         let mut forward_map = HashMap::new();
         let mut backward_map = HashMap::new();
 
-        for record in self
-            .link_table
-            .iter_records()
-            .expect("unable to iterate this table")
-            .filter_map(|r| r.ok())
-            .filter(|r| match 
-              r.value(link_base_id){
-                Ok(Value::U32(v)) => v == member_link_id,
-                Ok(Value::I32(v)) => {
-                  let v: Result<u32, std::num::TryFromIntError> = v.try_into();
-                  match v {
-                    Ok(v) => v == link_base,
-                    _ => false
-                  }
+        for record in self.link_table.iter_records().filter(|r| {
+            match r.value(link_base_id) {
+                Some(Value::U32(v)) => *v == member_link_id,
+                Some(Value::I32(v)) => {
+                    let v = u32::try_from(*v);
+                    match v {
+                        Ok(v) => v == link_base,
+                        _ => false,
+                    }
                 }
                 _ => false,
-            })
-        {
-            let forward_link = i32::from_value(record.value(link_dnt_id)?, "link_DNT")?;
-            let backward_link = i32::from_value(record.value(backward_dnt_id)?, "backlink_DNT")?;
+            }
+        }) {
+            let forward_link = i32::from_value(record.value(link_dnt_id).unwrap(), "link_DNT")?;
+            let backward_link = i32::from_value(record.value(backward_dnt_id).unwrap(), "backlink_DNT")?;
 
             forward_map
                 .entry(forward_link)
@@ -103,7 +99,11 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
             log::info!("found backlink {key} --> {value:?}");
         }
 
-        log::debug!("found {} forward links and {} backward links", forward_map.len(), backward_map.len());
+        log::debug!(
+            "found {} forward links and {} backward links",
+            forward_map.len(),
+            backward_map.len()
+        );
 
         Ok(LinkTableExt {
             forward_map,
@@ -133,7 +133,7 @@ impl<'a, 'b, 'c> LinkTableBuilder<'a, 'b, 'c> {
     }
 
     fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
-        match DataTableExt::find_children_of(self.data_table, self.mapping, self.schema_record_id)
+        match self.data_table.find_children_of(self.mapping, self.schema_record_id)
             .find(|r| r.ds_object_name2_equals(self.mapping, attribute_name))
         {
             Some(record) => match record.ds_link_id(self.mapping)? {
@@ -157,9 +157,9 @@ pub(crate) struct LinkTableExt {
 
 impl LinkTableExt {
     /// create a new datatable wrapper
-    pub fn from(
-        link_table: Table<'_>,
-        data_table: &Table<'_>,
+    pub fn from (
+        link_table: CLinkTable,
+        data_table: &CDataTable,
         mapping: &ColumnInfoMapping,
         schema_record_id: i32,
     ) -> Result<Self> {

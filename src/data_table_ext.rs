@@ -5,14 +5,13 @@ use crate::column_info_mapping::{FormatDbRecordForCli, RecordToBodyfile};
 use crate::computer::Computer;
 use crate::constants::*;
 use crate::entry_id::EntryId;
-use crate::esedb_utils::*;
+use crate::esedb_cache::{CDataTable, CLinkTable};
 use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{DbRecord, FromDbRecord};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use bodyfile::Bodyfile3Line;
-use libesedb::Table;
 use maplit::hashset;
 use regex::Regex;
 use serde::Serialize;
@@ -24,24 +23,24 @@ use crate::{
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub(crate) struct DataTableExt<'a> {
-    data_table: Table<'a>,
+pub(crate) struct DataTableExt {
+    data_table: CDataTable,
     link_table: LinkTableExt,
     mapping: ColumnInfoMapping,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
 }
 
-impl<'a> DataTableExt<'a> {
+impl DataTableExt {
     /// create a new datatable wrapper
-    pub fn from(data_table: Table<'a>, link_table: Table<'_>) -> Result<Self> {
+    pub fn from(data_table: CDataTable, link_table: CLinkTable) -> Result<Self> {
         log::info!("reading schema information and creating record cache");
         let mapping = ColumnInfoMapping::from(&data_table)?;
         let object_tree = ObjectTreeEntry::from(&data_table, &mapping)?;
-        let schema_record_id = Self::get_schema_record_id(&data_table, &mapping)?;
+        let schema_record_id = data_table.get_schema_record_id(&mapping)?;
 
-
-        let link_table: LinkTableExt = LinkTableExt::from(link_table, &data_table, &mapping, schema_record_id)?;
+        let link_table: LinkTableExt =
+            LinkTableExt::from(link_table, &data_table, &mapping, schema_record_id)?;
 
         log::debug!("found the schema record id is '{}'", schema_record_id);
         Ok(Self {
@@ -61,73 +60,18 @@ impl<'a> DataTableExt<'a> {
         &self.link_table
     }
 
-    pub(crate) fn data_table(&self) -> &Table<'a> {
+    pub(crate) fn data_table(&self) -> &CDataTable {
         &self.data_table
     }
 
-    pub(crate) fn find_children_of<'b>(data_table: &'a Table<'_>, mapping: &'a ColumnInfoMapping, parent_id: i32) -> impl Iterator<Item = DbRecord<'b>> + 'b
-    where
-        'a: 'b,
-    {
-        log::debug!("searching for children of record '{}'", parent_id);
-
-        filter_records_from(
-            data_table,
-            move |dbrecord: &DbRecord| {
-                dbrecord.ds_parent_record_id(mapping).unwrap().unwrap() == parent_id
-            },
-        )
-    }
-
-    fn find_children_of_int<'b>(&'a self, parent_id: i32) -> impl Iterator<Item = DbRecord<'b>> + 'b
-    where
-        'a: 'b,
-    {
-        let data_table = &self.data_table;
-        let mapping = &self.mapping;
-        Self::find_children_of(data_table, mapping, parent_id)
-    }
-
-    /// returns the record id of the record which contains the Schema object
-    /// (which is identified by its name "Schema" in the object_name2 attribute)
-    fn get_schema_record_id<'b>(
-        data_table: &'b Table<'a>,
-        mapping: &ColumnInfoMapping,
-    ) -> Result<i32>
-    where
-        'a: 'b,
-    {
-        for record in filter_records_from(data_table, |dbrecord| {
-            "Schema"
-                == dbrecord
-                    .ds_object_name2(mapping)
-                    .expect("unable to read object_name2 attribute")
-                    .expect("missing object_name2 attribute")
-        }) {
-            if let Some(schema_parent_id) = record.ds_parent_record_id(mapping)? {
-                if let Some(schema_parent) = find_by_id(data_table, mapping, schema_parent_id) {
-                    if let Some(parent_name) = schema_parent.ds_object_name2(mapping)? {
-                        if parent_name == "Configuration" {
-                            return Ok(record
-                                .ds_record_id(mapping)?
-                                .expect("Schema record has no record ID"));
-                        }
-                    }
-                }
-            }
-        }
-
-        bail!("no schema record found");
-    }
-
-    fn find_type_record(&self, type_name: &str) -> Result<Option<DbRecord>> {
+    fn find_type_record(&self, type_name: &str) -> Result<Option<&DbRecord>> {
         let mut records = self.find_type_records(hashset! {type_name})?;
         Ok(records.remove(type_name))
     }
 
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
-        for dbrecord in self.find_children_of_int(self.schema_record_id) {
+        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -141,12 +85,12 @@ impl<'a> DataTableExt<'a> {
     pub fn find_type_records(
         &self,
         mut type_names: HashSet<&str>,
-    ) -> Result<HashMap<String, DbRecord>> {
+    ) -> Result<HashMap<String, &DbRecord>> {
         let mut type_records = HashMap::new();
-        let children = self.find_children_of_int(self.schema_record_id);
+        let children = self.data_table.find_children_of_int(&self.mapping, self.schema_record_id);
         anyhow::ensure!(children.count() > 0, "The schema record has no children");
 
-        for dbrecord in self.find_children_of_int(self.schema_record_id) {
+        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -180,7 +124,7 @@ impl<'a> DataTableExt<'a> {
 
     pub fn show_type_names(&self, format: &OutputFormat) -> Result<()> {
         let mut type_names = HashSet::new();
-        for dbrecord in self.find_children_of_int(self.schema_record_id) {
+        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -218,8 +162,8 @@ impl<'a> DataTableExt<'a> {
         let mapping = &self.mapping;
 
         let record = match entry_id {
-            EntryId::Id(id) => find_by_id(&self.data_table, mapping, id),
-            EntryId::Rid(rid) => find_by_rid(&self.data_table, mapping, rid)
+            EntryId::Id(id) => self.data_table.find_by_id(mapping, id),
+            EntryId::Rid(rid) => self.data_table.find_by_rid(mapping, rid),
         };
 
         match record {
@@ -258,7 +202,7 @@ impl<'a> DataTableExt<'a> {
 
         let mut records = Vec::new();
 
-        for record in iter_records(&self.data_table) {
+        for record in self.data_table.iter_records() {
             let matching_columns = record
                 .all_attributes(mapping)
                 .iter()
@@ -303,7 +247,7 @@ impl<'a> DataTableExt<'a> {
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
 
-        for record in iter_records(&self.data_table)
+        for record in self.data_table.iter_records()
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
             .map(|dbrecord| T::from(dbrecord, self).unwrap())
@@ -351,7 +295,7 @@ impl<'a> DataTableExt<'a> {
             )
         };
 
-        for bf_lines in iter_records(&self.data_table)
+        for bf_lines in self.data_table.iter_records()
             .filter(|dbrecord| dbrecord.has_valid_ds_object_type_id(&self.mapping))
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord
