@@ -67,8 +67,14 @@ macro_rules! define_getter {
     ($field: ident as binary) => {
         define_getter_int!($field, String);
     };
-    ($field: ident as datetime) => {
-        define_getter_int!($field, UtcDatetime);
+    ($field: ident as database_time) => {
+        define_getter_int!($field, DatabaseTime);
+    };
+    ($field: ident as windows_file_time) => {
+        define_getter_int!($field, WindowsFileTime);
+    };
+    ($field: ident as truncated_windows_file_time) => {
+        define_getter_int!($field, TruncatedWindowsFileTime);
     };
     ($field: ident as uac_flags) => {
         define_getter_int!($field, UserAccountControl);
@@ -185,14 +191,14 @@ column_mapping! (
     DbRecord,
     ds_record_id as i32 from "DNT_col",
     ds_parent_record_id as i32 from "PDNT_col",
-    ds_record_time as datetime from "time_col",
+    ds_record_time as truncated_windows_file_time from "time_col",
     ds_ancestors as i32 from "Ancestors_col",
     ds_object_type_id as i32 from "ATTb590606",
     ds_object_name as str from "ATTm3",
     ds_object_name2 as str from "ATTm589825",
     // DS_OBJECT_GUID as i32 from "ATTk589826",
-    ds_when_created as datetime from "ATTl131074",
-    ds_when_changed as datetime from "ATTl131075",
+    ds_when_created as truncated_windows_file_time from "ATTl131074",
+    ds_when_changed as truncated_windows_file_time from "ATTl131075",
     // DS_USNCREATED as datetime from "ATTq131091",
     // DS_USNCHANGED as datetime from "ATTq131192",
     // DS_OBJECT_COL as i32 from "OBJ_col",
@@ -205,11 +211,11 @@ column_mapping! (
     ds_user_principal_name as str from "ATTm590480",
     ds_sam_account_type as sam_account_type from "ATTj590126",
     ds_user_account_control as uac_flags from "ATTj589832",
-    ds_last_logon as datetime from "ATTq589876",
-    ds_last_logon_time_stamp as datetime from "ATTq591520",
-    ds_account_expires as datetime from "ATTq589983",
-    ds_password_last_set as datetime from "ATTq589920",
-    ds_bad_pwd_time as datetime from "ATTq589873",
+    ds_last_logon as windows_file_time from "ATTq589876",
+    ds_last_logon_time_stamp as windows_file_time from "ATTq591520",
+    ds_account_expires as windows_file_time from "ATTq589983",
+    ds_password_last_set as windows_file_time from "ATTq589920",
+    ds_bad_pwd_time as windows_file_time from "ATTq589873",
     ds_logon_count as i32 from "ATTj589993",
     ds_bad_pwd_count as i32 from "ATTj589836",
     ds_primary_group_id as i32 from "ATTj589922",

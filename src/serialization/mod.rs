@@ -1,12 +1,13 @@
-use chrono::{DateTime, Utc};
 use serde::Serializer;
 use serde::ser::SerializeSeq;
 
 use crate::do_flat_serialization;
+use crate::win32_types::ToRfc3339;
 
-pub (crate) fn to_ts<S>(ts: &Option<DateTime<Utc>>, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
+pub (crate) fn to_ts<T, S>(ts: &Option<T>, s: S) -> Result<S::Ok, S::Error> where S: Serializer, T: ToRfc3339 {
     match ts {
-        Some(ts) => s.serialize_str(&ts.to_rfc3339()),
+        Some(ts) =>
+            s.serialize_str(&ts.to_rfc3339()),
         None => s.serialize_str("")
     }
 }

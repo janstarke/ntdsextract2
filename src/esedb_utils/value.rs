@@ -1,6 +1,5 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 
-use chrono::{DateTime, Duration, NaiveDate, Utc};
 use libesedb::Value;
 
 pub(crate) trait FromValue
@@ -54,26 +53,5 @@ impl FromValue for String {
             _ => bail!("invalid value detected: {value:?} in field {attribute_name}"),
         }
     }
-}
-
-pub(crate) type UtcDatetime = DateTime<Utc>;
-impl FromValue for UtcDatetime {
-    fn from_value_opt(value: Value, attrib_name: &str) -> Result<Option<Self>> {
-        match value {
-            Value::Currency(val) => Ok(Some(currency_to_datetime(val))),
-            Value::Null => Ok(None),
-            _ => Err(anyhow!(
-                "invalid value detected: {:?} in field {}",
-                value,
-                attrib_name
-            )),
-        }
-    }
-}
-
-fn currency_to_datetime(val: i64) -> DateTime<Utc> {
-    let dt_base = DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-    let duration = Duration::microseconds(val / 10);
-    dt_base + duration
 }
 

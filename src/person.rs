@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid}, data_table_ext::DataTableExt, esedb_utils::{find_by_id, find_by_rid}};
+use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid, DatabaseTime, WindowsFileTime, TruncatedWindowsFileTime}, data_table_ext::DataTableExt, esedb_utils::{find_by_id, find_by_rid}};
 use anyhow::{Result, bail};
-use chrono::{Utc, DateTime};
 use crate::serialization::*;
 
 #[derive(Serialize)]
@@ -32,28 +31,28 @@ pub (crate) struct Person {
     member_of: Vec<String>,
 
     #[serde(serialize_with = "to_ts")]
-    record_time: Option<DateTime<Utc>>,
+    record_time: Option<TruncatedWindowsFileTime>,
     
     #[serde(serialize_with = "to_ts")]
-    when_created: Option<DateTime<Utc>>,
+    when_created: Option<TruncatedWindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    when_changed: Option<DateTime<Utc>>,
+    when_changed: Option<TruncatedWindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    last_logon: Option<DateTime<Utc>>,
+    last_logon: Option<WindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    last_logon_time_stamp: Option<DateTime<Utc>>,
+    last_logon_time_stamp: Option<WindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    account_expires: Option<DateTime<Utc>>,
+    account_expires: Option<WindowsFileTime>,
     
     #[serde(serialize_with = "to_ts")]
-    password_last_set: Option<DateTime<Utc>>,
+    password_last_set: Option<WindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    bad_pwd_time: Option<DateTime<Utc>>,
+    bad_pwd_time: Option<WindowsFileTime>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
