@@ -1,7 +1,7 @@
-use crate::{column_information::ColumnInformation, win32_types::*, DataTableExt, esedb_utils::*};
+use crate::{esedb_cache::{CRecord, CDataTable}, column_information::ColumnInformation, win32_types::*, DataTableExt, esedb_utils::*};
 use anyhow::Result;
 use bodyfile::Bodyfile3Line;
-use libesedb::Value;
+use libesedb::{Record, Value};
 use paste::paste;
 use std::{collections::HashMap};
 use term_table::{
@@ -14,7 +14,7 @@ macro_rules! define_getter_int {
         #[allow(dead_code)]
         pub fn $field(&self, mapping: &ColumnInfoMapping) -> Result<Option<$res_type>> {
             $res_type::from_value_opt(
-                self.inner_record.value(mapping.$field.id())?,
+                self.inner_record.value(mapping.$field.id().try_into().unwrap()).unwrap(),
                 stringify!($field)
             )
         }
@@ -22,8 +22,8 @@ macro_rules! define_getter_int {
         paste! {
             #[allow(dead_code)]
             pub fn [<has_valid_ $field>](&self, mapping: &ColumnInfoMapping) -> bool {
-                match self.inner_record.value(mapping.$field.id()) {
-                    Ok(value) => match $res_type::from_value_opt(value, stringify!($field)) {
+                match self.inner_record.value(mapping.$field.id().try_into().unwrap()) {
+                    Some(value) => match $res_type::from_value_opt(value, stringify!($field)) {
                         Ok(Some(_)) => true,
                         _ => false
                     }
@@ -34,8 +34,8 @@ macro_rules! define_getter_int {
 
         paste! {
             #[allow(dead_code)]
-            pub fn [<value_of_ $field>](&self, mapping: &ColumnInfoMapping) -> Option<Value> {
-                self.inner_record.value(mapping.$field.id()).ok()
+            pub fn [<value_of_ $field>](&self, mapping: &ColumnInfoMapping) -> Option<&Value> {
+                self.inner_record.value(mapping.$field.id().try_into().unwrap())
             }
         }
 
@@ -99,18 +99,18 @@ macro_rules! column_mapping {
             }
 
             impl $StructName {
-                pub fn from(data_table: &libesedb::Table) -> Result<Self> {
+                pub fn from(data_table: &CDataTable) -> Result<Self> {
                     let mut temporary_mapping = HashMap::new();
                     let mut column_names = HashMap::new();
-                    for index in 0..data_table.count_columns()? {
-                        let column_res = data_table.column(index)?;
+                    for index in 0..data_table.count_columns() {
+                        let column_res = data_table.column(index).unwrap();
                         let col_info = ColumnInformation::new(
                             index,
                             // column_res.name()?,
                             // column_res.variant()?
                         );
-                        column_names.insert(index, column_res.name()?);
-                        temporary_mapping.insert(column_res.name()?, col_info);
+                        column_names.insert(index, column_res.name().to_owned());
+                        temporary_mapping.insert(column_res.name(), col_info);
                     }
 
                     let mapping = Self {
@@ -126,22 +126,22 @@ macro_rules! column_mapping {
                 }
             }
 
-            pub(crate) struct $RecordStructName<'a> {
-                inner_record: libesedb::Record<'a>,
+            pub(crate) struct $RecordStructName {
+                inner_record: CRecord,
             }
 
-            impl<'a> $RecordStructName<'a> {
+            impl $RecordStructName {
                 $(
                     define_getter!($field as $type);
                 )+
                 pub fn all_attributes(&self, mapping: &$StructName) -> HashMap<String, String> {
                     let mut attribs = HashMap::new();
-                    for index in 0..self.inner_record.count_values().unwrap() {
-                        if let Ok(value) = self.inner_record.value(index) {
-                            if ! matches!(value, Value::Null) {
-                                if let Some(column_name) = mapping.name_of_column(&index) {
+                    for index in 0..self.inner_record.count_values() {
+                        if let Some(value) = self.inner_record.value(index) {
+                            if ! matches!(value, Value::Null(())) {
+                                if let Some(column_name) = mapping.name_of_column(&index.try_into().unwrap()) {
                                     let str_value = match value {
-                                        Value::Null => panic!("unreachable code executed"),
+                                        Value::Null(()) => panic!("unreachable code executed"),
                                         Value::Bool(v) => format!("{v}"),
                                         Value::U8(v) => format!("{v}"),
                                         Value::U16(v) => format!("{v}"),
@@ -156,7 +156,7 @@ macro_rules! column_mapping {
                                         Value::Binary(v) => hex::encode(&v).to_string(),
                                         Value::Text(v) => v.to_string(),
                                         Value::LargeBinary(v) => hex::encode(&v).to_string(),
-                                        Value::LargeText(v) => v,
+                                        Value::LargeText(v) => v.clone(),
                                         Value::SuperLarge(v) => hex::encode(&v).to_string(),
                                         Value::Guid(v) => hex::encode(&v).to_string(),
                                     };
@@ -170,14 +170,21 @@ macro_rules! column_mapping {
             }
 
             pub (crate) trait FromDbRecord where Self: Sized {
-                fn from(dbrecord: $RecordStructName, data_table: &DataTableExt) -> Result<Self>;
+                fn from(dbrecord: &$RecordStructName, data_table: &DataTableExt) -> Result<Self>;
             }
 
-            impl<'a> From<libesedb::Record<'a>> for $RecordStructName<'a> {
-                fn from(inner: libesedb::Record<'a>) -> Self {
+            impl From<CRecord> for $RecordStructName {
+                fn from(inner: CRecord) -> Self {
                     Self {
                         inner_record: inner
                     }
+                }
+            }
+
+            impl<'r> TryFrom<Record<'r>> for $RecordStructName {
+                type Error = std::io::Error;
+                fn try_from(record: Record<'r>) -> Result<Self, Self::Error> {
+                    Ok(Self::from(CRecord::try_from(record)?))
                 }
             }
         }
@@ -242,7 +249,7 @@ pub(crate) trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }
 
-impl FormatDbRecordForCli for DbRecord<'_> {
+impl FormatDbRecordForCli for DbRecord {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table {
         let mut table = term_table::Table::new();
         let all_attributes = self.all_attributes(mapping);
@@ -287,7 +294,7 @@ macro_rules! add_bodyfile_timestamp {
     };
 }
 
-impl RecordToBodyfile for DbRecord<'_> {
+impl RecordToBodyfile for DbRecord {
     fn to_bodyfile(
         &self,
         mapping: &ColumnInfoMapping,
@@ -362,7 +369,7 @@ pub(crate) trait HasMembers {
     fn members(&self) -> Vec<Box<dyn IsMemberOf>>;
 }
 
-impl IsMemberOf for DbRecord<'_> {
+impl IsMemberOf for DbRecord {
     fn member_of(&self) -> Vec<Box<dyn HasMembers>> {
         todo!()
     }

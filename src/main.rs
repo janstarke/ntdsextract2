@@ -5,7 +5,7 @@ use libesedb::{EseDb};
 use simplelog::{Config, TermLogger};
 use anyhow::{Result};
 
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt, entry_id::EntryId};
+use crate::{column_info_mapping::*, data_table_ext::DataTableExt, entry_id::EntryId, esedb_cache::CTable};
 
 mod person;
 mod computer;
@@ -20,7 +20,7 @@ mod esedb_utils;
 mod object_tree_entry;
 mod serialization;
 mod entry_id;
-//mod cached_table;
+mod esedb_cache;
 
 /// this needs to be global, 
 /// because it is read by serialization code, which has no state by default
@@ -59,7 +59,7 @@ fn set_do_flat_serialization(val: bool) {
     }
 }
 
-#[derive(clap::ArgEnum, Clone)]
+#[derive(clap::ValueEnum, Clone)]
 enum OutputFormat{
     Csv,
     Json,
@@ -71,7 +71,7 @@ enum Commands {
     /// Display user accounts
     User {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -82,7 +82,7 @@ enum Commands {
     /// Display groups
     Group {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -93,7 +93,7 @@ enum Commands {
     /// display computer accounts
     Computer {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
 
         /// show all non-empty values. This option is ignored when CSV-Output is selected
@@ -111,7 +111,7 @@ enum Commands {
     /// list all defined types
     Types {
         /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
+        #[clap(value_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
         format: OutputFormat,
     },
 
@@ -177,8 +177,12 @@ fn main() -> Result<()> {
     let esedb = EseDb::open(&cli.ntds_file)?;
     log::info!("Db load finished");
 
-    let raw_data_table = esedb.table_by_name("datatable")?;
-    let raw_link_table = esedb.table_by_name("link_table")?;
+    let raw_data_table = CTable::try_from(esedb.table_by_name("datatable")?)?;
+    log::info!("cached data_table");
+
+    let raw_link_table = CTable::try_from(esedb.table_by_name("link_table")?)?;
+    log::info!("cached link_table");
+
     let data_table = DataTableExt::from(raw_data_table, raw_link_table)?;
 
     set_display_all_attributes(

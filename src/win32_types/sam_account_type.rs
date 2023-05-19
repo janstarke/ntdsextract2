@@ -22,12 +22,12 @@ pub(crate) enum SamAccountType {
 }
 
 impl FromValue for SamAccountType {
-    fn from_value_opt(value: Value, attrib_name: &str) -> Result<Option<SamAccountType>> {
+    fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<SamAccountType>> {
         match value {
             Value::I32(val) => Ok(FromPrimitive::from_u32(u32::from_ne_bytes(
                 val.to_ne_bytes(),
             ))),
-            Value::Null => Ok(None),
+            Value::Null(()) => Ok(None),
             _ => Err(anyhow!(
                 "invalid value detected: {:?} in field {}",
                 value,

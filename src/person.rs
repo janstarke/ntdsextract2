@@ -3,13 +3,19 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid, DatabaseTime, WindowsFileTime, TruncatedWindowsFileTime}, data_table_ext::DataTableExt, esedb_utils::{find_by_id, find_by_rid}};
-use anyhow::{Result, bail};
 use crate::serialization::*;
+use crate::{
+    data_table_ext::DataTableExt,
+    skip_all_attributes,
+    win32_types::{
+        SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
+    },
+    DbRecord, FromDbRecord,
+};
+use anyhow::{bail, Result};
 
 #[derive(Serialize)]
-pub (crate) struct Person {
-
+pub(crate) struct Person {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
@@ -32,7 +38,7 @@ pub (crate) struct Person {
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
-    
+
     #[serde(serialize_with = "to_ts")]
     when_created: Option<TruncatedWindowsFileTime>,
 
@@ -47,7 +53,7 @@ pub (crate) struct Person {
 
     #[serde(serialize_with = "to_ts")]
     account_expires: Option<WindowsFileTime>,
-    
+
     #[serde(serialize_with = "to_ts")]
     password_last_set: Option<WindowsFileTime>,
 
@@ -59,7 +65,7 @@ pub (crate) struct Person {
 }
 
 impl FromDbRecord for Person {
-    fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
         let mapping = data_table.mapping();
         let table = data_table.data_table();
         let object_id = match dbrecord.ds_record_id(mapping)? {
@@ -69,22 +75,34 @@ impl FromDbRecord for Person {
 
         let primary_group_id = dbrecord.ds_primary_group_id(mapping)?;
         let primary_group = primary_group_id.and_then(|group_id| {
-            find_by_rid(table, mapping, group_id.try_into().unwrap()).and_then(|group| {
-                group.ds_object_name2(mapping)
-                    .expect("unable to read object name2")
-            })
+            table
+                .find_by_rid(mapping, group_id.try_into().unwrap())
+                .and_then(|group| {
+                    group
+                        .ds_object_name2(mapping)
+                        .expect("unable to read object name2")
+                })
         });
 
         let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
-            children.iter().filter_map(|child_id| {
-                find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
-            })
-            .map(|record| record.ds_object_name2(mapping).expect("error while reading object name").expect("missing object name"))
-            .collect()
+            children
+                .iter()
+                .filter_map(|child_id| {
+                    data_table
+                        .data_table()
+                        .find_by_id(data_table.mapping(), *child_id)
+                })
+                .map(|record| {
+                    record
+                        .ds_object_name2(mapping)
+                        .expect("error while reading object name")
+                        .expect("missing object name")
+                })
+                .collect()
         } else {
             vec![]
         };
-        
+
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,
@@ -114,21 +132,20 @@ impl FromDbRecord for Person {
 impl From<Person> for Vec<Bodyfile3Line> {
     fn from(person: Person) -> Self {
         let mut res = Vec::new();
-        if let Some(upn) =  person.sam_account_name {
-
+        if let Some(upn) = person.sam_account_name {
             if let Some(record_time) = person.record_time {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, record creation time)", upn))
-                        .with_crtime(i64::max(0,record_time.timestamp()))
+                        .with_crtime(i64::max(0, record_time.timestamp())),
                 );
             }
-            
+
             if let Some(when_created) = person.when_created {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, object created)", upn))
-                        .with_crtime(i64::max(0,when_created.timestamp()))
+                        .with_crtime(i64::max(0, when_created.timestamp())),
                 );
             }
 
@@ -136,7 +153,7 @@ impl From<Person> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, object changed)", upn))
-                        .with_crtime(i64::max(0,when_changed.timestamp()))
+                        .with_crtime(i64::max(0, when_changed.timestamp())),
                 );
             }
 
@@ -144,7 +161,7 @@ impl From<Person> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, last logon on this DC)", upn))
-                        .with_ctime(i64::max(0,last_logon.timestamp()))
+                        .with_ctime(i64::max(0, last_logon.timestamp())),
                 );
             }
 
@@ -152,7 +169,7 @@ impl From<Person> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, last logon on any DC)", upn))
-                        .with_ctime(i64::max(0,last_logon_time_stamp.timestamp()))
+                        .with_ctime(i64::max(0, last_logon_time_stamp.timestamp())),
                 );
             }
 
@@ -160,7 +177,7 @@ impl From<Person> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, bad pwd time)", upn))
-                        .with_ctime(i64::max(0,bad_pwd_time.timestamp()))
+                        .with_ctime(i64::max(0, bad_pwd_time.timestamp())),
                 );
             }
 
@@ -168,7 +185,7 @@ impl From<Person> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, password last set)", upn))
-                        .with_ctime(i64::max(0,password_last_set.timestamp()))
+                        .with_ctime(i64::max(0, password_last_set.timestamp())),
                 );
             }
         }

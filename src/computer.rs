@@ -62,7 +62,7 @@ pub (crate) struct Computer {
 }
 
 impl FromDbRecord for Computer {
-    fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
         let mapping = data_table.mapping();
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,

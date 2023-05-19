@@ -22,10 +22,10 @@ impl Sid {
   }
 }
 
-impl TryFrom<Vec<u8>> for Sid {
+impl TryFrom<&Vec<u8>> for Sid {
     type Error = anyhow::Error;
 
-    fn try_from(val: Vec<u8>) -> Result<Self, Self::Error> {
+    fn try_from(val: &Vec<u8>) -> Result<Self, Self::Error> {
       let mut rdr = Cursor::new(val);
       let revision = rdr.read_u8()?;
       let number_of_dashes = rdr.read_u8()?;
@@ -63,10 +63,10 @@ impl Display for Sid {
 }
 
 impl FromValue for Sid {
-  fn from_value_opt(value: Value, attrib_name: &str) -> Result<Option<Sid>> {
+  fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<Sid>> {
       match value {
           Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(Sid::try_from(val)?)),
-          Value::Null => Ok(None),
+          Value::Null(()) => Ok(None),
           _ => Err(anyhow!(
               "invalid value detected: {:?} in field {}",
               value,
