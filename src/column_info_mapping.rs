@@ -244,7 +244,7 @@ column_mapping! (
     // DS_DIAL_IN_ACCESS_PERMISSION_NAME as i32 from "ATTi590943",
     // DS_PEK as i32 from "ATTk590689",
 
-    ds_created_sid as sid from "ATTr591234",
+    ds_creator_sid as sid from "ATTr591234",
 );
 
 pub(crate) trait FormatDbRecordForCli {
