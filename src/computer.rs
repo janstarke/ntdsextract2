@@ -59,6 +59,9 @@ pub (crate) struct Computer {
     DS_VOLUME_GUIDINDEX_NAME,
     DS_RECOVERY_GUIDINDEX_NAME
      */
+
+
+     created_sid: Option<Sid>,
 }
 
 impl FromDbRecord for Computer {
@@ -84,6 +87,7 @@ impl FromDbRecord for Computer {
             osname: dbrecord.ds_os_name(mapping)?,
             osversion: dbrecord.ds_os_version(mapping)?,
             comment: dbrecord.ds_att_comment(mapping)?,
+            created_sid: dbrecord.ds_created_sid(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
         })
     }
