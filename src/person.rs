@@ -23,6 +23,7 @@ pub(crate) struct Person {
     user_account_control: Option<UserAccountControl>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
+    admin_count: Option<i32>,
 
     //#[serde(skip_serializing)]
     #[allow(dead_code)]
@@ -62,6 +63,7 @@ pub(crate) struct Person {
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
+
 }
 
 impl FromDbRecord for Person {
@@ -119,6 +121,7 @@ impl FromDbRecord for Person {
             bad_pwd_time: dbrecord.ds_bad_pwd_time(mapping)?,
             logon_count: dbrecord.ds_logon_count(mapping)?,
             bad_pwd_count: dbrecord.ds_bad_pwd_count(mapping)?,
+            admin_count: dbrecord.ds_admin_count(mapping)?,
             primary_group_id,
             primary_group,
             comment: dbrecord.ds_att_comment(mapping)?,

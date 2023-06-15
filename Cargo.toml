@@ -1,6 +1,6 @@
 [package]
 name = "ntdsextract2"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 description = "Display contents of Active Directory database files (ntds.dit)"
 repository = "https://www.github.com/janstarke/ntdsextract2"

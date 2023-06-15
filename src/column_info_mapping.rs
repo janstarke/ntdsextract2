@@ -245,6 +245,7 @@ column_mapping! (
     // DS_PEK as i32 from "ATTk590689",
 
     ds_creator_sid as sid from "ATTr591234",
+    ds_admin_count as i32 from "ATTj589974",
 );
 
 pub(crate) trait FormatDbRecordForCli {
