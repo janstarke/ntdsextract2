@@ -3,14 +3,21 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, constants::TYPENAME_COMPUTER, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid, DatabaseTime, TruncatedWindowsFileTime, WindowsFileTime}, data_table_ext::DataTableExt};
-use anyhow::Result;
 use crate::serialization::*;
+use crate::{
+    constants::TYPENAME_COMPUTER,
+    data_table_ext::DataTableExt,
+    skip_all_attributes,
+    win32_types::{
+        SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl,
+        WindowsFileTime,
+    },
+    DbRecord, FromDbRecord,
+};
+use anyhow::Result;
 
 #[derive(Serialize)]
-pub (crate) struct Computer {
-
-
+pub(crate) struct Computer {
     sid: Option<Sid>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
@@ -28,7 +35,7 @@ pub (crate) struct Computer {
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
-    
+
     #[serde(serialize_with = "to_ts")]
     when_created: Option<TruncatedWindowsFileTime>,
 
@@ -43,7 +50,7 @@ pub (crate) struct Computer {
 
     #[serde(serialize_with = "to_ts")]
     account_expires: Option<WindowsFileTime>,
-    
+
     #[serde(serialize_with = "to_ts")]
     password_last_set: Option<WindowsFileTime>,
 
@@ -53,15 +60,13 @@ pub (crate) struct Computer {
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
 
-/*
+    /*
     DS_RECOVERY_PASSWORD_INDEX_NAME,
     DS_FVEKEY_PACKAGE_INDEX_NAME,
     DS_VOLUME_GUIDINDEX_NAME,
     DS_RECOVERY_GUIDINDEX_NAME
      */
-
-
-     created_sid: Option<Sid>,
+    created_sid: Option<Sid>,
 }
 
 impl FromDbRecord for Computer {
@@ -96,21 +101,23 @@ impl FromDbRecord for Computer {
 impl From<Computer> for Vec<Bodyfile3Line> {
     fn from(person: Computer) -> Self {
         let mut res = Vec::new();
-        if let Some(upn) =  person.sam_account_name {
-
+        if let Some(upn) = person.sam_account_name {
             if let Some(record_time) = person.record_time {
                 res.push(
                     Bodyfile3Line::new()
-                        .with_owned_name(format!("{} ({}, record creation time)", upn, TYPENAME_COMPUTER))
-                        .with_crtime(i64::max(0,record_time.timestamp()))
+                        .with_owned_name(format!(
+                            "{} ({}, record creation time)",
+                            upn, TYPENAME_COMPUTER
+                        ))
+                        .with_crtime(i64::max(0, record_time.timestamp())),
                 );
             }
-            
+
             if let Some(when_created) = person.when_created {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} ({}, object created)", upn, TYPENAME_COMPUTER))
-                        .with_crtime(i64::max(0,when_created.timestamp()))
+                        .with_crtime(i64::max(0, when_created.timestamp())),
                 );
             }
 
@@ -118,23 +125,29 @@ impl From<Computer> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} ({}, object changed)", upn, TYPENAME_COMPUTER))
-                        .with_crtime(i64::max(0,when_changed.timestamp()))
+                        .with_crtime(i64::max(0, when_changed.timestamp())),
                 );
             }
 
             if let Some(last_logon) = person.last_logon {
                 res.push(
                     Bodyfile3Line::new()
-                        .with_owned_name(format!("{} ({}, last logon on this DC)", upn, TYPENAME_COMPUTER))
-                        .with_ctime(i64::max(0,last_logon.timestamp()))
+                        .with_owned_name(format!(
+                            "{} ({}, last logon on this DC)",
+                            upn, TYPENAME_COMPUTER
+                        ))
+                        .with_ctime(i64::max(0, last_logon.timestamp())),
                 );
             }
 
             if let Some(last_logon_time_stamp) = person.last_logon_time_stamp {
                 res.push(
                     Bodyfile3Line::new()
-                        .with_owned_name(format!("{} ({}, last logon on any DC)", upn, TYPENAME_COMPUTER))
-                        .with_ctime(i64::max(0,last_logon_time_stamp.timestamp()))
+                        .with_owned_name(format!(
+                            "{} ({}, last logon on any DC)",
+                            upn, TYPENAME_COMPUTER
+                        ))
+                        .with_ctime(i64::max(0, last_logon_time_stamp.timestamp())),
                 );
             }
 
@@ -142,15 +155,18 @@ impl From<Computer> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} ({}, bad pwd time)", upn, TYPENAME_COMPUTER))
-                        .with_ctime(i64::max(0,bad_pwd_time.timestamp()))
+                        .with_ctime(i64::max(0, bad_pwd_time.timestamp())),
                 );
             }
 
             if let Some(password_last_set) = person.password_last_set {
                 res.push(
                     Bodyfile3Line::new()
-                        .with_owned_name(format!("{} ({}, password last set)", upn, TYPENAME_COMPUTER))
-                        .with_ctime(i64::max(0,password_last_set.timestamp()))
+                        .with_owned_name(format!(
+                            "{} ({}, password last set)",
+                            upn, TYPENAME_COMPUTER
+                        ))
+                        .with_ctime(i64::max(0, password_last_set.timestamp())),
                 );
             }
         }
