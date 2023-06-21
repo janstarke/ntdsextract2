@@ -71,7 +71,10 @@ impl DataTableExt {
 
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
-        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
+        for dbrecord in self
+            .data_table
+            .find_children_of_int(&self.mapping, self.schema_record_id)
+        {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -87,10 +90,15 @@ impl DataTableExt {
         mut type_names: HashSet<&str>,
     ) -> Result<HashMap<String, &DbRecord>> {
         let mut type_records = HashMap::new();
-        let children = self.data_table.find_children_of_int(&self.mapping, self.schema_record_id);
+        let children = self
+            .data_table
+            .find_children_of_int(&self.mapping, self.schema_record_id);
         anyhow::ensure!(children.count() > 0, "The schema record has no children");
 
-        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
+        for dbrecord in self
+            .data_table
+            .find_children_of_int(&self.mapping, self.schema_record_id)
+        {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -124,7 +132,10 @@ impl DataTableExt {
 
     pub fn show_type_names(&self, format: &OutputFormat) -> Result<()> {
         let mut type_names = HashSet::new();
-        for dbrecord in self.data_table.find_children_of_int(&self.mapping, self.schema_record_id) {
+        for dbrecord in self
+            .data_table
+            .find_children_of_int(&self.mapping, self.schema_record_id)
+        {
             let object_name2 = dbrecord
                 .ds_object_name2(&self.mapping)?
                 .expect("missing object_name2 attribute");
@@ -247,7 +258,9 @@ impl DataTableExt {
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
 
-        for record in self.data_table.iter_records()
+        for record in self
+            .data_table
+            .iter_records()
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
             .map(|dbrecord| T::from(dbrecord, self).unwrap())
@@ -295,7 +308,9 @@ impl DataTableExt {
             )
         };
 
-        for bf_lines in self.data_table.iter_records()
+        for bf_lines in self
+            .data_table
+            .iter_records()
             .filter(|dbrecord| dbrecord.has_valid_ds_object_type_id(&self.mapping))
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord
@@ -308,13 +323,21 @@ impl DataTableExt {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == TYPENAME_PERSON {
-                                Some(Vec::<Bodyfile3Line>::from(
-                                    <Person as FromDbRecord>::from(dbrecord, self).unwrap(),
-                                ))
+                                match <Person as FromDbRecord>::from(dbrecord, self) {
+                                    Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
+                                    Err(why) => {
+                                        log::error!("unable to parse person: {why}");
+                                        None
+                                    }
+                                }
                             } else if *type_name == TYPENAME_COMPUTER {
-                                Some(Vec::<Bodyfile3Line>::from(
-                                    <Computer as FromDbRecord>::from(dbrecord, self).unwrap(),
-                                ))
+                                match <Computer as FromDbRecord>::from(dbrecord, self) {
+                                    Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
+                                    Err(why) => {
+                                        log::error!("unable to parse person: {why}");
+                                        None
+                                    }
+                                }
                             } else {
                                 None
                             }
