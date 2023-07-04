@@ -29,11 +29,12 @@ pub(crate) struct Group {
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
-    comment: Option<String>,
     aduser_objects: Option<String>,
 
     #[serde(serialize_with = "serialize_object_list")]
     member_of: Vec<String>,
+    
+    comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,

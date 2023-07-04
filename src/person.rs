@@ -31,11 +31,12 @@ pub(crate) struct Person {
 
     primary_group: Option<String>,
 
-    comment: Option<String>,
     aduser_objects: Option<String>,
 
     #[serde(serialize_with = "serialize_object_list")]
     member_of: Vec<String>,
+    
+    comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
