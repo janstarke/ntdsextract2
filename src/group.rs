@@ -32,6 +32,9 @@ pub(crate) struct Group {
     comment: Option<String>,
     aduser_objects: Option<String>,
 
+    #[serde(serialize_with = "serialize_object_list")]
+    member_of: Vec<String>,
+
     #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
 
@@ -86,6 +89,25 @@ impl FromDbRecord for Group {
             vec![]
         };
 
+        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
+            children
+                .iter()
+                .filter_map(|child_id| {
+                    data_table
+                        .data_table()
+                        .find_by_id(data_table.mapping(), *child_id)
+                })
+                .map(|record| {
+                    record
+                        .ds_object_name2(mapping)
+                        .expect("error while reading object name")
+                        .expect("missing object name")
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,
@@ -107,6 +129,7 @@ impl FromDbRecord for Group {
             comment: dbrecord.ds_att_comment(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
+            member_of,
         })
     }
 }
