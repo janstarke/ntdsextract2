@@ -1,8 +1,19 @@
 use anyhow::anyhow;
 use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use lazy_static::lazy_static;
 use libesedb::Value;
 
 use crate::esedb_utils::FromValue;
+
+lazy_static! {
+    static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_utc(
+        NaiveDate::from_ymd_opt(1601, 1, 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap(),
+        Utc
+    );
+}
 
 pub trait ToRfc3339 {
     fn to_rfc3339(&self) -> String;
@@ -41,19 +52,13 @@ impl From<i64> for DatabaseTime {
 
 impl From<i64> for WindowsFileTime {
     fn from(value: i64) -> Self {
-        let dt_base =
-            DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-        let duration = Duration::microseconds(value / 10);
-        Self(dt_base + duration)
+        Self(*BASE_DATETIME + Duration::microseconds(value / 10))
     }
 }
 
 impl From<i64> for TruncatedWindowsFileTime {
     fn from(value: i64) -> Self {
-        let dt_base =
-            DateTime::<Utc>::from_utc(NaiveDate::from_ymd(1601, 1, 1).and_hms(0, 0, 0), Utc);
-        let duration = Duration::seconds(value);
-        Self(dt_base + duration)
+        Self(*BASE_DATETIME + Duration::seconds(value))
     }
 }
 
@@ -95,6 +100,7 @@ macro_rules! impl_timestamp {
         }
 
         impl $type {
+            #[allow(dead_code)]
             pub fn timestamp(&self) -> i64 {
                 self.0.timestamp()
             }
