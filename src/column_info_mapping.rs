@@ -111,6 +111,7 @@ macro_rules! column_mapping {
                         );
                         column_names.insert(index, column_res.name().to_owned());
                         temporary_mapping.insert(column_res.name(), col_info);
+                        //log::info!("found column with name {name}", name=column_res.name());
                     }
 
                     let mapping = Self {

@@ -28,7 +28,7 @@ paste = "1.0"
 hashbrown = "0.14" # used for faster hashes
 
 bodyfile = "0.1.4"
-libesedb = "0.1.4"
+libesedb = "0.1" # version 2 returns empty strings as name
 #libesedb = {path="../rust-libesedb"}
 
 serde = { version = "1.0", features = ["derive"] }

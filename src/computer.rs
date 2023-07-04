@@ -14,7 +14,7 @@ use crate::{
     },
     DbRecord, FromDbRecord,
 };
-use anyhow::Result;
+use anyhow::{Result, bail};
 
 #[derive(Serialize)]
 pub(crate) struct Computer {
@@ -31,6 +31,9 @@ pub(crate) struct Computer {
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
 
+    #[serde(serialize_with = "serialize_object_list")]
+    member_of: Vec<String>,
+    
     comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
@@ -72,6 +75,31 @@ pub(crate) struct Computer {
 impl FromDbRecord for Computer {
     fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
         let mapping = data_table.mapping();
+
+        let object_id = match dbrecord.ds_record_id(mapping)? {
+            Some(id) => id,
+            None => bail!("object has no record id"),
+        };
+        
+        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
+            children
+                .iter()
+                .filter_map(|child_id| {
+                    data_table
+                        .data_table()
+                        .find_by_id(data_table.mapping(), *child_id)
+                })
+                .map(|record| {
+                    record
+                        .ds_object_name2(mapping)
+                        .expect("error while reading object name")
+                        .expect("missing object name")
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
         Ok(Self {
             record_time: dbrecord.ds_record_time(mapping)?,
             when_created: dbrecord.ds_when_created(mapping)?,
@@ -94,6 +122,7 @@ impl FromDbRecord for Computer {
             comment: dbrecord.ds_att_comment(mapping)?,
             created_sid: dbrecord.ds_creator_sid(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
+            member_of,
         })
     }
 }
