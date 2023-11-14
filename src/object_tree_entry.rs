@@ -8,7 +8,7 @@ use std::{
 use hashbrown::{HashMap, HashSet};
 use termtree::Tree;
 
-use crate::{column_info_mapping::ColumnInfoMapping, esedb_cache::{CDataTable}};
+use crate::{column_info_mapping::ColumnInfoMapping, esedb_cache::CDataTable};
 use anyhow::{bail, Result};
 
 /// represents an object in the DIT

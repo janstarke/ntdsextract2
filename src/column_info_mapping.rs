@@ -3,7 +3,7 @@ use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use libesedb::{Record, Value};
 use paste::paste;
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use term_table::{
     row::Row,
     table_cell::{Alignment, TableCell},
@@ -81,6 +81,9 @@ macro_rules! define_getter {
     };
     ($field: ident as sam_account_type) => {
         define_getter_int!($field, SamAccountType);
+    };
+    ($field: ident as bool) => {
+        define_getter_int!($field, bool);
     };
 }
 
@@ -247,6 +250,7 @@ column_mapping! (
 
     ds_creator_sid as sid from "ATTr591234",
     ds_admin_count as i32 from "ATTj589974",
+    ds_is_deleted as bool from "ATTi131120",
 );
 
 pub(crate) trait FormatDbRecordForCli {
