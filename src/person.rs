@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
+use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::column_info_mapping::{DbRecord, FromDbRecord};
@@ -14,7 +15,8 @@ use crate::{
 };
 use anyhow::{bail, Result};
 
-#[derive(Serialize)]
+#[derive(Getters, Serialize, Deserialize)]
+#[getset(get="pub")]
 pub struct Person {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
@@ -63,6 +65,7 @@ pub struct Person {
     bad_pwd_time: Option<WindowsFileTime>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
+    #[serde(default)]
     all_attributes: HashMap<String, String>,
 }
 

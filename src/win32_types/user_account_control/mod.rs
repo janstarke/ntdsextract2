@@ -1,14 +1,14 @@
+use anyhow::{anyhow, Result};
 use bitflags::bitflags;
 use libesedb::Value;
-use serde::Serialize;
-use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
 
-use crate::{do_flat_serialization, esedb_utils::FromValue};
+use crate::esedb_utils::FromValue;
 
 bitflags! {
 
     /// Source: https://docs.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol
-    #[derive(PartialEq, Eq)]
+    #[derive(PartialEq, Eq, Serialize, Deserialize)]
     pub struct UserAccountControl : u32 {
 
         /// The logon script is executed.
@@ -86,60 +86,26 @@ bitflags! {
 
         /// The account is enabled for delegation. This is a security-sensitive
         /// setting; accounts with this option enabled should be strictly
-        /// controlled. This setting enables a service running under the 
-        /// account to assume a client identity and authenticate as that user 
+        /// controlled. This setting enables a service running under the
+        /// account to assume a client identity and authenticate as that user
         /// to other remote servers on the network.
         const ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x0100_0000;
     }
 }
 
-impl Serialize for UserAccountControl {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer {
-            let mut flags = Vec::new();
-            if self.contains(Self::ADS_UF_SCRIPT) { flags.push("ADS_UF_SCRIPT") }
-            if self.contains(Self::ADS_UF_ACCOUNTDISABLE) { flags.push("ADS_UF_ACCOUNTDISABLE") }
-            if self.contains(Self::ADS_UF_HOMEDIR_REQUIRED) { flags.push("ADS_UF_HOMEDIR_REQUIRED") }
-            if self.contains(Self::ADS_UF_LOCKOUT) { flags.push("ADS_UF_LOCKOUT") }
-            if self.contains(Self::ADS_UF_PASSWD_NOTREQD) { flags.push("ADS_UF_PASSWD_NOTREQD") }
-            if self.contains(Self::ADS_UF_PASSWD_CANT_CHANGE) { flags.push("ADS_UF_PASSWD_CANT_CHANGE") }
-            if self.contains(Self::ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED) { flags.push("ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED") }
-            if self.contains(Self::ADS_UF_TEMP_DUPLICATE_ACCOUNT) { flags.push("ADS_UF_TEMP_DUPLICATE_ACCOUNT") }
-            if self.contains(Self::ADS_UF_NORMAL_ACCOUNT) { flags.push("ADS_UF_NORMAL_ACCOUNT") }
-            if self.contains(Self::ADS_UF_INTERDOMAIN_TRUST_ACCOUNT) { flags.push("ADS_UF_INTERDOMAIN_TRUST_ACCOUNT") }
-            if self.contains(Self::ADS_UF_WORKSTATION_TRUST_ACCOUNT) { flags.push("ADS_UF_WORKSTATION_TRUST_ACCOUNT") }
-            if self.contains(Self::ADS_UF_SERVER_TRUST_ACCOUNT) { flags.push("ADS_UF_SCRIPT") }
-            if self.contains(Self::ADS_UF_DONT_EXPIRE_PASSWD) { flags.push("ADS_UF_DONT_EXPIRE_PASSWD") }
-            if self.contains(Self::ADS_UF_MNS_LOGON_ACCOUNT) { flags.push("ADS_UF_MNS_LOGON_ACCOUNT") }
-            if self.contains(Self::ADS_UF_SMARTCARD_REQUIRED) { flags.push("ADS_UF_SMARTCARD_REQUIRED") }
-            if self.contains(Self::ADS_UF_TRUSTED_FOR_DELEGATION) { flags.push("ADS_UF_TRUSTED_FOR_DELEGATION") }
-            if self.contains(Self::ADS_UF_NOT_DELEGATED) { flags.push("ADS_UF_NOT_DELEGATED") }
-            if self.contains(Self::ADS_UF_USE_DES_KEY_ONLY) { flags.push("ADS_UF_USE_DES_KEY_ONLY") }
-            if self.contains(Self::ADS_UF_DONT_REQUIRE_PREAUTH) { flags.push("ADS_UF_DONT_REQUIRE_PREAUTH") }
-            if self.contains(Self::ADS_UF_PASSWORD_EXPIRED) { flags.push("ADS_UF_PASSWORD_EXPIRED") }
-            if self.contains(Self::ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION) { flags.push("ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION") }
-
-            if do_flat_serialization() {
-                flags.join("|").serialize(serializer)
-            } else {
-                flags.serialize(serializer)
-            }
+impl FromValue for UserAccountControl {
+    fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
+        match value {
+            Value::I32(val) => Ok(Some(<UserAccountControl>::from_bits_truncate(
+                u32::from_ne_bytes(val.to_ne_bytes()),
+            ))),
+            Value::Null(()) => Ok(None),
+            _ => Err(anyhow!(
+                "invalid value detected: {:?} in field {}",
+                value,
+                attrib_name
+            )),
+        }
     }
 }
 
-impl FromValue for UserAccountControl {
-  fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
-      match value {
-          Value::I32(val) => Ok(Some(<UserAccountControl>::from_bits_truncate(
-              u32::from_ne_bytes(val.to_ne_bytes()),
-          ))),
-          Value::Null(()) => Ok(None),
-          _ => Err(anyhow!(
-              "invalid value detected: {:?} in field {}",
-              value,
-              attrib_name
-          )),
-      }
-  }
-}

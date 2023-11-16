@@ -2,12 +2,12 @@ use anyhow::{anyhow, Result};
 use libesedb::Value;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use strum::EnumString;
 
 use crate::esedb_utils::FromValue;
 
-#[derive(EnumString, FromPrimitive, Serialize, PartialEq)]
+#[derive(EnumString, FromPrimitive, Deserialize, Serialize, PartialEq)]
 #[allow(non_camel_case_types)]
 pub enum SamAccountType {
     SAM_GROUP_OBJECT = 0x10000000,

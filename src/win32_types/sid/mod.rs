@@ -6,7 +6,7 @@ use libesedb::Value;
 use serde::{Deserialize, Serialize};
 
 use crate::esedb_utils::FromValue;
-mod visitor;
+mod sid_visitor;
 
 ///
 /// https://devblogs.microsoft.com/oldnewthing/20040315-00/?p=40253
@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for Sid {
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_str(visitor::SIDVisitor::default())
+        deserializer.deserialize_str(sid_visitor::SIDVisitor::default())
     }
 }
 
