@@ -58,6 +58,7 @@ impl FromValue for String {
 impl FromValue for bool {
     fn from_value_opt(value: &Value, attribute_name: &str) -> Result<Option<Self>> {
         match value {
+            Value::Null(_) => Ok(None),
             Value::U8(val) => Ok(Some(*val == 1)),
             Value::U16(val) => Ok(Some(*val == 1)),
             Value::U32(val) => Ok(Some(*val == 1)),
