@@ -10,6 +10,14 @@ readme = "README.md"
 categories = ["command-line-utilities"]
 keywords = ["cli", "forensics", "security"]
 
+[lib]
+name="libntdsextract2"
+path="src/lib.rs"
+
+[[bin]]
+name="ntdsextract2"
+path="src/main.rs"
+
 [dependencies]
 log = {version = "0.4", features = [ "release_max_level_info" ]}
 simplelog = "0.12"
@@ -40,3 +48,10 @@ termsize = "0.1"
 regex = "1.6"
 
 lazy_static = "1.4"
+lazy-regex = "3"
+
+[dev-dependencies]
+tempfile= "3"
+assert_cmd = "2"
+flate2 = "1"
+serde_test = "1"

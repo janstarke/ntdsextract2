@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
+use crate::column_info_mapping::{FromDbRecord, DbRecord};
 use crate::serialization::*;
 use crate::{
     constants::TYPENAME_COMPUTER,
@@ -12,7 +13,6 @@ use crate::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl,
         WindowsFileTime,
     },
-    DbRecord, FromDbRecord,
 };
 use anyhow::{Result, bail};
 

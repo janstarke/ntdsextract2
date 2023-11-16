@@ -1,4 +1,10 @@
-use crate::{esedb_cache::{CRecord, CDataTable}, column_information::ColumnInformation, win32_types::*, DataTableExt, esedb_utils::*};
+use crate::data_table_ext::DataTableExt;
+use crate::{
+    column_information::ColumnInformation,
+    esedb_cache::{CDataTable, CRecord},
+    esedb_utils::*,
+    win32_types::*,
+};
 use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use libesedb::{Record, Value};
@@ -94,9 +100,9 @@ macro_rules! column_mapping {
         $($field:ident as $type: ident from $internal_id: expr),+ $(,)?
     ) => {
             #[allow(dead_code)]
-            pub(crate) struct $StructName {
+            pub struct $StructName {
                 $(
-                    pub (crate) $field: ColumnInformation,
+                    pub $field: ColumnInformation,
                 )+
                 $($manual_fields)*
             }
@@ -130,7 +136,7 @@ macro_rules! column_mapping {
                 }
             }
 
-            pub(crate) struct $RecordStructName {
+            pub struct $RecordStructName {
                 inner_record: CRecord,
             }
 
@@ -173,7 +179,7 @@ macro_rules! column_mapping {
                 }
             }
 
-            pub (crate) trait FromDbRecord where Self: Sized {
+            pub trait FromDbRecord where Self: Sized {
                 fn from(dbrecord: &$RecordStructName, data_table: &DataTableExt) -> Result<Self>;
             }
 
@@ -253,7 +259,7 @@ column_mapping! (
     ds_is_deleted as bool from "ATTi131120",
 );
 
-pub(crate) trait FormatDbRecordForCli {
+pub trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }
 
@@ -280,7 +286,7 @@ impl FormatDbRecordForCli for DbRecord {
     }
 }
 
-pub(crate) trait RecordToBodyfile {
+pub trait RecordToBodyfile {
     fn to_bodyfile(
         &self,
         mapping: &ColumnInfoMapping,
@@ -369,11 +375,11 @@ impl RecordToBodyfile for DbRecord {
     }
 }
 
-pub(crate) trait IsMemberOf {
+pub trait IsMemberOf {
     fn member_of(&self) -> Vec<Box<dyn HasMembers>>;
 }
 
-pub(crate) trait HasMembers {
+pub trait HasMembers {
     fn members(&self) -> Vec<Box<dyn IsMemberOf>>;
 }
 

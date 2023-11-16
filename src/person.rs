@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+use crate::column_info_mapping::{DbRecord, FromDbRecord};
 use crate::serialization::*;
 use crate::{
     data_table_ext::DataTableExt,
@@ -10,12 +11,11 @@ use crate::{
     win32_types::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
     },
-    DbRecord, FromDbRecord,
 };
 use anyhow::{bail, Result};
 
 #[derive(Serialize)]
-pub(crate) struct Person {
+pub struct Person {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
@@ -35,7 +35,7 @@ pub(crate) struct Person {
 
     #[serde(serialize_with = "serialize_object_list")]
     member_of: Vec<String>,
-    
+
     comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
@@ -64,7 +64,6 @@ pub(crate) struct Person {
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
-
 }
 
 impl FromDbRecord for Person {

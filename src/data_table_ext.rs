@@ -9,7 +9,7 @@ use crate::esedb_cache::{CDataTable, CLinkTable};
 use crate::group::Group;
 use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::{DbRecord, FromDbRecord};
+use crate::column_info_mapping::{FromDbRecord, DbRecord};
 use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use maplit::hashset;
@@ -23,7 +23,7 @@ use crate::{
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub(crate) struct DataTableExt {
+pub struct DataTableExt {
     data_table: CDataTable,
     link_table: LinkTableExt,
     mapping: ColumnInfoMapping,
@@ -200,7 +200,7 @@ impl DataTableExt {
         Ok(())
     }
 
-    pub(crate) fn search_entries(&self, regex: &str) -> Result<()> {
+    pub fn search_entries(&self, regex: &str) -> Result<()> {
         let mapping = &self.mapping;
         let re = Regex::new(regex)?;
         let mut table_columns = vec![

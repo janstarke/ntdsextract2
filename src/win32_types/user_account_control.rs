@@ -9,7 +9,7 @@ bitflags! {
 
     /// Source: https://docs.microsoft.com/en-us/windows/win32/adschema/a-useraccountcontrol
     #[derive(PartialEq, Eq)]
-    pub (crate) struct UserAccountControl : u32 {
+    pub struct UserAccountControl : u32 {
 
         /// The logon script is executed.
         const ADS_UF_SCRIPT = 0x0000_0001;

@@ -9,7 +9,7 @@ use crate::esedb_utils::FromValue;
 
 #[derive(EnumString, FromPrimitive, Serialize, PartialEq)]
 #[allow(non_camel_case_types)]
-pub(crate) enum SamAccountType {
+pub enum SamAccountType {
     SAM_GROUP_OBJECT = 0x10000000,
     SAM_NON_SECURITY_GROUP_OBJECT = 0x10000001,
     SAM_ALIAS_OBJECT = 0x20000000,

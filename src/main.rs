@@ -1,70 +1,10 @@
-use std::{path::Path};
+use std::path::Path;
 
 use clap::{Parser, Subcommand};
-use libesedb::{EseDb};
+use libesedb::EseDb;
+use libntdsextract2::{OutputFormat, CTable, DataTableExt, set_display_all_attributes, set_do_flat_serialization, EntryId};
 use simplelog::{Config, TermLogger};
-use anyhow::{Result};
-
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt, entry_id::EntryId, esedb_cache::CTable};
-
-mod person;
-mod computer;
-mod group;
-mod constants;
-mod column_information;
-mod column_info_mapping;
-mod data_table_ext;
-mod link_table_ext;
-mod win32_types;
-mod esedb_utils;
-mod object_tree_entry;
-mod serialization;
-mod entry_id;
-mod esedb_cache;
-
-/// this needs to be global, 
-/// because it is read by serialization code, which has no state by default
-static mut DISPLAY_ALL_ATTRIBUTES: bool = false;
-static mut FLAT_SERIALIZATION: bool = true;
-
-pub (crate) fn display_all_attributes() -> bool {
-    unsafe {
-        DISPLAY_ALL_ATTRIBUTES
-    }
-}
-
-pub (crate) fn skip_all_attributes<T>(_t: &T) -> bool {
-    ! display_all_attributes()
-}
-
-fn set_display_all_attributes(val: bool) {
-    unsafe {
-        DISPLAY_ALL_ATTRIBUTES = val
-    }
-}
-
-pub (crate) fn do_flat_serialization() -> bool {
-    unsafe {
-        FLAT_SERIALIZATION
-    }
-}
-
-pub (crate) fn serde_flat_serialization<T>(_t: &T) -> bool {
-    do_flat_serialization()
-}
-
-fn set_do_flat_serialization(val: bool) {
-    unsafe {
-        FLAT_SERIALIZATION = val
-    }
-}
-
-#[derive(clap::ValueEnum, Clone)]
-enum OutputFormat{
-    Csv,
-    Json,
-    JsonLines
-}
+use anyhow::Result;
 
 #[derive(Subcommand)]
 enum Commands {
@@ -185,7 +125,7 @@ fn main() -> Result<()> {
 
     let data_table = DataTableExt::from(raw_data_table, raw_link_table)?;
 
-    set_display_all_attributes(
+    set_display_all_attributes (
        match &cli.command {
         Commands::User{format: OutputFormat::Json, show_all} |
         Commands::User{format: OutputFormat::JsonLines, show_all} |

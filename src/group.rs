@@ -3,12 +3,13 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
+use crate::column_info_mapping::{DbRecord, FromDbRecord};
 use crate::{
     data_table_ext::DataTableExt,
+    skip_all_attributes,
     win32_types::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
     },
-    DbRecord, FromDbRecord, skip_all_attributes,
 };
 use crate::{serde_flat_serialization, serialization::*};
 use anyhow::{bail, Result};
@@ -33,7 +34,7 @@ pub(crate) struct Group {
 
     #[serde(serialize_with = "serialize_object_list")]
     member_of: Vec<String>,
-    
+
     comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]

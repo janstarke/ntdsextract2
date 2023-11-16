@@ -1,3 +1,7 @@
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+
 use anyhow::bail;
 use libesedb::{Record, Table};
 
@@ -8,8 +12,8 @@ use crate::{
     win32_types::Sid,
 };
 
-pub(crate) type CDataTable = CTable<DbRecord>;
-pub(crate) type CLinkTable = CTable<CRecord>;
+pub type CDataTable = CTable<DbRecord>;
+pub type CLinkTable = CTable<CRecord>;
 
 pub struct CTable<R>
 where
@@ -171,3 +175,38 @@ impl CTable<DbRecord> {
         bail!("no schema record found");
     }
 }
+
+struct CRecordCache<'r> {
+    records: HashMap<i32, Record<'r>>,
+}
+/*
+struct RecordIterator<'r> {
+    cache: Rc<RefCell<CRecordCache<'r>>>,
+    table: Table<'r>,
+    index: i32,
+}
+
+impl<'r> Iterator for RecordIterator<'r> {
+    type Item = Record<'r>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index
+            >= self
+                .table
+                .count_records()
+                .expect("unexpected IO Error while counting records")
+        {
+            None
+        } else {
+            let mut tbl = self.cache.borrow_mut();
+            let result = tbl.records.entry(self.index).or_insert(
+                self.table
+                    .record(self.index)
+                    .expect("unexpected IO Error while retrieving a record"),
+            );
+            self.index += 1;
+            Some(result)
+        }
+    }
+}
+ */
