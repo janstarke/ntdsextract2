@@ -18,19 +18,25 @@ impl<'de> Visitor<'de> for SIDVisitor {
         E: serde::de::Error,
     {
         match regex_captures!(
-            r#"^S-(?P<revision>\d+)-(?P<authority>\d+)-(?P<numbers>(?:-|\d+){1,1})$"#,
+            r#"^S-(?P<revision>\d+)-(?P<authority>\d+)-(?P<numbers>(?:-|\d+)+)$"#,
             v
         ) {
-            None => Err(E::custom(format!("invalid SID: {v}"))),
+            None => Err(E::custom(format!("invalid SID: '{v}'"))),
             Some((_, revision, authority, numbers)) => {
-                let revision = revision.parse::<u8>()
-                    .map_err(|_| E::custom("unable to parse revision in '{revision}'"))?;
-                let authority = authority.parse::<u64>()
-                    .map_err(|_| E::custom("unable to parse authority in '{authority}'"))?;
+                let revision = revision.parse::<u8>().map_err(|why| {
+                    E::custom(format!("unable to parse revision in '{revision}': {why}"))
+                })?;
+                let authority = authority.parse::<u64>().map_err(|why| {
+                    E::custom(format!("unable to parse authority in '{authority}': {why}"))
+                })?;
                 let mut vec_numbers = Vec::new();
-                for r in numbers.split('_').map(|n| n.parse::<u32>()) {
-                    match r {
-                        Err(_) => return Err(E::custom("unable to parse number in '{numbers}'")),
+                for r in numbers.split('-').map(|n| (n, n.parse::<u32>())) {
+                    match r.1 {
+                        Err(why) => {
+                            return Err(E::custom(format!(
+                                "unable to parse number '{}' in '{numbers}': {why}", r.0
+                            )))
+                        }
                         Ok(n) => vec_numbers.push(n),
                     }
                 }

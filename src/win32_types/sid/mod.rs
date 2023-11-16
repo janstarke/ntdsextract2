@@ -113,7 +113,7 @@ mod tests {
         let sample = r#""S-1-5-21-2623811015-3361044348-030300820-1013""#;
         let sid: Sid = serde_json::from_str(sample).unwrap();
         assert_eq!(sid.revision, 1);
-        assert_eq!(sid.authority, 6);
+        assert_eq!(sid.authority, 5);
         assert_eq!(sid.numbers, vec![21, 2_623_811_015, 3_361_044_348, 30_300_820, 1013]);
     }
 }
