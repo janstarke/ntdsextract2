@@ -13,6 +13,7 @@ mod esedb_utils;
 mod object_tree_entry;
 mod entry_id;
 mod esedb_cache;
+mod db_record;
 
 pub use entry_id::*;
 pub use person::*;

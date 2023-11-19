@@ -217,6 +217,9 @@ column_mapping! (
         column_names: HashMap<i32, String>,
     },
     DbRecord,
+);
+
+pub trait FormatDbRecordForCli {
     ds_record_id as i32 from "DNT_col",
     ds_parent_record_id as i32 from "PDNT_col",
     ds_record_time as truncated_windows_file_time from "time_col",
@@ -268,9 +271,6 @@ column_mapping! (
     ds_creator_sid as sid from "ATTr591234",
     ds_admin_count as i32 from "ATTj589974",
     ds_is_deleted as bool from "ATTi131120",
-);
-
-pub trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }
 

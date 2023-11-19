@@ -595,6 +595,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ntds_object_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.23",
+]
+
+[[package]]
 name = "ntdsextract2"
 version = "0.13.0"
 dependencies = [
@@ -616,6 +625,7 @@ dependencies = [
  "libesedb",
  "log",
  "maplit",
+ "ntds_object_derive",
  "num-derive",
  "num-traits",
  "paste",
