@@ -1,7 +1,6 @@
-use crate::data_table_ext::DataTableExt;
 use crate::{
     column_information::ColumnInformation,
-    esedb_cache::{CDataTable, CRecord},
+    esedb_cache::{CDatabase, CDataTable, CRecord},
     esedb_utils::*,
     win32_types::*,
 };
@@ -14,22 +13,27 @@ use term_table::{
     row::Row,
     table_cell::{Alignment, TableCell},
 };
+use crate::esedb_cache::IsRecord;
 
 macro_rules! define_getter_int {
     ($field: ident, $res_type: ident) => {
         #[allow(dead_code)]
         pub fn $field(&self, mapping: &ColumnInfoMapping) -> Result<Option<$res_type>> {
-            $res_type::from_value_opt(
-                self.inner_record.value(mapping.$field.id().try_into().unwrap()).unwrap(),
-                stringify!($field)
-            )
+            let mut value = None;
+            self.inner_record.with_value(mapping.$field.id().try_into().unwrap(), |x| value=Some(x));
+            match value {
+                None => Ok(None),
+                Some(v) => $res_type::from_value_opt(&v,stringify!($field))
+            }
         }
 
         paste! {
             #[allow(dead_code)]
             pub fn [<has_valid_ $field>](&self, mapping: &ColumnInfoMapping) -> bool {
-                match self.inner_record.value(mapping.$field.id().try_into().unwrap()) {
-                    Some(value) => match $res_type::from_value_opt(value, stringify!($field)) {
+                let mut value = None;
+                self.inner_record.with_value(mapping.$field.id().try_into().unwrap(), |x| value=Some(x));
+                match value {
+                    Some(v) => match $res_type::from_value_opt(v, stringify!($field)) {
                         Ok(Some(_)) => true,
                         _ => false
                     }
@@ -40,8 +44,8 @@ macro_rules! define_getter_int {
 
         paste! {
             #[allow(dead_code)]
-            pub fn [<value_of_ $field>](&self, mapping: &ColumnInfoMapping) -> Option<&Value> {
-                self.inner_record.value(mapping.$field.id().try_into().unwrap())
+            pub fn [<with_value_of_ $field>]<F>(&self, mapping: &ColumnInfoMapping, action: F) where F:Fn(&Value) {
+                self.inner_record.with_value(mapping.$field.id().try_into().unwrap(), action)
             }
         }
 
@@ -136,18 +140,18 @@ macro_rules! column_mapping {
                 }
             }
 
-            pub struct $RecordStructName {
-                inner_record: CRecord,
+            pub struct $RecordStructName<'a> {
+                inner_record: CRecord<'a>,
             }
 
-            impl $RecordStructName {
+            impl<'a> $RecordStructName<'a> {
                 $(
                     define_getter!($field as $type);
                 )+
                 pub fn all_attributes(&self, mapping: &$StructName) -> HashMap<String, String> {
                     let mut attribs = HashMap::new();
                     for index in 0..self.inner_record.count_values() {
-                        if let Some(value) = self.inner_record.value(index) {
+                        self.inner_record.with_value_mut(index, |value| {
                             if ! matches!(value, Value::Null(())) {
                                 if let Some(column_name) = mapping.name_of_column(&index.try_into().unwrap()) {
                                     let str_value = match value {
@@ -173,17 +177,17 @@ macro_rules! column_mapping {
                                     attribs.insert(column_name.to_owned(), str_value);
                                 }
                             }
-                        }
+                        });
                     }
                     attribs
                 }
             }
 
             pub trait FromDbRecord where Self: Sized {
-                fn from(dbrecord: &$RecordStructName, data_table: &DataTableExt) -> Result<Self>;
+                fn from(dbrecord: &$RecordStructName, database: &CDatabase<'_>) -> Result<Self>;
             }
 
-            impl From<CRecord> for $RecordStructName {
+            impl<'a> From<CRecord<'a>> for $RecordStructName<'a> {
                 fn from(inner: CRecord) -> Self {
                     Self {
                         inner_record: inner
@@ -191,11 +195,18 @@ macro_rules! column_mapping {
                 }
             }
 
-            impl<'r> TryFrom<Record<'r>> for $RecordStructName {
+            impl<'r, 'a> TryFrom<Record<'r>> for $RecordStructName<'_> {
                 type Error = std::io::Error;
                 fn try_from(record: Record<'r>) -> Result<Self, Self::Error> {
                     Ok(Self::from(CRecord::try_from(record)?))
                 }
+            }
+
+            impl<'a> crate::IsRecord for $RecordStructName<'_> {
+                fn with_value_mut<F>(&self, index: i32, mut action: F) where F: FnMut(&Value) {
+                    self.inner_record.with_value_mut(index, action)
+                }
+                fn count_values(&self) -> i32 { self.inner_record.count_values() }
             }
         }
     }
@@ -263,7 +274,7 @@ pub trait FormatDbRecordForCli {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
 }
 
-impl FormatDbRecordForCli for DbRecord {
+impl<'a> FormatDbRecordForCli for DbRecord<'a> {
     fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table {
         let mut table = term_table::Table::new();
         let all_attributes = self.all_attributes(mapping);
@@ -308,7 +319,7 @@ macro_rules! add_bodyfile_timestamp {
     };
 }
 
-impl RecordToBodyfile for DbRecord {
+impl<'a> RecordToBodyfile for DbRecord<'a> {
     fn to_bodyfile(
         &self,
         mapping: &ColumnInfoMapping,
@@ -383,7 +394,7 @@ pub trait HasMembers {
     fn members(&self) -> Vec<Box<dyn IsMemberOf>>;
 }
 
-impl IsMemberOf for DbRecord {
+impl<'a> IsMemberOf for DbRecord<'a> {
     fn member_of(&self) -> Vec<Box<dyn HasMembers>> {
         todo!()
     }

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use clap::{Parser, Subcommand};
 use libesedb::EseDb;
-use libntdsextract2::{OutputFormat, CTable, DataTableExt, set_display_all_attributes, set_do_flat_serialization, EntryId};
+use libntdsextract2::{OutputFormat, CTable, DataTableExt, set_display_all_attributes, set_do_flat_serialization, EntryId, CDatabase};
 use simplelog::{Config, TermLogger};
 use anyhow::Result;
 
@@ -114,16 +114,7 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     }
 
-    let esedb = EseDb::open(&cli.ntds_file)?;
-    log::info!("Db load finished");
-
-    let raw_data_table = CTable::try_from(esedb.table_by_name("datatable")?)?;
-    log::info!("cached data_table");
-
-    let raw_link_table = CTable::try_from(esedb.table_by_name("link_table")?)?;
-    log::info!("cached link_table");
-
-    let data_table = DataTableExt::from(raw_data_table, raw_link_table)?;
+    let database = CDatabase::from_path(&cli.ntds_file)?;
 
     set_display_all_attributes (
        match &cli.command {
@@ -144,19 +135,19 @@ fn main() -> Result<()> {
     );
 
     match &cli.command {
-        Commands::Group { format, .. } => data_table.show_groups(format),
-        Commands::User { format, ..} => data_table.show_users(format),
-        Commands::Computer { format, .. } => data_table.show_computers(format),
-        Commands::Types { format, .. } => data_table.show_type_names(format),
-        Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
-        Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
+        Commands::Group { format, .. } => database.data_table().show_groups(format),
+        Commands::User { format, ..} => database.data_table().show_users(format),
+        Commands::Computer { format, .. } => database.data_table().show_computers(format),
+        Commands::Types { format, .. } => database.data_table().show_type_names(format),
+        Commands::Timeline {all_objects} => database.data_table().show_timeline(*all_objects),
+        Commands::Tree { max_depth } => database.data_table().show_tree(*max_depth),
         Commands::Entry { entry_id , use_sid} => {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {
                 EntryId::Id(*entry_id)
             };
-            data_table.show_entry(id)
+            database.data_table().show_entry(id)
         }
         Commands::Search { regex , ignore_case} => {
             let regex = if *ignore_case {
@@ -164,7 +155,7 @@ fn main() -> Result<()> {
             } else {
                 regex.to_owned()
             };
-            data_table.search_entries(&regex)
+            database.data_table().search_entries(&regex)
         }
     }
 }

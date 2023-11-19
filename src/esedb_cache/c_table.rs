@@ -1,23 +1,20 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
-
 use anyhow::bail;
-use libesedb::{Record, Table};
+use libesedb::Table;
 
 use super::{CColumn, CRecord};
 use crate::esedb_utils::FromValue;
+use crate::IsRecord;
 use crate::{
     column_info_mapping::{ColumnInfoMapping, DbRecord},
     win32_types::Sid,
 };
 
-pub type CDataTable = CTable<DbRecord>;
-pub type CLinkTable = CTable<CRecord>;
+pub type CDataTable<'a> = CTable<DbRecord<'a>>;
+pub type CLinkTable<'a> = CTable<CRecord<'a>>;
 
 pub struct CTable<R>
 where
-    for<'r> R: TryFrom<Record<'r>, Error = std::io::Error>,
+    R: IsRecord,
 {
     records: Vec<R>,
     columns: Vec<CColumn>,
@@ -25,7 +22,7 @@ where
 
 impl<'a, R> TryFrom<Table<'a>> for CTable<R>
 where
-    for<'r> R: TryFrom<Record<'r>, Error = std::io::Error>,
+    R: IsRecord,
 {
     type Error = std::io::Error;
 
@@ -46,7 +43,7 @@ where
 
 impl<R> CTable<R>
 where
-    for<'r> R: TryFrom<Record<'r>, Error = std::io::Error>,
+    R: IsRecord,
 {
     pub fn count_columns(&self) -> i32 {
         self.columns.len().try_into().unwrap()
@@ -80,12 +77,12 @@ where
     }
 }
 
-impl CTable<DbRecord> {
+impl<'r> CTable<DbRecord<'r>> {
     pub fn find_by_id<'a, 'b>(
         &'a self,
         mapping: &'b ColumnInfoMapping,
         index: i32,
-    ) -> Option<&'a DbRecord>
+    ) -> Option<&'a DbRecord<'r>>
     where
         'b: 'a,
     {
@@ -106,14 +103,16 @@ impl CTable<DbRecord> {
         'b: 'a,
     {
         self.find_record_from(move |d| {
-            d.value_of_ds_sid(mapping)
-                .and_then(|sid| {
-                    Sid::from_value_opt(sid, "ATTj589922")
-                        .ok()
-                        .flatten()
-                        .map(|sid| sid.get_rid() == &object_rid)
-                })
-                .unwrap_or(false)
+            let mut res = false;
+            d.with_value_of_ds_sid(mapping, |sid| {
+                Sid::from_value_opt(sid, "ATTj589922")
+                    .ok()
+                    .flatten()
+                    .map(|sid| {
+                        res = sid.get_rid() == &object_rid;
+                    });
+            });
+            res
         })
     }
 
@@ -175,38 +174,3 @@ impl CTable<DbRecord> {
         bail!("no schema record found");
     }
 }
-
-struct CRecordCache<'r> {
-    records: HashMap<i32, Record<'r>>,
-}
-/*
-struct RecordIterator<'r> {
-    cache: Rc<RefCell<CRecordCache<'r>>>,
-    table: Table<'r>,
-    index: i32,
-}
-
-impl<'r> Iterator for RecordIterator<'r> {
-    type Item = Record<'r>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.index
-            >= self
-                .table
-                .count_records()
-                .expect("unexpected IO Error while counting records")
-        {
-            None
-        } else {
-            let mut tbl = self.cache.borrow_mut();
-            let result = tbl.records.entry(self.index).or_insert(
-                self.table
-                    .record(self.index)
-                    .expect("unexpected IO Error while retrieving a record"),
-            );
-            self.index += 1;
-            Some(result)
-        }
-    }
-}
- */

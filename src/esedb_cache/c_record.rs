@@ -1,13 +1,26 @@
+use std::{cell::RefCell, collections::HashMap};
+use std::collections::hash_map::Entry;
+
 use libesedb::{Record, Value};
 
-pub struct CRecord {
-    values: Vec<Value>
+use crate::IsRecord;
+
+pub struct CRecord<'r> {
+    values: RefCell<HashMap<i32, Value>>,
+    count: i32,
+    record: Record<'r>,
 }
 
-impl<'a> TryFrom<Record<'a>> for CRecord {
+impl<'a> TryFrom<Record<'a>> for CRecord<'_> {
     type Error = std::io::Error;
 
     fn try_from(record: Record<'a>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            values: Default::default(),
+            count: record.count_values()?,
+            record,
+        })
+        /*
         let mut values = Vec::new();
         for value in record.iter_values()? {
             let value = match value {
@@ -22,24 +35,29 @@ impl<'a> TryFrom<Record<'a>> for CRecord {
         Ok(Self {
             values
         })
+         */
     }
 }
 
-impl IntoIterator for CRecord {
-    type Item = Value;
-
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.values.into_iter()
+impl IsRecord for CRecord<'_> {
+    fn count_values(&self) -> i32 {
+        self.count
     }
-}
 
-impl CRecord {
-    pub fn count_values(&self) -> i32 {
-        self.values.len().try_into().unwrap()
-    }
-    pub fn value(&self, entry: i32) -> Option<&Value> {
-        self.values.get(usize::try_from(entry).unwrap())
+    fn with_value_mut<F>(&self, index: i32, mut action: F) where F: FnMut(&Value) {
+        match self.values.borrow().entry(index) {
+            Entry::Occupied(e) => action(e.get()),
+            Entry::Vacant(e) => {
+                match self.record.value(index) {
+                    Ok(v) => {
+                        self.values.borrow_mut().insert(index, v);
+                        action(&v);
+                    }
+                    Err(why) => {
+                        log::error!("invalid no value for index '{index}': {why}");
+                    }
+                }
+            },
+        }
     }
 }

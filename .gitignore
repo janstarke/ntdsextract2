@@ -13,5 +13,4 @@
 **/*.json
 **/*.bodyfile
 
-tests/*
 .idea

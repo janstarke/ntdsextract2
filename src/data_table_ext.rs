@@ -1,15 +1,14 @@
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
+use crate::column_info_mapping::{DbRecord, FromDbRecord};
 use crate::column_info_mapping::{FormatDbRecordForCli, RecordToBodyfile};
 use crate::computer::Computer;
-use crate::constants::*;
 use crate::entry_id::EntryId;
-use crate::esedb_cache::{CDataTable, CLinkTable};
+use crate::esedb_cache::CDataTable;
 use crate::group::Group;
-use crate::link_table_ext::LinkTableExt;
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::column_info_mapping::{FromDbRecord, DbRecord};
+use crate::{constants::*, CDatabase};
 use anyhow::Result;
 use bodyfile::Bodyfile3Line;
 use maplit::hashset;
@@ -23,41 +22,41 @@ use crate::{
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub struct DataTableExt {
-    data_table: CDataTable,
-    link_table: LinkTableExt,
+pub struct DataTableExt<'d> {
+    data_table: CDataTable<'d>,
+    database: Option<Weak<CDatabase<'d>>>,
     mapping: ColumnInfoMapping,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
 }
 
-impl DataTableExt {
+impl<'d> DataTableExt<'d> {
     /// create a new datatable wrapper
-    pub fn from(data_table: CDataTable, link_table: CLinkTable) -> Result<Self> {
-        log::info!("reading schema information and creating record cache");
-        let mapping = ColumnInfoMapping::from(&data_table)?;
-        let object_tree = ObjectTreeEntry::from(&data_table, &mapping)?;
-        let schema_record_id = data_table.get_schema_record_id(&mapping)?;
-
-        let link_table: LinkTableExt =
-            LinkTableExt::from(link_table, &data_table, &mapping, schema_record_id)?;
-
-        log::debug!("found the schema record id is '{}'", schema_record_id);
+    pub fn new<'l>(
+        data_table: CDataTable<'d>,
+        mapping: ColumnInfoMapping,
+        object_tree: Rc<ObjectTreeEntry>,
+        schema_record_id: i32,
+    ) -> Result<Self> {
         Ok(Self {
+            database: None,
             data_table,
-            link_table,
             mapping,
             schema_record_id,
             object_tree,
         })
     }
 
-    pub(crate) fn mapping(&self) -> &ColumnInfoMapping {
-        &self.mapping
+    pub fn set_database(&mut self, database: Weak<CDatabase<'d>>) {
+        self.database = Some(database);
     }
 
-    pub(crate) fn link_table(&self) -> &LinkTableExt {
-        &self.link_table
+    pub fn database(&self) -> &CDatabase {
+        &self.database.unwrap().upgrade().unwrap()
+    }
+ 
+    pub(crate) fn mapping(&self) -> &ColumnInfoMapping {
+        &self.mapping
     }
 
     pub(crate) fn data_table(&self) -> &CDataTable {
@@ -251,6 +250,7 @@ impl DataTableExt {
         format: &OutputFormat,
         type_name: &str,
     ) -> Result<()> {
+        
         let type_record = self
             .find_type_record(type_name)?
             .unwrap_or_else(|| panic!("missing record for type '{}'", type_name));
@@ -263,7 +263,7 @@ impl DataTableExt {
             .iter_records()
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
-            .map(|dbrecord| T::from(dbrecord, self).unwrap())
+            .map(|dbrecord| T::from(dbrecord, self.database()).unwrap())
         {
             match format {
                 OutputFormat::Csv => {
@@ -323,7 +323,7 @@ impl DataTableExt {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == TYPENAME_PERSON {
-                                match <Person as FromDbRecord>::from(dbrecord, self) {
+                                match <Person as FromDbRecord>::from(dbrecord, self.database()) {
                                     Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
@@ -331,7 +331,7 @@ impl DataTableExt {
                                     }
                                 }
                             } else if *type_name == TYPENAME_COMPUTER {
-                                match <Computer as FromDbRecord>::from(dbrecord, self) {
+                                match <Computer as FromDbRecord>::from(dbrecord, self.database()) {
                                     Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");

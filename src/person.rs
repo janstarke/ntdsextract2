@@ -5,9 +5,8 @@ use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::column_info_mapping::{DbRecord, FromDbRecord};
-use crate::serialization::*;
+use crate::{serialization::*, CDatabase};
 use crate::{
-    data_table_ext::DataTableExt,
     skip_all_attributes,
     win32_types::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
@@ -71,7 +70,8 @@ pub struct Person {
 }
 
 impl FromDbRecord for Person {
-    fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, database: &CDatabase) -> Result<Self> {
+        let data_table = database.data_table();
         let mapping = data_table.mapping();
         let table = data_table.data_table();
         let object_id = match dbrecord.ds_record_id(mapping)? {
@@ -90,7 +90,7 @@ impl FromDbRecord for Person {
                 })
         });
 
-        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
+        let member_of = if let Some(children) = database.link_table().member_of(&object_id) {
             children
                 .iter()
                 .filter_map(|child_id| {

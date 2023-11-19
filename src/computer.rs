@@ -4,10 +4,9 @@ use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
 use crate::column_info_mapping::{FromDbRecord, DbRecord};
-use crate::serialization::*;
+use crate::{serialization::*, CDatabase};
 use crate::{
     constants::TYPENAME_COMPUTER,
-    data_table_ext::DataTableExt,
     skip_all_attributes,
     win32_types::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl,
@@ -73,7 +72,8 @@ pub(crate) struct Computer {
 }
 
 impl FromDbRecord for Computer {
-    fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, database: &CDatabase<'_>) -> Result<Self> {
+        let data_table = database.data_table();
         let mapping = data_table.mapping();
 
         let object_id = match dbrecord.ds_record_id(mapping)? {
@@ -81,7 +81,7 @@ impl FromDbRecord for Computer {
             None => bail!("object has no record id"),
         };
         
-        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
+        let member_of = if let Some(children) = database.link_table().member_of(&object_id) {
             children
                 .iter()
                 .filter_map(|child_id| {
