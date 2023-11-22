@@ -1,19 +1,42 @@
-use crate::{
-    column_information::ColumnInformation,
-    esedb_cache::{CDatabase, CDataTable, CRecord},
-    esedb_utils::*,
-    win32_types::*,
-};
+use std::{ops::Index, collections::HashMap};
+
+use crate::{column_information::ColumnInformation, ntds::NtdsAttributeId};
 use anyhow::Result;
 use bodyfile::Bodyfile3Line;
-use libesedb::{Record, Value};
-use paste::paste;
-use std::collections::HashMap;
-use term_table::{
-    row::Row,
-    table_cell::{Alignment, TableCell},
-};
-use crate::esedb_cache::IsRecord;
+use libesedb::Table;
+
+pub struct ColumnInfoMapping {
+    mapping: HashMap<NtdsAttributeId, ColumnInformation>,
+}
+
+impl Index<NtdsAttributeId> for ColumnInfoMapping {
+    type Output = Option<i32>;
+
+    fn index(&self, index: NtdsAttributeId) -> &Self::Output {
+        &self.mapping.get(&index).map(|info| info.id())
+    }
+}
+
+impl TryFrom<&Table<'_>> for ColumnInfoMapping {
+    type Error = anyhow::Error;
+    fn try_from(data_table: &Table) -> Result<Self, Self::Error> {
+        let mut mapping = HashMap::new();
+        for index in 0..data_table.count_columns()? {
+            let column = data_table.column(index)?;
+            if let Ok(column_id) = NtdsAttributeId::try_from(&column.name()?[..]) {
+                let col_info = ColumnInformation::new(
+                    index,
+                    // column_res.name()?,
+                    // column_res.variant()?
+                );
+                mapping.insert(column_id, col_info);
+            }
+            //log::info!("found column with name {name}", name=column_res.name());
+        }
+
+        Ok(Self { mapping })
+    }
+}
 
 macro_rules! define_getter_int {
     ($field: ident, $res_type: ident) => {
@@ -211,92 +234,6 @@ macro_rules! column_mapping {
         }
     }
 
-// This mapping should be defined in `%WINDIR%\ntds\schema.ini`
-column_mapping! (
-    ColumnInfoMapping {
-        column_names: HashMap<i32, String>,
-    },
-    DbRecord,
-);
-
-pub trait FormatDbRecordForCli {
-    ds_record_id as i32 from "DNT_col",
-    ds_parent_record_id as i32 from "PDNT_col",
-    ds_record_time as truncated_windows_file_time from "time_col",
-    ds_ancestors as i32 from "Ancestors_col",
-    ds_object_type_id as i32 from "ATTb590606",
-    ds_object_name as str from "ATTm3",
-    ds_object_name2 as str from "ATTm589825",
-    // DS_OBJECT_GUID as i32 from "ATTk589826",
-    ds_when_created as truncated_windows_file_time from "ATTl131074",
-    ds_when_changed as truncated_windows_file_time from "ATTl131075",
-    // DS_USNCREATED as datetime from "ATTq131091",
-    // DS_USNCHANGED as datetime from "ATTq131192",
-    // DS_OBJECT_COL as i32 from "OBJ_col",
-    // DS_IS_DELETED as i32 from "ATTi131120",
-
-    // DS_ORIG_CONTAINER_ID as i32 from "ATTb590605",
-
-    ds_sid as sid from "ATTr589970",
-    ds_sam_account_name as str from "ATTm590045",
-    ds_user_principal_name as str from "ATTm590480",
-    ds_sam_account_type as sam_account_type from "ATTj590126",
-    ds_user_account_control as uac_flags from "ATTj589832",
-    ds_last_logon as windows_file_time from "ATTq589876",
-    ds_last_logon_time_stamp as windows_file_time from "ATTq591520",
-    ds_account_expires as windows_file_time from "ATTq589983",
-    ds_password_last_set as windows_file_time from "ATTq589920",
-    ds_bad_pwd_time as windows_file_time from "ATTq589873",
-    ds_logon_count as i32 from "ATTj589993",
-    ds_bad_pwd_count as i32 from "ATTj589836",
-    ds_primary_group_id as i32 from "ATTj589922",
-    // ds_unix_password as i32 from "ATTk591734",
-    ds_aduser_objects as binary from "ATTk36",
-    ds_att_comment as str from "ATTm13",
-
-    ds_dns_host_name as str from "ATTm590443",
-    ds_os_name as str from "ATTm590187",
-    ds_os_version as str from "ATTm590188",
-
-    ds_link_id as u32 from "ATTj131122",
-    ds_ldap_display_name as str from "ATTm131532",
-
-    // DS_RECOVERY_PASSWORD as i32 from "ATTm591788",
-    // DS_FVEKEY_PACKAGE as i32 from "ATTk591823",
-    // DS_VOLUME_GUID as i32 from "ATTk591822",
-    // DS_RECOVERY_GUID as i32 from "ATTk591789",
-    // DS_DIAL_IN_ACCESS_PERMISSION_NAME as i32 from "ATTi590943",
-    // DS_PEK as i32 from "ATTk590689",
-
-    ds_creator_sid as sid from "ATTr591234",
-    ds_admin_count as i32 from "ATTj589974",
-    ds_is_deleted as bool from "ATTi131120",
-    fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table;
-}
-
-impl<'a> FormatDbRecordForCli for DbRecord<'a> {
-    fn to_table(&self, mapping: &ColumnInfoMapping) -> term_table::Table {
-        let mut table = term_table::Table::new();
-        let all_attributes = self.all_attributes(mapping);
-        let mut keys = all_attributes.keys().collect::<Vec<&String>>();
-        keys.sort();
-
-        table.add_row(Row::new(vec![
-            TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
-            TableCell::new_with_alignment("Value", 1, Alignment::Center),
-        ]));
-
-        for key in keys {
-            table.add_row(Row::new(vec![
-                TableCell::new(key),
-                TableCell::new(all_attributes[key].to_string()),
-            ]));
-        }
-
-        table
-    }
-}
-
 pub trait RecordToBodyfile {
     fn to_bodyfile(
         &self,
@@ -318,7 +255,7 @@ macro_rules! add_bodyfile_timestamp {
         }
     };
 }
-
+/*
 impl<'a> RecordToBodyfile for DbRecord<'a> {
     fn to_bodyfile(
         &self,
@@ -399,3 +336,4 @@ impl<'a> IsMemberOf for DbRecord<'a> {
         todo!()
     }
 }
+ */

@@ -1,11 +1,9 @@
 use std::{fmt::Display, io::Cursor};
 
-use anyhow::{anyhow, ensure, Result};
+use anyhow::{ensure, Result};
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
-use libesedb::Value;
 use serde::{Deserialize, Serialize};
 
-use crate::esedb_utils::FromValue;
 mod sid_visitor;
 
 ///
@@ -71,20 +69,6 @@ impl Display for Sid {
     }
 }
 
-impl FromValue for Sid {
-    fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<Sid>> {
-        match value {
-            Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(Sid::try_from(val)?)),
-            Value::Null(()) => Ok(None),
-            _ => Err(anyhow!(
-                "invalid value detected: {:?} in field {}",
-                value,
-                attrib_name
-            )),
-        }
-    }
-}
-
 impl Serialize for Sid {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -103,7 +87,6 @@ impl<'de> Deserialize<'de> for Sid {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::Sid;
@@ -114,6 +97,9 @@ mod tests {
         let sid: Sid = serde_json::from_str(sample).unwrap();
         assert_eq!(sid.revision, 1);
         assert_eq!(sid.authority, 5);
-        assert_eq!(sid.numbers, vec![21, 2_623_811_015, 3_361_044_348, 30_300_820, 1013]);
+        assert_eq!(
+            sid.numbers,
+            vec![21, 2_623_811_015, 3_361_044_348, 30_300_820, 1013]
+        );
     }
 }

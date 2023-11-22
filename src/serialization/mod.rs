@@ -2,7 +2,6 @@ use chrono::{DateTime, Utc};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serializer};
 
-use crate::do_flat_serialization;
 use crate::win32_types::ToRfc3339;
 
 pub(crate) fn to_ts<T, S>(ts: &Option<T>, s: S) -> Result<S::Ok, S::Error>
@@ -30,11 +29,11 @@ where
     }
 }
 
-pub(crate) fn serialize_object_list<S>(ol: &[String], s: S) -> Result<S::Ok, S::Error>
+pub(crate) fn serialize_object_list<S>(ol: &[String], s: S, do_flat_serialization: bool) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    if do_flat_serialization() {
+    if do_flat_serialization {
         s.serialize_str(&ol.join(","))
     } else {
         let mut seq = s.serialize_seq(None)?;

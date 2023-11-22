@@ -1,15 +1,10 @@
-use std::{
-    cell::RefCell,
-    fmt::Display,
-    hash::Hash,
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash, rc::Rc};
 
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::{column_info_mapping::ColumnInfoMapping, esedb_cache::CDataTable};
-use anyhow::{bail, Result};
+use crate::CDataTable;
+use anyhow::Result;
 
 /// represents an object in the DIT
 pub(crate) struct ObjectTreeEntry {
@@ -41,11 +36,8 @@ impl Display for ObjectTreeEntry {
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from(
-        data_table: &CDataTable,
-        mapping: &ColumnInfoMapping,
-    ) -> Result<Rc<ObjectTreeEntry>> {
-        Self::populate_object_tree(data_table, mapping)
+    pub(crate) fn from(data_table: &CDataTable) -> Result<Rc<ObjectTreeEntry>> {
+        Self::populate_object_tree(data_table)
     }
 
     pub(crate) fn to_tree(me: &Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
@@ -85,10 +77,7 @@ impl ObjectTreeEntry {
             }
         }
     */
-    fn populate_object_tree(
-        data_table: &CDataTable,
-        mapping: &ColumnInfoMapping,
-    ) -> Result<Rc<ObjectTreeEntry>> {
+    fn populate_object_tree(data_table: &CDataTable) -> Result<Rc<ObjectTreeEntry>> {
         log::info!("populating the object tree");
 
         //let mut downlinks = HashMap::new();
@@ -96,20 +85,9 @@ impl ObjectTreeEntry {
         let mut names = HashMap::new();
 
         for record in data_table.iter_records() {
-            let id = match record.ds_record_id(mapping)? {
-                Some(v) => v,
-                None => bail!("missing record id"),
-            };
-
-            let parent_id = match record.ds_parent_record_id(mapping)? {
-                Some(v) => v,
-                None => bail!("missing parent record id"),
-            };
-
-            let name = match record.ds_object_name2(mapping)? {
-                Some(v) => v,
-                None => bail!("missing name"),
-            };
+            let id = record.ds_record_id()?;
+            let parent_id = record.ds_parent_record_id()?;
+            let name = record.ds_object_name2()?.to_owned();
 
             names.insert(id, name);
             uplinks.insert(id, parent_id);
@@ -150,8 +128,7 @@ impl ObjectTreeEntry {
         });
 
         for (child_id, _) in uplinks.iter().filter(|(_, parent)| **parent == object_id) {
-            let child =
-                Self::create_tree_node(*child_id, uplinks, names)?;
+            let child = Self::create_tree_node(*child_id, uplinks, names)?;
             my_object.children.borrow_mut().insert(child);
         }
         Ok(my_object)

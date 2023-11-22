@@ -28,19 +28,14 @@ pub trait ToRfc3339 {
 #[macro_export]
 macro_rules! impl_timestamp {
     ($type: ident) => {
-        impl $crate::esedb_utils::FromValue for $type {
+        impl $crate::value::FromValue for $type {
             fn from_value_opt(
                 value: &libesedb::Value,
-                attribute_name: &str,
-            ) -> anyhow::Result<Option<Self>> {
+            ) -> Result<Option<Self>, $crate::value::ConversionError> {
                 match value {
                     libesedb::Value::Currency(val) => Ok(Some($type::from(*val))),
                     libesedb::Value::Null(()) => Ok(None),
-                    _ => Err(anyhow::anyhow!(
-                        "invalid value detected: {:?} in field {}",
-                        value,
-                        attribute_name
-                    )),
+                    _ => Err($crate::value::ConversionError::InvalidValueDetected(value)),
                 }
             }
         }

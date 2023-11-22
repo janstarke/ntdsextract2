@@ -1,9 +1,5 @@
-use anyhow::{anyhow, Result};
 use bitflags::bitflags;
-use libesedb::Value;
 use serde::{Deserialize, Serialize};
-
-use crate::esedb_utils::FromValue;
 
 bitflags! {
 
@@ -92,20 +88,3 @@ bitflags! {
         const ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION = 0x0100_0000;
     }
 }
-
-impl FromValue for UserAccountControl {
-    fn from_value_opt(value: &Value, attrib_name: &str) -> Result<Option<UserAccountControl>> {
-        match value {
-            Value::I32(val) => Ok(Some(<UserAccountControl>::from_bits_truncate(
-                u32::from_ne_bytes(val.to_ne_bytes()),
-            ))),
-            Value::Null(()) => Ok(None),
-            _ => Err(anyhow!(
-                "invalid value detected: {:?} in field {}",
-                value,
-                attrib_name
-            )),
-        }
-    }
-}
-
