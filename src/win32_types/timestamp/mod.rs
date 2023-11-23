@@ -2,14 +2,14 @@ use chrono::{DateTime, NaiveDate, Utc};
 use lazy_static::lazy_static;
 
 mod database_time;
-mod windows_file_time;
 mod truncated_windows_file_time;
 mod utc_visitor;
+mod windows_file_time;
 
-use utc_visitor::*;
 pub use database_time::DatabaseTime;
-pub use windows_file_time::WindowsFileTime;
 pub use truncated_windows_file_time::TruncatedWindowsFileTime;
+use utc_visitor::*;
+pub use windows_file_time::WindowsFileTime;
 
 lazy_static! {
     static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_utc(
@@ -28,14 +28,14 @@ pub trait ToRfc3339 {
 #[macro_export]
 macro_rules! impl_timestamp {
     ($type: ident) => {
-        impl $crate::value::FromValue for $type {
+        impl<'a> $crate::value::FromValue<'a> for $type {
             fn from_value_opt(
                 value: &libesedb::Value,
-            ) -> Result<Option<Self>, $crate::value::ConversionError> {
+            ) -> Result<Option<Self>, $crate::ntds::Error> {
                 match value {
                     libesedb::Value::Currency(val) => Ok(Some($type::from(*val))),
                     libesedb::Value::Null(()) => Ok(None),
-                    _ => Err($crate::value::ConversionError::InvalidValueDetected(value)),
+                    _ => Err($crate::ntds::Error::InvalidValueDetected(value.to_string())),
                 }
             }
         }
@@ -65,7 +65,8 @@ macro_rules! impl_timestamp {
             where
                 D: serde::Deserializer<'de>,
             {
-                let me = deserializer.deserialize_str($crate::win32_types::timestamp::UtcVisitor::default())?;
+                let me = deserializer
+                    .deserialize_str($crate::win32_types::timestamp::UtcVisitor::default())?;
                 Ok(Self::from(me))
             }
         }

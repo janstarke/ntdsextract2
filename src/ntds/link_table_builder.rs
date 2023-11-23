@@ -17,7 +17,7 @@ pub(crate) struct LinkTableBuilder<'a, 'd, 'l> {
 impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
     pub fn from(
         link_table: CLinkTable<'l>,
-        data_table: &CDataTable,
+        data_table: &'a CDataTable<'d>,
         schema_record_id: i32,
     ) -> Result<Self> {
         let columns = Self::read_column_names(&link_table)?;
@@ -64,15 +64,15 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
         let mut backward_map = HashMap::new();
 
         for record in self.link_table.iter_records().filter(|r| {
-            r.get_value_in_column(link_base_id)
+            r.get_by_index(link_base_id).as_ref()
                 .map_or(false, |value| match value {
                     Value::U32(v) => *v == member_link_id,
                     Value::I32(v) => u32::try_from(*v).map_or(false, |v| v == link_base),
                     _ => false,
                 })
         }) {
-            if let Some(forward_link_value) = record.get_value_in_column(link_dnt_id) {
-                if let Some(backward_link_value) = record.get_value_in_column(backward_dnt_id) {
+            if let Some(forward_link_value) = record.get_by_index(link_dnt_id) {
+                if let Some(backward_link_value) = record.get_by_index(backward_dnt_id) {
                     let forward_link = i32::from_value(forward_link_value)?;
                     let backward_link = i32::from_value(backward_link_value)?;
                     forward_map

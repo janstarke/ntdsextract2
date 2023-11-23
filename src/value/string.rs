@@ -1,9 +1,11 @@
 use libesedb::Value;
 
-use super::{ConversionError, FromValue};
+use crate::ntds::Error;
 
-impl FromValue for String {
-    fn from_value_opt(value: &Value) -> Result<Option<Self>, ConversionError>
+use super::FromValue;
+
+impl<'a> FromValue<'a> for String {
+    fn from_value_opt(value: &Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,
     {
@@ -12,13 +14,13 @@ impl FromValue for String {
             Value::LargeText(val) => Ok(Some(val.to_owned())),
             Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(hex::encode(val))),
             Value::Null(()) => Ok(None),
-            _ => Err(ConversionError::InvalidValueDetected(value)),
+            _ => Err(Error::InvalidValueDetected(value.to_string())),
         }
     }
 }
 
-impl FromValue for &str {
-    fn from_value_opt(value: &Value) -> Result<Option<Self>, ConversionError>
+impl<'a> FromValue<'a> for &'a str {
+    fn from_value_opt(value: &'a Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,
     {
@@ -26,7 +28,7 @@ impl FromValue for &str {
             Value::Text(val) => Ok(Some(&val[..])),
             Value::LargeText(val) => Ok(Some(&val[..])),
             Value::Null(()) => Ok(None),
-            _ => Err(ConversionError::InvalidValueDetected(value)),
+            _ => Err(Error::InvalidValueDetected(value.to_string())),
         }
     }
 }

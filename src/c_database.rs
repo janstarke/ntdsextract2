@@ -12,6 +12,7 @@ use crate::{
 pub struct CDatabase<'r> {
     data_table: Rc<DataTable<'r>>,
     link_table: Rc<LinkTable>,
+    esedb: EseDb
 }
 
 impl<'a> CDatabase<'a> {
@@ -53,6 +54,7 @@ impl<'a> CDatabase<'a> {
         let me = Rc::new(Self {
             data_table,
             link_table,
+            esedb
         });
 
         //me.data_table.set_database(me.downgrade());

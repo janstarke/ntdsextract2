@@ -1,9 +1,11 @@
 use libesedb::Value;
 
-use super::{ConversionError, FromValue};
+use crate::ntds::Error;
 
-impl FromValue for u32 {
-    fn from_value_opt(value: &Value) -> Result<Option<Self>, ConversionError>
+use super::FromValue;
+
+impl<'a> FromValue<'a> for u32 {
+    fn from_value_opt(value: &Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,
     {
@@ -12,21 +14,21 @@ impl FromValue for u32 {
             Value::U16(val) => Ok(Some((*val).into())),
             Value::U32(val) => Ok(Some(*val)),
             Value::I16(val) => Ok(Some((*val).try_into().or_else(|why| {
-                Err(ConversionError::IntegerConversionError {
-                    value,
+                Err(Error::IntegerConversionError {
+                    value: value.to_string(),
                     intended_type: "i16",
                     why,
                 })
             })?)),
             Value::I32(val) => Ok(Some((*val).try_into().or_else(|why| {
-                Err(ConversionError::IntegerConversionError {
-                    value,
+                Err(Error::IntegerConversionError {
+                    value: value.to_string(),
                     intended_type: "i16",
                     why,
                 })
             })?)),
             Value::Null(()) => Ok(None),
-            _ => Err(ConversionError::InvalidValueDetected(value)),
+            _ => Err(Error::InvalidValueDetected(value.to_string())),
         }
     }
 }

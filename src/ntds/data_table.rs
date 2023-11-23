@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::{Rc, Weak};
 
-use crate::ntds::DataTableRecord;
+use crate::ntds::Result;
+use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{CDataTable, CRecord};
 use crate::{CDatabase, CTable, RecordHasAttRdn, RecordHasId};
-use anyhow::{bail, Result};
 use maplit::hashset;
 
 use super::WriteTypenames;
@@ -36,7 +36,7 @@ impl<'d> DataTable<'d> {
 
     /// returns the record id of the record which contains the Schema object
     /// (which is identified by its name "Schema" in the object_name2 attribute)
-    pub fn get_schema_record_id(data_table: &CTable) -> anyhow::Result<i32> {
+    pub fn get_schema_record_id<'t>(data_table: &'t CTable) -> Result<'t, i32> {
         log::info!("obtaining schema record id");
 
         for record in data_table
@@ -44,10 +44,7 @@ impl<'d> DataTable<'d> {
             .map(DataTableRecord::from)
         {
             if let Some(schema_parent_id) = record.ds_parent_record_id_opt()? {
-                if let Some(schema_parent) = data_table
-                    .find_p(RecordHasId(schema_parent_id))
-                    .map(DataTableRecord::from)
-                {
+                if let Some(schema_parent) = data_table.find_p(RecordHasId(schema_parent_id)) {
                     if let Some(parent_name) = schema_parent.ds_object_name2_opt()? {
                         if parent_name == "Configuration" {
                             log::info!("found record id to be {}", record.ds_record_id()?);
@@ -57,7 +54,7 @@ impl<'d> DataTable<'d> {
                 }
             }
         }
-        bail!("no schema record found");
+        Err(Error::MissingSchemaRecord)
     }
 
     pub fn set_database(&mut self, database: Weak<CDatabase<'d>>) {
@@ -80,7 +77,7 @@ impl<'d> DataTable<'d> {
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.ds_object_name2()?.to_string();
+            let object_name2 = dbrecord.ds_object_name2()?.to_owned();
 
             type_records.insert(dbrecord.ds_record_id()?, object_name2);
         }
@@ -94,7 +91,9 @@ impl<'d> DataTable<'d> {
     ) -> Result<HashMap<String, DataTableRecord>> {
         let mut type_records = HashMap::new();
         let children = self.data_table.children_of(self.schema_record_id);
-        anyhow::ensure!(children.count() > 0, "The schema record has no children");
+        if !children.count() > 0 {
+            return Err(Error::SchemaRecordHasNoChildren);
+        }
 
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.ds_object_name2()?.to_string();
@@ -128,12 +127,8 @@ impl<'d> DataTable<'d> {
     */
     pub fn show_type_names(&self, writer: &impl WriteTypenames) -> Result<()> {
         let mut type_names = HashSet::new();
-        for dbrecord in self
-            .data_table
-            .children_of(self.schema_record_id)
-        {
-            let object_name2 = dbrecord
-                .ds_object_name2()?;
+        for dbrecord in self.data_table.children_of(self.schema_record_id) {
+            let object_name2 = dbrecord.ds_object_name2()?;
 
             type_names.insert(object_name2);
 

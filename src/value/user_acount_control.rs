@@ -1,11 +1,11 @@
 use libesedb::Value;
 
-use crate::win32_types::UserAccountControl;
+use crate::{ntds::Error, win32_types::UserAccountControl};
 
-use super::{ConversionError, FromValue};
+use super::FromValue;
 
-impl FromValue for UserAccountControl {
-    fn from_value_opt(value: &Value) -> Result<Option<Self>, ConversionError>
+impl<'a> FromValue<'a> for UserAccountControl {
+    fn from_value_opt(value: &Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,
     {
@@ -14,7 +14,7 @@ impl FromValue for UserAccountControl {
                 u32::from_ne_bytes(val.to_ne_bytes()),
             ))),
             Value::Null(()) => Ok(None),
-            _ => Err(ConversionError::InvalidValueDetected(value)),
+            _ => Err(Error::InvalidValueDetected(value.to_string())),
         }
     }
 }

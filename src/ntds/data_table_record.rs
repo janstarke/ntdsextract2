@@ -1,7 +1,6 @@
-use crate::ntds::NtdsAttributeId;
+use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
 use crate::{
-    value::{ConversionError, ConversionResult},
     win32_types::TruncatedWindowsFileTime,
     CRecord,
 };
@@ -19,19 +18,19 @@ impl<'d, 'r> From<&'d CRecord<'r>> for DataTableRecord<'d, 'r> {
 
 macro_rules! record_attribute {
     ($name: ident, $id: ident, $type: ty) => {
-        pub fn $name(&self) -> ConversionResult<$type> {
+        pub fn $name(&self) -> Result<$type> {
             <$type>::from_value(
                 self.0
-                    .get(NtdsAttributeId::$id)
-                    .ok_or(ConversionError::ValueIsMissing)?,
+                    .get_by_id(NtdsAttributeId::$id).as_ref()
+                    .ok_or(Error::ValueIsMissing)?,
             )
         }
         concat_idents!(fn_name = $name, _opt {
-            pub fn fn_name (&self) -> ConversionResult<Option<$type>> {
+            pub fn fn_name (&self) -> Result<Option<$type>> {
                 <$type>::from_value_opt(
                     self.0
-                        .get(NtdsAttributeId::$id)
-                        .ok_or(ConversionError::ValueIsMissing)?,
+                        .get_by_id(NtdsAttributeId::$id).as_ref()
+                        .ok_or(Error::ValueIsMissing)?,
                 )
             }
         });
@@ -48,10 +47,10 @@ impl<'d, 'r> DataTableRecord<'d, 'r> {
     record_attribute!(ds_object_name2, AttRdn, &str);
     record_attribute!(ds_link_id, AttLinkId, u32);
 
-    pub fn get(&self, attribute_id: NtdsAttributeId) -> Option<&Value> {
-        self.0.get(attribute_id)
+    pub fn get(&self, attribute_id: NtdsAttributeId) -> &Option<Value> {
+        self.0.get_by_id(attribute_id)
     }
-    pub fn get_value_in_column(&self, index: i32) -> Option<&Value> {
-        self.0.get_value_in_column(index)
+    pub fn get_by_index(&self, index: i32) -> &Option<Value> {
+        self.0.get_by_index(index)
     }
 }
