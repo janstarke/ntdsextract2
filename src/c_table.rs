@@ -6,6 +6,7 @@ use super::{CColumn, CRecord};
 use crate::ColumnInfoMapping;
 
 pub struct CTable<'r> {
+    table: Table<'r>,
     records: Vec<CRecord<'r>>,
     columns: Vec<CColumn>,
 }
@@ -22,7 +23,11 @@ impl<'r> CTable<'r> {
             columns.push(CColumn::try_from(column?)?);
         }
 
-        Ok(Self { records, columns })
+        Ok(Self {
+            table,
+            records,
+            columns,
+        })
     }
 
     pub fn count_columns(&self) -> i32 {
@@ -36,5 +41,4 @@ impl<'r> CTable<'r> {
     pub fn column(&self, pos: i32) -> Option<&CColumn> {
         self.columns.get(usize::try_from(pos).unwrap())
     }
-    
 }

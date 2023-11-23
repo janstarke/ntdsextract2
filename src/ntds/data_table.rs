@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::ntds::Result;
 use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::{CDataTable, CRecord};
+use crate::CDataTable;
 use crate::{CDatabase, CTable, RecordHasAttRdn, RecordHasId};
 use maplit::hashset;
 
@@ -59,10 +59,6 @@ impl<'d> DataTable<'d> {
 
     pub fn set_database(&mut self, database: Weak<CDatabase<'d>>) {
         self.database = Some(database);
-    }
-
-    pub fn database(&self) -> &CDatabase {
-        &self.database.unwrap().upgrade().unwrap()
     }
 
     pub(crate) fn data_table(&self) -> &CDataTable {
@@ -128,7 +124,7 @@ impl<'d> DataTable<'d> {
     pub fn show_type_names(&self, writer: &impl WriteTypenames) -> Result<()> {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.ds_object_name2()?;
+            let object_name2 = dbrecord.ds_object_name2()?.to_owned();
 
             type_names.insert(object_name2);
 
@@ -139,8 +135,7 @@ impl<'d> DataTable<'d> {
         let x = self
             .data_table
             .children_of(self.schema_record_id)
-            .map(|dbrecord| dbrecord.ds_object_name2())
-            .filter_map(Result::ok);
+            .map(|dbrecord| dbrecord.ds_object_name2().unwrap().to_owned());
         writer.write_typenames(x);
         /*
 

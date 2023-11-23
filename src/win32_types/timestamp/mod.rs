@@ -28,7 +28,7 @@ pub trait ToRfc3339 {
 #[macro_export]
 macro_rules! impl_timestamp {
     ($type: ident) => {
-        impl<'a> $crate::value::FromValue<'a> for $type {
+        impl $crate::value::FromValue for $type {
             fn from_value_opt(
                 value: &libesedb::Value,
             ) -> Result<Option<Self>, $crate::ntds::Error> {

@@ -65,7 +65,7 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
 
         for record in self.link_table.iter_records().filter(|r| {
             r.get_by_index(link_base_id).as_ref()
-                .map_or(false, |value| match value {
+                .map_or(false, |value| match value.value() {
                     Value::U32(v) => *v == member_link_id,
                     Value::I32(v) => u32::try_from(*v).map_or(false, |v| v == link_base),
                     _ => false,
@@ -73,8 +73,8 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
         }) {
             if let Some(forward_link_value) = record.get_by_index(link_dnt_id) {
                 if let Some(backward_link_value) = record.get_by_index(backward_dnt_id) {
-                    let forward_link = i32::from_value(forward_link_value)?;
-                    let backward_link = i32::from_value(backward_link_value)?;
+                    let forward_link = i32::from_value(forward_link_value.value())?;
+                    let backward_link = i32::from_value(backward_link_value.value())?;
                     forward_map
                         .entry(forward_link)
                         .or_insert_with(HashSet::new)
@@ -132,7 +132,7 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
         Ok(self
             .data_table
             .children_of(self.schema_record_id)
-            .find(|r| r.ds_object_name2().expect("missing object_name2") == attribute_name)
+            .find(|r| &r.ds_object_name2().expect("missing object_name2") == attribute_name)
             .expect(&format!("found no record by that name: '{attribute_name}'"))
             .ds_link_id()?)
     }

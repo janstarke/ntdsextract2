@@ -41,7 +41,6 @@ impl<'a> CDatabase<'a> {
         let link_table = Rc::new(LinkTable::new(
             raw_link_table,
             &raw_data_table,
-            &mapping,
             schema_record_id,
         )?);
 

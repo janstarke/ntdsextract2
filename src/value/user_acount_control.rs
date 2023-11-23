@@ -4,7 +4,7 @@ use crate::{ntds::Error, win32_types::UserAccountControl};
 
 use super::FromValue;
 
-impl<'a> FromValue<'a> for UserAccountControl {
+impl FromValue for UserAccountControl {
     fn from_value_opt(value: &Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,

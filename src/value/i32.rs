@@ -4,7 +4,7 @@ use crate::ntds::Error;
 
 use super::FromValue;
 
-impl<'a> FromValue<'a> for i32 {
+impl FromValue for i32 {
     fn from_value_opt(value: &Value) -> Result<Option<Self>, Error>
     where
         Self: Sized,

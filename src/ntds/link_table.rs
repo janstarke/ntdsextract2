@@ -1,7 +1,6 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
-use crate::column_info_mapping::ColumnInfoMapping;
 use crate::ntds::link_table_builder::LinkTableBuilder;
 use crate::{CDataTable, CLinkTable};
 
@@ -17,7 +16,6 @@ impl LinkTable {
     pub fn new<'r>(
         link_table: CLinkTable<'r>,
         data_table: &CDataTable,
-        mapping: &ColumnInfoMapping,
         schema_record_id: i32,
     ) -> Result<Self> {
         log::info!("reading link information and creating link_table cache");

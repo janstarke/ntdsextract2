@@ -10,10 +10,10 @@ pub struct ColumnInfoMapping {
 }
 
 impl Index<NtdsAttributeId> for ColumnInfoMapping {
-    type Output = Option<i32>;
+    type Output = ColumnInformation;
 
     fn index(&self, index: NtdsAttributeId) -> &Self::Output {
-        &self.mapping.get(&index).map(|info| info.id())
+        self.mapping.index(&index)
     }
 }
 

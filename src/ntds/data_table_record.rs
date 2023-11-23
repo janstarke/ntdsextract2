@@ -5,6 +5,7 @@ use crate::{
     CRecord,
 };
 use concat_idents::concat_idents;
+use dashmap::mapref::one::RefMut;
 use libesedb::Value;
 
 /// This struct implements only a typed view on a record, but does not hold own data.
@@ -21,16 +22,18 @@ macro_rules! record_attribute {
         pub fn $name(&self) -> Result<$type> {
             <$type>::from_value(
                 self.0
-                    .get_by_id(NtdsAttributeId::$id).as_ref()
-                    .ok_or(Error::ValueIsMissing)?,
+                    .get_by_id(NtdsAttributeId::$id)
+                    .ok_or(Error::ValueIsMissing)?
+                    .value(),
             )
         }
         concat_idents!(fn_name = $name, _opt {
             pub fn fn_name (&self) -> Result<Option<$type>> {
                 <$type>::from_value_opt(
                     self.0
-                        .get_by_id(NtdsAttributeId::$id).as_ref()
-                        .ok_or(Error::ValueIsMissing)?,
+                        .get_by_id(NtdsAttributeId::$id)
+                        .ok_or(Error::ValueIsMissing)?
+                        .value(),
                 )
             }
         });
@@ -43,14 +46,14 @@ impl<'d, 'r> DataTableRecord<'d, 'r> {
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
     record_attribute!(ds_ancestors, DsAncestors, i32);
     record_attribute!(ds_object_type_id, AttObjectCategory, i32);
-    record_attribute!(ds_object_name, AttCommonName, &str);
-    record_attribute!(ds_object_name2, AttRdn, &str);
+    record_attribute!(ds_object_name, AttCommonName, String);
+    record_attribute!(ds_object_name2, AttRdn, String);
     record_attribute!(ds_link_id, AttLinkId, u32);
 
-    pub fn get(&self, attribute_id: NtdsAttributeId) -> &Option<Value> {
+    pub fn get(&self, attribute_id: NtdsAttributeId) -> Option<RefMut<'_, i32, Value>> {
         self.0.get_by_id(attribute_id)
     }
-    pub fn get_by_index(&self, index: i32) -> &Option<Value> {
+    pub fn get_by_index(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
         self.0.get_by_index(index)
     }
 }

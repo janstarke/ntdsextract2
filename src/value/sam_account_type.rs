@@ -5,7 +5,7 @@ use crate::{ntds::Error, win32_types::SamAccountType};
 
 use super::FromValue;
 
-impl<'a> FromValue<'a> for SamAccountType {
+impl FromValue for SamAccountType {
     fn from_value_opt(value: &Value) -> Result<Option<Self>, Error> {
         match value {
             Value::I32(val) => Ok(FromPrimitive::from_u32(u32::from_ne_bytes(
