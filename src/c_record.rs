@@ -1,7 +1,6 @@
 use std::ops::Index;
 use std::rc::Rc;
 
-use dashmap::mapref::entry::Entry;
 use dashmap::DashMap;
 use dashmap::mapref::one::RefMut;
 use libesedb::{Record, Value};

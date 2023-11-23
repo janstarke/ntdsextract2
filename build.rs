@@ -33,7 +33,7 @@ impl AppId {
             let numeric_id = if numeric_id.len() % 2 == 1 {
                 format!("0{numeric_id}")
             } else {
-                format!("{numeric_id}")
+                numeric_id.to_string()
             };
 
             match hex::decode(&numeric_id) {
@@ -57,7 +57,6 @@ impl AppId {
 
 impl Display for AppId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        writeln!(f, "")?;
         writeln!(f, r#"    #[strum(serialize = "{}")]"#, self.ntds_name)?;
         writeln!(f, r#"    {} = 0x{:x},"#, self.id_name, self.numeric_id)?;
         Ok(())
@@ -70,8 +69,7 @@ fn main() {
     let reader = io::BufReader::new(fs::File::open("misc/attids.h").unwrap());
     let mut out_file = io::BufWriter::new(fs::File::create(Path::new(&out_dir).join("src").join("ntds").join("attribute_id.rs")).unwrap());
 
-    writeln!(out_file, "use strum::{{EnumString, IntoStaticStr}};").unwrap();
-    writeln!(out_file, "").unwrap();
+    writeln!(out_file, "use strum::{{EnumString, IntoStaticStr}};\n").unwrap();
     writeln!(out_file, "#[derive(IntoStaticStr, EnumString, Debug, Eq, PartialEq, Hash, Clone)]").unwrap();
     writeln!(out_file, "#[strum(use_phf)]").unwrap();
     writeln!(out_file, "pub enum NtdsAttributeId {{").unwrap();
