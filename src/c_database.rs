@@ -1,5 +1,6 @@
 use anyhow::Result;
-use std::{path::PathBuf, rc::Rc};
+use getset::Getters;
+use std::rc::Rc;
 
 use libesedb::EseDb;
 
@@ -9,27 +10,25 @@ use crate::{
     CTable, ColumnInfoMapping,
 };
 
-pub struct CDatabase<'r> {
-    data_table: Rc<DataTable<'r>>,
-    link_table: Rc<LinkTable>,
-    esedb: EseDb
+#[derive(Getters)]
+#[getset(get = "pub")]
+pub struct CDatabase<'esedb> {
+    data_table: DataTable<'esedb>,
+    link_table: LinkTable,
 }
 
-impl<'a> CDatabase<'a> {
-    pub fn from_path(value: &PathBuf) -> Result<Rc<Self>> {
-        let esedb = EseDb::open(&value)?;
-        log::info!("Db load finished");
-        Self::from_db(esedb)
-    }
+impl<'esedb> TryFrom<&'esedb EseDb> for CDatabase<'esedb> {
+    type Error = anyhow::Error;
 
-    pub fn from_db(esedb: EseDb) -> Result<Rc<Self>> {
+    fn try_from(esedb: &'esedb EseDb) -> Result<Self, Self::Error> {
         let esedb_data_table = esedb.table_by_name("datatable")?;
         let mapping = Rc::new(ColumnInfoMapping::try_from(&esedb_data_table)?);
 
         let raw_data_table = CTable::try_from(esedb_data_table, Rc::clone(&mapping))?;
         log::info!("cached data_table");
 
-        let raw_link_table = CTable::try_from(esedb.table_by_name("link_table")?, Rc::clone(&mapping))?;
+        let raw_link_table =
+            CTable::try_from(esedb.table_by_name("link_table")?, Rc::clone(&mapping))?;
         log::info!("cached link_table");
 
         log::info!("reading schema information and creating record cache");
@@ -38,33 +37,11 @@ impl<'a> CDatabase<'a> {
 
         log::debug!("found the schema record id is '{}'", schema_record_id);
 
-        let link_table = Rc::new(LinkTable::new(
-            raw_link_table,
-            &raw_data_table,
-            schema_record_id,
-        )?);
-
-        let data_table = Rc::new(DataTable::new(
-            raw_data_table,
-            object_tree,
-            schema_record_id,
-        )?);
-
-        let me = Rc::new(Self {
+        let link_table = LinkTable::new(raw_link_table, &raw_data_table, schema_record_id)?;
+        let data_table = DataTable::new(raw_data_table, object_tree, schema_record_id)?;
+        Ok(Self {
             data_table,
             link_table,
-            esedb
-        });
-
-        //me.data_table.set_database(me.downgrade());
-
-        Ok(me)
-    }
-    pub fn data_table(&self) -> &DataTable<'a> {
-        &self.data_table
-    }
-
-    pub fn link_table(&self) -> &LinkTable {
-        &self.link_table
+        })
     }
 }

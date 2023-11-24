@@ -114,7 +114,8 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     }
 
-    let database = CDatabase::from_path(&cli.ntds_file)?;
+    let esedb = EseDb::open(&cli.ntds_file)?;
+    let database = CDatabase::try_from(&esedb)?;
 
     set_display_all_attributes (
        match &cli.command {
