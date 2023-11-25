@@ -6,7 +6,7 @@ use super::{CColumn, CRecord};
 use crate::{ColumnInfoMapping, EsedbRecord};
 use ouroboros::self_referencing;
 
-pub trait RecordIterator<'r>: Iterator<Item = &'r CRecord<'r>> {}
+pub trait RecordIterator<'s, 'r>: Iterator<Item = &'s CRecord<'r>> {}
 
 pub trait EsedbTable<'table, R>
 where
@@ -14,7 +14,7 @@ where
 {
     fn iter<I>(&self) -> I
     where
-        for<'r> I: RecordIterator<'r>;
+        for<'r> I: RecordIterator<'table, 'r>;
 }
 
 #[self_referencing]
@@ -36,7 +36,7 @@ where
 {
     fn iter<I>(&self) -> I
     where
-        for<'r> I: RecordIterator<'r>,
+        for<'r> I: RecordIterator<'table, 'r>,
     {
         self.borrow_records().iter()
     }

@@ -71,7 +71,10 @@ where
            &self.data_table
        }
     */
-    fn find_type_record(&self, type_name: &str) -> Result<Option<DataTableRecord>> {
+    fn find_type_record<'d, R>(&self, type_name: &str) -> Result<Option<DataTableRecord<'d, R>>>
+    where
+        for<'r> R: EsedbRecord<'r>,
+    {
         let mut records = self.find_type_records(hashset! {type_name})?;
         Ok(records.remove(type_name))
     }
@@ -87,10 +90,13 @@ where
         Ok(type_records)
     }
 
-    pub fn find_type_records(
+    pub fn find_type_records<'d, R>(
         &self,
         mut type_names: HashSet<&str>,
-    ) -> Result<HashMap<String, DataTableRecord>> {
+    ) -> Result<HashMap<String, DataTableRecord<'d, R>>>
+    where
+        for<'r> R: EsedbRecord<'r>,
+    {
         let mut type_records = HashMap::new();
         let children = self.data_table.children_of(self.schema_record_id);
         if !children.count() > 0 {

@@ -1,3 +1,4 @@
+use crate::EsedbRecord;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
 use crate::{
@@ -8,11 +9,15 @@ use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
 use libesedb::Value;
 
-/// This struct implements only a typed view on a record, but does not hold own data.
-pub struct DataTableRecord<'d, 'r>(&'d CRecord<'r>);
+pub trait AsDataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {}
 
-impl<'d, 'r> From<&'d CRecord<'r>> for DataTableRecord<'d, 'r> {
-    fn from(record: &'d CRecord<'r>) -> Self {
+impl<'d, R> AsDataTableRecord<'d, R>for DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {}
+
+/// This struct implements only a typed view on a record, but does not hold own data.
+pub struct DataTableRecord<'d, R>(&'d R) where for <'record> R: EsedbRecord<'record> ;
+
+impl<'d, R> From<&'d R> for DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {
+    fn from(record: &'d R) -> Self {
         Self(record)
     }
 }
@@ -40,7 +45,7 @@ macro_rules! record_attribute {
     };
 }
 
-impl<'d, 'r> DataTableRecord<'d, 'r> {
+impl<'d, R> DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record>  {
     record_attribute!(ds_record_id, DsRecordId, i32);
     record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);

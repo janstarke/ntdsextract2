@@ -36,7 +36,7 @@ impl Display for ObjectTreeEntry {
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from(data_table: &CDataTable) -> Result<Rc<ObjectTreeEntry>> {
+    pub(crate) fn from<'table, R>(data_table: &CDataTable<'table, R>) -> Result<Rc<ObjectTreeEntry>> {
         Self::populate_object_tree(data_table)
     }
 
@@ -77,7 +77,7 @@ impl ObjectTreeEntry {
             }
         }
     */
-    fn populate_object_tree(data_table: &CDataTable) -> Result<Rc<ObjectTreeEntry>> {
+    fn populate_object_tree<'table, R>(data_table: &CDataTable<'table, R>) -> Result<Rc<ObjectTreeEntry>> {
         log::info!("populating the object tree");
 
         //let mut downlinks = HashMap::new();
