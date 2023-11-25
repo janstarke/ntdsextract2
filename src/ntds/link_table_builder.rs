@@ -3,23 +3,27 @@ use libesedb::Value;
 use std::collections::{HashMap, HashSet};
 
 use crate::value::FromValue;
-use crate::{CDataTable, CLinkTable};
+use crate::{CDataTable, CLinkTable, CRecord, EsedbTable};
 
 use super::LinkTable;
 
-pub(crate) struct LinkTableBuilder<'a, 'd, 'l> {
-    link_table: CLinkTable<'l>,
-    data_table: &'a CDataTable<'d>,
+pub(crate) struct LinkTableBuilder<'datatable, DT, LT>
+where
+    for<'lt, 'lr> LT: EsedbTable<'lt, CRecord<'lr>>,
+    for<'dt, 'dr> DT: EsedbTable<'dt, CRecord<'dr>>,
+{
+    link_table: LT,
+    data_table: &'datatable DT,
     schema_record_id: i32,
     columns: HashMap<String, i32>,
 }
 
-impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
-    pub fn from(
-        link_table: CLinkTable<'l>,
-        data_table: &'a CDataTable<'d>,
-        schema_record_id: i32,
-    ) -> Result<Self> {
+impl<'datatable, DT, LT> LinkTableBuilder<'datatable, DT, LT>
+where
+    for<'lt, 'lr> LT: EsedbTable<'lt, CRecord<'lr>>,
+    for<'dt, 'dr> DT: EsedbTable<'dt, CRecord<'dr>>,
+{
+    pub fn from(link_table: LT, data_table: &'datatable DT, schema_record_id: i32) -> Result<Self> {
         let columns = Self::read_column_names(&link_table)?;
 
         Ok(Self {
@@ -30,7 +34,7 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
         })
     }
 
-    fn read_column_names(link_table: &CLinkTable) -> Result<HashMap<String, i32>> {
+    fn read_column_names(link_table: &LT) -> Result<HashMap<String, i32>> {
         let mut columns = HashMap::new();
         for index in 0..link_table.count_columns() - 1 {
             let column = link_table.column(index).unwrap();
@@ -64,7 +68,8 @@ impl<'a, 'd, 'l> LinkTableBuilder<'a, 'd, 'l> {
         let mut backward_map = HashMap::new();
 
         for record in self.link_table.iter_records().filter(|r| {
-            r.get_by_index(link_base_id).as_ref()
+            r.get_by_index(link_base_id)
+                .as_ref()
                 .map_or(false, |value| match value.value() {
                     Value::U32(v) => *v == member_link_id,
                     Value::I32(v) => u32::try_from(*v).map_or(false, |v| v == link_base),

@@ -1,5 +1,4 @@
 use anyhow::Result;
-use getset::Getters;
 use std::rc::Rc;
 
 use libesedb::EseDb;
@@ -7,20 +6,31 @@ use libesedb::EseDb;
 use crate::{
     ntds::{self, DataTable, LinkTable},
     object_tree_entry::ObjectTreeEntry,
-    CTable, ColumnInfoMapping,
+    CRecord, CTable, ColumnInfoMapping, EsedbTable,
 };
+use ouroboros::self_referencing;
 
-#[derive(Getters)]
-#[getset(get = "pub")]
-pub struct CDatabase<'esedb> {
-    data_table: DataTable<'esedb>,
+#[self_referencing]
+pub struct CDatabase<DT>
+where
+    for<'dtable, 'record> DT: EsedbTable<'dtable, CRecord<'record>> + 'dtable,
+{
+    raw_data_table: DT,
+
+    #[borrows(raw_data_table)]
+    #[covariant]
+    data_table: DataTable<'this, DT>,
+
     link_table: LinkTable,
 }
 
-impl<'esedb> TryFrom<&'esedb EseDb> for CDatabase<'esedb> {
+impl<DT> TryFrom<&EseDb> for CDatabase<DT>
+where
+    for<'dtable, 'record> DT: EsedbTable<'dtable, CRecord<'record>> + 'dtable,
+{
     type Error = anyhow::Error;
 
-    fn try_from(esedb: &'esedb EseDb) -> Result<Self, Self::Error> {
+    fn try_from(esedb: &EseDb) -> Result<Self, Self::Error> {
         let esedb_data_table = esedb.table_by_name("datatable")?;
         let mapping = Rc::new(ColumnInfoMapping::try_from(&esedb_data_table)?);
 
@@ -38,10 +48,14 @@ impl<'esedb> TryFrom<&'esedb EseDb> for CDatabase<'esedb> {
         log::debug!("found the schema record id is '{}'", schema_record_id);
 
         let link_table = LinkTable::new(raw_link_table, &raw_data_table, schema_record_id)?;
-        let data_table = DataTable::new(raw_data_table, object_tree, schema_record_id)?;
-        Ok(Self {
-            data_table,
+        //let data_table = DataTable::new(raw_data_table, object_tree, schema_record_id)?;
+        Ok(CDatabaseBuilder {
+            raw_data_table,
+            data_table_builder: |raw_data_table| {
+                DataTable::new(raw_data_table, object_tree, schema_record_id).unwrap()
+            },
             link_table,
-        })
+        }
+        .build())
     }
 }

@@ -1,3 +1,3 @@
-use crate::CTable;
+use crate::{CTable, CRecord};
 
-pub type CLinkTable<'r> = CTable<'r>;
+pub type CLinkTable<'table, 'record> = CTable<'table, CRecord<'record>>;

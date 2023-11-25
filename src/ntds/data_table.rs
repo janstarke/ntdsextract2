@@ -4,7 +4,7 @@ use std::rc::{Rc, Weak};
 use crate::ntds::Result;
 use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::CDataTable;
+use crate::{CDataTable, CRecord, EsedbRecord, EsedbTable};
 use crate::{CDatabase, CTable, RecordHasAttRdn, RecordHasId};
 use maplit::hashset;
 
@@ -12,22 +12,28 @@ use super::WriteTypenames;
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub struct DataTable<'d> {
-    data_table: CDataTable<'d>,
-    database: Option<Weak<CDatabase<'d>>>,
+pub struct DataTable<'this, T>
+where
+    for<'table, 'record> T: EsedbTable<'table, CRecord<'record>>,
+{
+    data_table: &'this T,
+    //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
 }
 
-impl<'d> DataTable<'d> {
+impl<'this, T> DataTable<'this, T>
+where
+    for<'table, 'record> T: EsedbTable<'table, CRecord<'record>>,
+{
     /// create a new datatable wrapper
-    pub fn new<'l>(
-        data_table: CDataTable<'d>,
+    pub fn new(
+        data_table: &'this T,
         object_tree: Rc<ObjectTreeEntry>,
         schema_record_id: i32,
     ) -> Result<Self> {
         Ok(Self {
-            database: None,
+            //database: None,
             data_table,
             schema_record_id,
             object_tree,
@@ -36,7 +42,7 @@ impl<'d> DataTable<'d> {
 
     /// returns the record id of the record which contains the Schema object
     /// (which is identified by its name "Schema" in the object_name2 attribute)
-    pub fn get_schema_record_id<'t>(data_table: &'t CTable) -> Result<'t, i32> {
+    pub fn get_schema_record_id<'t>(data_table: &'t T) -> Result<i32> {
         log::info!("obtaining schema record id");
 
         for record in data_table
@@ -56,15 +62,15 @@ impl<'d> DataTable<'d> {
         }
         Err(Error::MissingSchemaRecord)
     }
+    /*
+       pub fn set_database(&mut self, database: Weak<CDatabase<'r>>) {
+           self.database = Some(database);
+       }
 
-    pub fn set_database(&mut self, database: Weak<CDatabase<'d>>) {
-        self.database = Some(database);
-    }
-
-    pub(crate) fn data_table(&self) -> &CDataTable {
-        &self.data_table
-    }
-
+       pub(crate) fn data_table(&self) -> &CDataTable {
+           &self.data_table
+       }
+    */
     fn find_type_record(&self, type_name: &str) -> Result<Option<DataTableRecord>> {
         let mut records = self.find_type_records(hashset! {type_name})?;
         Ok(records.remove(type_name))
