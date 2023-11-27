@@ -2,28 +2,25 @@ use anyhow::{bail, ensure, Result};
 use libesedb::Value;
 use std::collections::{HashMap, HashSet};
 
+use crate::cache;
+use crate::cache::EsedbTable;
 use crate::value::FromValue;
-use crate::{CDataTable, CLinkTable, CRecord, EsedbTable};
 
 use super::LinkTable;
 
-pub(crate) struct LinkTableBuilder<'datatable, DT, LT>
-where
-    for<'lt, 'lr> LT: EsedbTable<'lt, CRecord<'lr>>,
-    for<'dt, 'dr> DT: EsedbTable<'dt, CRecord<'dr>>,
-{
-    link_table: LT,
-    data_table: &'datatable DT,
+pub(crate) struct LinkTableBuilder<'datatable, 'lt, 'lr, 'dt, 'dr> {
+    link_table: cache::LinkTable<'lt, 'lr>,
+    data_table: &'datatable cache::DataTable<'dt, 'dr>,
     schema_record_id: i32,
     columns: HashMap<String, i32>,
 }
 
-impl<'datatable, DT, LT> LinkTableBuilder<'datatable, DT, LT>
-where
-    for<'lt, 'lr> LT: EsedbTable<'lt, CRecord<'lr>>,
-    for<'dt, 'dr> DT: EsedbTable<'dt, CRecord<'dr>>,
-{
-    pub fn from(link_table: LT, data_table: &'datatable DT, schema_record_id: i32) -> Result<Self> {
+impl<'datatable, 'lt, 'lr, 'dt, 'dr> LinkTableBuilder<'datatable, 'lt, 'lr, 'dt, 'dr> {
+    pub fn from(
+        link_table: cache::LinkTable<'lt, 'lr>,
+        data_table: &'datatable cache::DataTable<'dt, 'dr>,
+        schema_record_id: i32,
+    ) -> Result<Self> {
         let columns = Self::read_column_names(&link_table)?;
 
         Ok(Self {
@@ -34,7 +31,7 @@ where
         })
     }
 
-    fn read_column_names(link_table: &LT) -> Result<HashMap<String, i32>> {
+    fn read_column_names(link_table: &cache::LinkTable<'lt, 'lr>) -> Result<HashMap<String, i32>> {
         let mut columns = HashMap::new();
         for index in 0..link_table.count_columns() - 1 {
             let column = link_table.column(index).unwrap();
@@ -67,7 +64,7 @@ where
         let mut forward_map = HashMap::new();
         let mut backward_map = HashMap::new();
 
-        for record in self.link_table.iter_records().filter(|r| {
+        for record in self.link_table.iter().filter(|r| {
             r.get_by_index(link_base_id)
                 .as_ref()
                 .map_or(false, |value| match value.value() {

@@ -1,23 +1,20 @@
-use crate::EsedbRecord;
+use crate::cache;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
-use crate::{
-    win32_types::TruncatedWindowsFileTime,
-    CRecord,
-};
+use crate::win32_types::TruncatedWindowsFileTime;
 use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
 use libesedb::Value;
 
-pub trait AsDataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {}
+pub trait AsDataTableRecord<'table, 'record> {}
 
-impl<'d, R> AsDataTableRecord<'d, R>for DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {}
+impl<'table, 'record> AsDataTableRecord<'table, 'record> for DataTableRecord<'table, 'record> {}
 
 /// This struct implements only a typed view on a record, but does not hold own data.
-pub struct DataTableRecord<'d, R>(&'d R) where for <'record> R: EsedbRecord<'record> ;
+pub struct DataTableRecord<'table, 'record>(&'table cache::Record<'record>);
 
-impl<'d, R> From<&'d R> for DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record> {
-    fn from(record: &'d R) -> Self {
+impl<'table, 'record> From<&'table cache::Record<'record>> for DataTableRecord<'table, 'record> {
+    fn from(record: &'table cache::Record<'record>) -> Self {
         Self(record)
     }
 }
@@ -45,7 +42,7 @@ macro_rules! record_attribute {
     };
 }
 
-impl<'d, R> DataTableRecord<'d, R> where for <'record> R: EsedbRecord<'record>  {
+impl<'table, 'record> DataTableRecord<'table, 'record> {
     record_attribute!(ds_record_id, DsRecordId, i32);
     record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);

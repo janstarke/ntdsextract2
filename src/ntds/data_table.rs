@@ -1,34 +1,27 @@
 use std::collections::{HashMap, HashSet};
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
+use crate::cache;
 use crate::ntds::Result;
 use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::{CDataTable, CRecord, EsedbRecord, EsedbTable};
-use crate::{CDatabase, CTable, RecordHasAttRdn, RecordHasId};
 use maplit::hashset;
 
 use super::WriteTypenames;
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub struct DataTable<'this, T>
-where
-    for<'table, 'record> T: EsedbTable<'table, CRecord<'record>>,
-{
-    data_table: &'this T,
+pub struct DataTable<'datatable, 'table, 'record: 'table> where 'datatable: 'table {
+    data_table: &'datatable cache::DataTable<'table, 'record>,
     //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
 }
 
-impl<'this, T> DataTable<'this, T>
-where
-    for<'table, 'record> T: EsedbTable<'table, CRecord<'record>>,
-{
+impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record> where 'datatable: 'table {
     /// create a new datatable wrapper
     pub fn new(
-        data_table: &'this T,
+        data_table: &'datatable cache::DataTable<'table, 'record>,
         object_tree: Rc<ObjectTreeEntry>,
         schema_record_id: i32,
     ) -> Result<Self> {
@@ -40,28 +33,6 @@ where
         })
     }
 
-    /// returns the record id of the record which contains the Schema object
-    /// (which is identified by its name "Schema" in the object_name2 attribute)
-    pub fn get_schema_record_id<'t>(data_table: &'t T) -> Result<i32> {
-        log::info!("obtaining schema record id");
-
-        for record in data_table
-            .filter_p(RecordHasAttRdn("Schema"))
-            .map(DataTableRecord::from)
-        {
-            if let Some(schema_parent_id) = record.ds_parent_record_id_opt()? {
-                if let Some(schema_parent) = data_table.find_p(RecordHasId(schema_parent_id)) {
-                    if let Some(parent_name) = schema_parent.ds_object_name2_opt()? {
-                        if parent_name == "Configuration" {
-                            log::info!("found record id to be {}", record.ds_record_id()?);
-                            return Ok(record.ds_record_id()?);
-                        }
-                    }
-                }
-            }
-        }
-        Err(Error::MissingSchemaRecord)
-    }
     /*
        pub fn set_database(&mut self, database: Weak<CDatabase<'r>>) {
            self.database = Some(database);
@@ -71,10 +42,10 @@ where
            &self.data_table
        }
     */
-    fn find_type_record<'d, R>(&self, type_name: &str) -> Result<Option<DataTableRecord<'d, R>>>
-    where
-        for<'r> R: EsedbRecord<'r>,
-    {
+    fn find_type_record(
+        &self,
+        type_name: &str,
+    ) -> Result<Option<DataTableRecord<'table, 'record>>> {
         let mut records = self.find_type_records(hashset! {type_name})?;
         Ok(records.remove(type_name))
     }
@@ -90,13 +61,10 @@ where
         Ok(type_records)
     }
 
-    pub fn find_type_records<'d, R>(
+    pub fn find_type_records(
         &self,
         mut type_names: HashSet<&str>,
-    ) -> Result<HashMap<String, DataTableRecord<'d, R>>>
-    where
-        for<'r> R: EsedbRecord<'r>,
-    {
+    ) -> Result<HashMap<String, DataTableRecord<'table, 'record>>> {
         let mut type_records = HashMap::new();
         let children = self.data_table.children_of(self.schema_record_id);
         if !children.count() > 0 {
