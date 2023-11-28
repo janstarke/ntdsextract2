@@ -2108,11 +2108,11 @@ pub enum NtdsAttributeId {
     #[strum(serialize = "ATTk36")]
     AttX509Cert = 0x24,
     #[strum(serialize = "DNT_col")]
-    DsRecordId = 0xffffff01,
+    DsRecordId = 0x7fffff01,
     #[strum(serialize = "PDNT_col")]
-    DsParentRecordId = 0xffffff02,
+    DsParentRecordId = 0x7fffff02,
     #[strum(serialize = "time_col")]
-    DsRecordTime = 0xffffff03,
+    DsRecordTime = 0x7fffff03,
     #[strum(serialize = "Ancestors_col")]
-    DsAncestors = 0xffffff04,
+    DsAncestors = 0x7fffff04,
 }

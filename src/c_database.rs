@@ -1,57 +1,44 @@
-use anyhow::Result;
 use std::rc::Rc;
 
-use libesedb::EseDb;
+use getset::Getters;
 
 use crate::{
-    ntds::{self, DataTable, LinkTable},
+    cache,
+    ntds::{DataTable, LinkTable},
     object_tree_entry::ObjectTreeEntry,
-    ColumnInfoMapping, cache::EsedbTable, cache,
+    EsedbInfo,
 };
-use ouroboros::self_referencing;
 
-#[self_referencing]
-pub struct CDatabase<'table, 'record: 'table>
-{
-    raw_data_table: cache::DataTable<'table, 'record>,
-
-    #[borrows(raw_data_table)]
-    #[covariant]
-    data_table: ntds::DataTable<'this, 'table, 'record>,
-
-    link_table: LinkTable,
+#[derive(Getters)]
+#[getset(get="pub")]
+pub struct CDatabase<'info, 'db> {
+    esedbinfo: &'info EsedbInfo<'db>,
+    data_table: DataTable<'info, 'db>,
+    link_table: Rc<LinkTable>,
 }
 
-impl<'table, 'record> TryFrom<&EseDb> for CDatabase<'table, 'record>
-{
-    type Error = anyhow::Error;
-
-    fn try_from(esedb: &EseDb) -> Result<Self, Self::Error> {
-        let esedb_data_table = esedb.table_by_name("datatable")?;
-        let mapping = Rc::new(ColumnInfoMapping::try_from(&esedb_data_table)?);
-
-        let raw_data_table = cache::Table::try_from(esedb_data_table, "datatable", Rc::clone(&mapping))?;
+impl<'info, 'db> CDatabase<'info, 'db> {
+    pub fn new(esedbinfo: &'info EsedbInfo<'db>) -> anyhow::Result<Self> {
+        let cached_data_table =
+            cache::Table::try_from(esedbinfo.data_table(), "datatable", esedbinfo)?;
         log::info!("cached data_table");
 
-        let raw_link_table =
-            cache::Table::try_from(esedb.table_by_name("link_table")?, "link_table", Rc::clone(&mapping))?;
+        let cached_link_table =
+            cache::Table::try_from(esedbinfo.link_table(), "link_table", esedbinfo)?;
         log::info!("cached link_table");
 
         log::info!("reading schema information and creating record cache");
-        let object_tree = ObjectTreeEntry::from(&raw_data_table)?;
-        let schema_record_id = raw_data_table.get_schema_record_id()?;
+        let object_tree = ObjectTreeEntry::from(&cached_data_table)?;
+        let schema_record_id = cached_data_table.get_schema_record_id()?;
 
         log::debug!("found the schema record id is '{}'", schema_record_id);
 
-        let link_table = LinkTable::new(raw_link_table, &raw_data_table, schema_record_id)?;
-        //let data_table = DataTable::new(raw_data_table, object_tree, schema_record_id)?;
-        Ok(CDatabaseBuilder {
-            raw_data_table,
-            data_table_builder: |raw_data_table| {
-                DataTable::new(raw_data_table, object_tree, schema_record_id).unwrap()
-            },
+        let link_table = Rc::new(LinkTable::new(cached_link_table, &cached_data_table, schema_record_id)?);
+        let data_table = DataTable::new(cached_data_table, object_tree, schema_record_id, Rc::clone(&link_table))?;
+        Ok(Self {
+            esedbinfo,
             link_table,
-        }
-        .build())
+            data_table,
+        })
     }
 }

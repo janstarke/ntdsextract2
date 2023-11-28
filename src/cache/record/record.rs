@@ -4,44 +4,43 @@ use std::rc::Rc;
 
 use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
+use getset::Getters;
 use libesedb::Value;
 
+use crate::cache;
 use crate::ntds::NtdsAttributeId;
-use crate::ColumnInfoMapping;
+use crate::EsedbInfo;
 
-pub trait EsedbRecord<'record>: Eq + PartialEq<Self> + Hash {}
-
-impl<'record> EsedbRecord<'record> for Record<'record> {}
-pub trait IsRecord {}
-impl<R> IsRecord for R where for<'record> R: EsedbRecord<'record> {}
-
-pub struct Record<'record> {
+#[derive(Getters)]
+#[getset(get = "pub")]
+pub struct Record<'info, 'db> {
     table_id: &'static str,
     record_id: i32,
     values: DashMap<i32, Value>,
     count: i32,
-    record: libesedb::Record<'record>,
-    mapping: Rc<ColumnInfoMapping>,
+    record: libesedb::Record<'db>,
+    esedbinfo: &'info EsedbInfo<'db>,
+    columns: Rc<Vec<cache::Column>>
 }
 
-impl Eq for Record<'_> {}
+impl Eq for Record<'_, '_> {}
 
-impl PartialEq<Self> for Record<'_> {
+impl PartialEq<Self> for Record<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.record_id == other.record_id && self.table_id == other.table_id
     }
 }
 
-impl Hash for Record<'_> {
+impl Hash for Record<'_, '_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.table_id.hash(state);
         self.record_id.hash(state);
     }
 }
 
-impl<'record> Record<'record> {
+impl<'info, 'db> Record<'info, 'db> {
     pub fn get_by_id(&self, attribute_id: NtdsAttributeId) -> Option<RefMut<'_, i32, Value>> {
-        self.get_by_index(self.mapping.index(attribute_id).id())
+        self.get_by_index(self.esedbinfo().mapping().index(attribute_id).id())
     }
 
     pub fn get_by_index(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
@@ -57,18 +56,20 @@ impl<'record> Record<'record> {
     }
 
     pub fn try_from(
-        record: libesedb::Record<'record>,
+        record: libesedb::Record<'db>,
         table_id: &'static str,
         record_id: i32,
-        mapping: Rc<ColumnInfoMapping>,
+        esedbinfo: &'info EsedbInfo<'db>,
+        columns: Rc<Vec<cache::Column>>
     ) -> std::io::Result<Self> {
         Ok(Self {
             values: Default::default(),
             count: record.count_values()?,
             record,
-            mapping,
+            esedbinfo,
             table_id,
-            record_id
+            record_id,
+            columns
         })
     }
 }

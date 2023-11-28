@@ -1,80 +1,78 @@
 use crate::{cache, RecordHasAttRdn, RecordHasId};
 use crate::{ntds::DataTableRecord, RecordHasParent, RecordPredicate};
 
-use super::{EsedbRecord, EsedbTable, Iter};
+use super::Iter;
+pub type DataTable<'info, 'db> = cache::Table<'info, 'db>;
 
-trait DataTableTrait<'table, R>
-where
-    for<'record> R: EsedbRecord<'record>,
-{
-}
-pub type DataTable<'table, 'record> = cache::Table<'table, 'record>;
+pub struct DataTableIter<'info, 'db>(Iter<'info, 'db>);
 
-impl<'table, R, CDT> DataTableTrait<'table, R> for CDT
-where
-    CDT: DataTableTrait<'table, R>,
-    R: for<'record> EsedbRecord<'record>,
-{
-}
-
-trait DataTableIterator<'table, 'record: 'table>: Iterator<Item = &'table DataTableRecord<'table, 'record>>
-{
-}
-
-pub struct DataTableIter<'table, 'record>(Iter<'table, 'record>);
-
-impl<'table, 'record> Iterator for DataTableIter<'table, 'record>
-{
-    type Item = DataTableRecord<'table, 'record>;
+impl<'info, 'db> Iterator for DataTableIter<'info, 'db> {
+    type Item = DataTableRecord<'info, 'db>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(DataTableRecord::from)
     }
 }
 
-impl<'table, 'record: 'table> From<cache::Iter<'table, 'record>> for DataTableIter<'table, 'record>
+impl<'info, 'db> From<cache::Iter<'info, 'db>>
+    for DataTableIter<'info, 'db>
 {
-    fn from(value: cache::Iter<'table, 'record>) -> Self {
+    fn from(value: cache::Iter<'info, 'db>) -> Self {
         Self(value)
     }
 }
 
-impl<'table, 'record: 'table> DataTable<'table, 'record>
-{
-    pub fn iter_records<'this: 'table>(&'this self) -> impl Iterator<Item = DataTableRecord<'table, 'record>>
-    {
+impl<'info, 'db> DataTable<'info, 'db> {
+    pub fn iter_records(
+        &'db self,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
         DataTableIter::from(self.iter())
     }
 
-    pub(crate) fn children_of<'this: 'table>(&'this self, parent_id: i32) -> impl Iterator<Item=DataTableRecord<'table, 'record>>
-    {
+    pub(crate) fn children_of(
+        &'db self,
+        parent_id: i32,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
         let my_filter = RecordHasParent(parent_id);
         self.iter_records().filter(move |r| my_filter.matches(r))
     }
 
-    pub fn filter<'this: 'table, C>(&'this self, predicate: C) -> impl Iterator<Item=DataTableRecord<'table, 'record>> where
-        C: Fn(&DataTableRecord<'table, 'record>) -> bool,
+    pub fn filter<C>(
+        &'db self,
+        predicate: C,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
+    where
+        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
     {
         self.iter_records().filter(move |r| predicate(r))
     }
 
-    pub fn find<'this: 'table, C>(&'this self, predicate: C) -> Option<DataTableRecord<'table, 'record>>
+    pub fn find<C>(
+        &'db self,
+        predicate: C,
+    ) -> Option<DataTableRecord<'info, 'db>>
     where
-        C: Fn(&DataTableRecord<'table, 'record>) -> bool,
+        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
     {
         self.iter_records().find(move |r| predicate(r))
     }
 
-    pub fn filter_p<'this: 'table, P>(&'this self, predicate: P) -> impl Iterator<Item=DataTableRecord<'table, 'record>>
+    pub fn filter_p<P>(
+        &'db self,
+        predicate: P,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
     where
-        P: RecordPredicate<'table, 'record>,
+        P: RecordPredicate<'info, 'db>,
     {
         self.iter_records().filter(move |r| predicate.matches(r))
     }
 
-    pub fn find_p<'this: 'table, P>(&'this self, predicate: P) -> Option<DataTableRecord<'table, 'record>>
+    pub fn find_p<P>(
+        &'db self,
+        predicate: P,
+    ) -> Option<DataTableRecord<'info, 'db>>
     where
-        P: RecordPredicate<'table, 'record>,
+        P: RecordPredicate<'info, 'db>,
     {
         self.iter_records().find(move |r| predicate.matches(r))
     }

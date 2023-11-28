@@ -1,20 +1,20 @@
+use std::collections::HashMap;
+
 use crate::cache;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
-use crate::win32_types::TruncatedWindowsFileTime;
+use crate::win32_types::{Sid, TruncatedWindowsFileTime};
+use crate::ColumnInfoMapping;
 use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
 use libesedb::Value;
+use term_table::row::Row;
+use term_table::table_cell::{Alignment, TableCell};
 
-pub trait AsDataTableRecord<'table, 'record> {}
+pub struct DataTableRecord<'info, 'db>(&'db cache::Record<'info, 'db>);
 
-impl<'table, 'record> AsDataTableRecord<'table, 'record> for DataTableRecord<'table, 'record> {}
-
-/// This struct implements only a typed view on a record, but does not hold own data.
-pub struct DataTableRecord<'table, 'record>(&'table cache::Record<'record>);
-
-impl<'table, 'record> From<&'table cache::Record<'record>> for DataTableRecord<'table, 'record> {
-    fn from(record: &'table cache::Record<'record>) -> Self {
+impl<'info, 'db> From<&'db cache::Record<'info, 'db>> for DataTableRecord<'info, 'db> {
+    fn from(record: &'db cache::Record<'info, 'db>) -> Self {
         Self(record)
     }
 }
@@ -42,7 +42,8 @@ macro_rules! record_attribute {
     };
 }
 
-impl<'table, 'record> DataTableRecord<'table, 'record> {
+impl<'info, 'db> DataTableRecord<'info, 'db> {
+    record_attribute!(ds_object_sid, AttObjectSid, Sid);
     record_attribute!(ds_record_id, DsRecordId, i32);
     record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
@@ -57,5 +58,44 @@ impl<'table, 'record> DataTableRecord<'table, 'record> {
     }
     pub fn get_by_index(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
         self.0.get_by_index(index)
+    }
+
+    pub fn mapping(&self) -> &ColumnInfoMapping {
+        self.0.esedbinfo().mapping()
+    }
+    pub fn all_attributes(&self) -> HashMap<String, String> {
+        self.0
+            .values()
+            .iter()
+            .map(|m| {
+                (
+                    self.0.columns()[*m.key() as usize].name().to_owned(),
+                    m.value().to_string(),
+                )
+            })
+            .collect()
+    }
+}
+
+impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
+    fn from(value: &DataTableRecord<'info, 'db>) -> Self {
+        let mut table = term_table::Table::new();
+        let all_attributes = value.all_attributes();
+        let mut keys = all_attributes.keys().collect::<Vec<&String>>();
+        keys.sort();
+
+        table.add_row(Row::new(vec![
+            TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
+            TableCell::new_with_alignment("Value", 1, Alignment::Center),
+        ]));
+
+        for key in keys {
+            table.add_row(Row::new(vec![
+                TableCell::new(key),
+                TableCell::new(all_attributes[key].to_string()),
+            ]));
+        }
+
+        table
     }
 }

@@ -1,35 +1,43 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::cache;
+use crate::ntds;
+use crate::ntds::object::Object;
+use crate::ntds::LinkTable;
 use crate::ntds::Result;
 use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
+use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
+use bodyfile::Bodyfile3Line;
 use maplit::hashset;
+use regex::Regex;
 
-use super::WriteTypenames;
+use super::{Computer, ObjectType, Person, WriteTypenames};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
-pub struct DataTable<'datatable, 'table, 'record: 'table> where 'datatable: 'table {
-    data_table: &'datatable cache::DataTable<'table, 'record>,
+pub struct DataTable<'info, 'db> {
+    data_table: cache::DataTable<'info, 'db>,
     //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
+    link_table: Rc<LinkTable>,
 }
 
-impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record> where 'datatable: 'table {
+impl<'info, 'db> DataTable<'info, 'db> {
     /// create a new datatable wrapper
     pub fn new(
-        data_table: &'datatable cache::DataTable<'table, 'record>,
+        data_table: cache::DataTable<'info, 'db>,
         object_tree: Rc<ObjectTreeEntry>,
         schema_record_id: i32,
+        link_table: Rc<LinkTable>,
     ) -> Result<Self> {
         Ok(Self {
             //database: None,
             data_table,
             schema_record_id,
             object_tree,
+            link_table,
         })
     }
 
@@ -43,11 +51,11 @@ impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record>
        }
     */
     fn find_type_record(
-        &self,
-        type_name: &str,
-    ) -> Result<Option<DataTableRecord<'table, 'record>>> {
-        let mut records = self.find_type_records(hashset! {type_name})?;
-        Ok(records.remove(type_name))
+        &'db self,
+        object_type: ObjectType,
+    ) -> anyhow::Result<Option<DataTableRecord<'info, 'db>>> {
+        let mut records = self.find_type_records(hashset! {object_type})?;
+        Ok(records.remove(&object_type))
     }
 
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
@@ -62,13 +70,13 @@ impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record>
     }
 
     pub fn find_type_records(
-        &self,
-        mut type_names: HashSet<&str>,
-    ) -> Result<HashMap<String, DataTableRecord<'table, 'record>>> {
+        &'db self,
+        mut types: HashSet<ObjectType>,
+    ) -> anyhow::Result<HashMap<ObjectType, DataTableRecord<'info, 'db>>> {
         let mut type_records = HashMap::new();
         let children = self.data_table.children_of(self.schema_record_id);
         if !children.count() > 0 {
-            return Err(Error::SchemaRecordHasNoChildren);
+            return Err(anyhow::anyhow!(Error::SchemaRecordHasNoChildren));
         }
 
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
@@ -76,12 +84,12 @@ impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record>
 
             log::trace!("found a new type definition: '{}'", object_name2);
 
-            if type_names.remove(&object_name2[..]) {
+            if types.remove(&object_name2[..].try_into()?) {
                 log::debug!("found requested type definition for '{object_name2}'");
-                type_records.insert(object_name2, dbrecord);
+                type_records.insert(ObjectType::try_from(&object_name2[..])?, dbrecord);
             }
 
-            if type_names.is_empty() {
+            if types.is_empty() {
                 break;
             }
         }
@@ -134,200 +142,191 @@ impl<'datatable, 'table, 'record: 'table> DataTable<'datatable, 'table, 'record>
         */
         Ok(())
     }
-    /*
-       pub fn show_tree(&self, max_depth: u8) -> Result<()> {
-           let tree = ObjectTreeEntry::to_tree(&self.object_tree, max_depth);
-           println!("{}", tree);
-           Ok(())
-       }
 
-       pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
-           let mapping = &self.mapping;
+    pub fn show_tree(&self, max_depth: u8) -> Result<()> {
+        let tree = ObjectTreeEntry::to_tree(&self.object_tree, max_depth);
+        println!("{}", tree);
+        Ok(())
+    }
 
-           let record = match entry_id {
-               EntryId::Id(id) => self.data_table.find_by_id(mapping, id),
-               EntryId::Rid(rid) => self.data_table.find_by_rid(mapping, rid),
-           };
+    pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
+        let record = match entry_id {
+            EntryId::Id(id) => self.data_table.find_p(RecordHasId(id)),
+            EntryId::Rid(rid) => self.data_table.find_p(RecordHasRid(rid)),
+        };
 
-           match record {
-               None => println!("no matching object found"),
-               Some(entry) => {
-                   let mut table = entry.to_table(&self.mapping);
+        match record {
+            None => println!("no matching object found"),
+            Some(entry) => {
+                let mut table = term_table::Table::from(&entry);
 
-                   if let Some(size) = termsize::get() {
-                       let attrib_size = 20;
-                       let value_size = if size.cols > (attrib_size + 2) {
-                           size.cols - (attrib_size + 2)
-                       } else {
-                           0
-                       };
-                       table.set_max_column_widths(vec![
-                           (0, attrib_size.into()),
-                           (1, value_size.into()),
-                       ])
-                   }
-                   println!("{}", table.render())
-               }
-           }
-           Ok(())
-       }
+                if let Some(size) = termsize::get() {
+                    let attrib_size = 20;
+                    let value_size = if size.cols > (attrib_size + 2) {
+                        size.cols - (attrib_size + 2)
+                    } else {
+                        0
+                    };
+                    table.set_max_column_widths(vec![
+                        (0, attrib_size.into()),
+                        (1, value_size.into()),
+                    ])
+                }
+                println!("{}", table.render())
+            }
+        }
+        Ok(())
+    }
 
-       pub fn search_entries(&self, regex: &str) -> Result<()> {
-           let mapping = &self.mapping;
-           let re = Regex::new(regex)?;
-           let mut table_columns = vec![
-               "DNT_col".to_owned(),
-               "PDNT_col".to_owned(),
-               "ATTm3".to_owned(),
-               "ATTm589825".to_owned(),
-               "ATTb590606".to_owned(),
-           ];
+    pub fn search_entries(&self, regex: &str) -> anyhow::Result<()> {
+        let re = Regex::new(regex)?;
+        let mut table_columns = vec![
+            "DNT_col".to_owned(),
+            "PDNT_col".to_owned(),
+            "ATTm3".to_owned(),
+            "ATTm589825".to_owned(),
+            "ATTb590606".to_owned(),
+        ];
 
-           let mut records = Vec::new();
+        let mut records = Vec::new();
 
-           for record in self.data_table.iter_records() {
-               let matching_columns = record
-                   .all_attributes(mapping)
-                   .iter()
-                   .filter(|(_, v)| re.is_match(v))
-                   .map(|(a, v)| (a.to_owned(), v.to_owned()))
-                   .collect::<Vec<(String, String)>>();
-               if !matching_columns.is_empty() {
-                   for (a, _) in matching_columns {
-                       if !table_columns.contains(&a) {
-                           table_columns.push(a);
-                       }
-                   }
-                   records.push(record);
-               }
-           }
+        for record in self.data_table.iter_records() {
+            let matching_columns = record
+                .all_attributes()
+                .iter()
+                .filter(|(_, v)| re.is_match(v))
+                .map(|(a, v)| (a.to_owned(), v.to_owned()))
+                .collect::<Vec<(String, String)>>();
+            if !matching_columns.is_empty() {
+                for (a, _) in matching_columns {
+                    if !table_columns.contains(&a) {
+                        table_columns.push(a);
+                    }
+                }
+                records.push(record);
+            }
+        }
 
-           let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
-           let empty_string = "".to_owned();
-           csv_wtr.write_record(&table_columns)?;
-           for record in records.into_iter() {
-               let all_attributes = record.all_attributes(mapping);
-               csv_wtr.write_record(table_columns.iter().map(|a| {
-                   all_attributes
-                       .get(a)
-                       .unwrap_or(&empty_string)
-                       .replace('\n', "\\n")
-                       .replace('\r', "\\r")
-               }))?;
-           }
-           Ok(())
-       }
+        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        let empty_string = "".to_owned();
+        csv_wtr.write_record(&table_columns)?;
+        for record in records.into_iter() {
+            let all_attributes = record.all_attributes();
+            csv_wtr.write_record(table_columns.iter().map(|a| {
+                all_attributes
+                    .get(a)
+                    .unwrap_or(&empty_string)
+                    .replace('\n', "\\n")
+                    .replace('\r', "\\r")
+            }))?;
+        }
+        Ok(())
+    }
 
-       fn show_typed_objects<T: FromDbRecord + Serialize>(
-           &self,
-           format: &OutputFormat,
-           type_name: &str,
-       ) -> Result<()> {
-           let type_record = self
-               .find_type_record(type_name)?
-               .unwrap_or_else(|| panic!("missing record for type '{}'", type_name));
-           let type_record_id = type_record.ds_record_id(&self.mapping)?;
+    fn show_typed_objects<O: ntds::Object>(
+        &self,
+        options: &OutputOptions,
+        object_type: ObjectType,
+    ) -> anyhow::Result<()> {
+        let type_record = self
+            .find_type_record(object_type)?
+            .unwrap_or_else(|| panic!("missing record for type '{object_type}'"));
+        let type_record_id = type_record.ds_record_id()?;
 
-           let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
 
-           for record in self
-               .data_table
-               .iter_records()
-               .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).is_ok())
-               .filter(|dbrecord| dbrecord.ds_object_type_id(&self.mapping).unwrap() == type_record_id)
-               .map(|dbrecord| T::from(dbrecord, self.database()).unwrap())
-           {
-               match format {
-                   OutputFormat::Csv => {
-                       csv_wtr.serialize(record)?;
-                   }
-                   OutputFormat::Json => {
-                       println!("{}", serde_json::to_string_pretty(&record)?);
-                   }
-                   OutputFormat::JsonLines => {
-                       println!("{}", serde_json::to_string(&record)?);
-                   }
-               }
-           }
-           drop(csv_wtr);
+        for record in self
+            .data_table
+            .iter_records()
+            .filter(|dbrecord| dbrecord.ds_object_type_id().is_ok())
+            .filter(|dbrecord| dbrecord.ds_object_type_id().unwrap() == type_record_id)
+            .map(|dbrecord| O::new(dbrecord, options).unwrap())
+        {
+            match options.format() {
+                OutputFormat::Csv => {
+                    csv_wtr.serialize(record)?;
+                }
+                OutputFormat::Json => {
+                    println!("{}", serde_json::to_string_pretty(&record)?);
+                }
+                OutputFormat::JsonLines => {
+                    println!("{}", serde_json::to_string(&record)?);
+                }
+            }
+        }
+        drop(csv_wtr);
 
-           Ok(())
-       }
-       pub fn show_timeline(&self, all_objects: bool) -> Result<()> {
-           let type_records = self.find_type_records(hashset! {
-           TYPENAME_PERSON,
-           TYPENAME_COMPUTER})?;
+        Ok(())
+    }
 
-           let all_type_records = self.find_all_type_names()?;
+    pub fn show_timeline(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        let type_records = self.find_type_records(hashset! {
+        ObjectType::Person,
+        ObjectType::Computer})?;
 
-           let type_record_ids = if all_objects {
-               None
-           } else {
-               Some(
-                   type_records
-                       .iter()
-                       .map(|(type_name, dbrecord)| {
-                           (
-                               dbrecord
-                                   .ds_record_id(&self.mapping)
-                                   .expect("unable to read record id")
-                                   .expect("missing record id"),
-                               type_name,
-                           )
-                       })
-                       .collect::<HashMap<i32, &String>>(),
-               )
-           };
+        let all_type_records = self.find_all_type_names()?;
 
-           for bf_lines in self
-               .data_table
-               .iter_records()
-               .filter(|dbrecord| dbrecord.has_valid_ds_object_type_id(&self.mapping))
-               .filter_map(|dbrecord| {
-                   let current_type_id = dbrecord
-                       .ds_object_type_id(&self.mapping)
-                       .unwrap()
-                       .expect("missing object type id");
+        let type_record_ids = if *options.show_all_objects() {
+            None
+        } else {
+            Some(
+                type_records
+                    .iter()
+                    .map(|(type_name, dbrecord)| {
+                        (
+                            dbrecord.ds_record_id().expect("unable to read record id"),
+                            *type_name,
+                        )
+                    })
+                    .collect::<HashMap<i32, ObjectType>>(),
+            )
+        };
 
-                   // `type_record_ids` is None if `all_objects` is True
-                   if let Some(record_ids) = type_record_ids.as_ref() {
-                       match record_ids.get(&current_type_id) {
-                           Some(type_name) => {
-                               if *type_name == TYPENAME_PERSON {
-                                   match <Person as FromDbRecord>::from(dbrecord, self.database()) {
-                                       Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
-                                       Err(why) => {
-                                           log::error!("unable to parse person: {why}");
-                                           None
-                                       }
-                                   }
-                               } else if *type_name == TYPENAME_COMPUTER {
-                                   match <Computer as FromDbRecord>::from(dbrecord, self.database()) {
-                                       Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
-                                       Err(why) => {
-                                           log::error!("unable to parse person: {why}");
-                                           None
-                                       }
-                                   }
-                               } else {
-                                   None
-                               }
-                           }
-                           _ => None,
-                       }
-                   } else {
-                       Some(
-                           dbrecord
-                               .to_bodyfile(&self.mapping, &all_type_records[&current_type_id][..])
-                               .expect("unable to create timeline from DbRecord"),
-                       )
-                   }
-               })
-               .flatten()
-           {
-               println!("{}", bf_lines)
-           }
-           Ok(())
-       }
-    */
+        for bf_lines in self
+            .data_table
+            .iter_records()
+            .filter(|dbrecord| dbrecord.ds_object_type_id_opt().unwrap().is_some())
+            .filter_map(|dbrecord| {
+                let current_type_id = dbrecord.ds_object_type_id().unwrap();
+
+                // `type_record_ids` is None if `all_objects` is True
+                if let Some(record_ids) = type_record_ids.as_ref() {
+                    match record_ids.get(&current_type_id) {
+                        Some(type_name) => {
+                            if *type_name == ObjectType::Person {
+                                match Person::new(dbrecord, options) {
+                                    Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
+                                    Err(why) => {
+                                        log::error!("unable to parse person: {why}");
+                                        None
+                                    }
+                                }
+                            } else if *type_name == ObjectType::Computer {
+                                match Computer::new(dbrecord, options) {
+                                    Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
+                                    Err(why) => {
+                                        log::error!("unable to parse person: {why}");
+                                        None
+                                    }
+                                }
+                            } else {
+                                None
+                            }
+                        }
+                        _ => None,
+                    }
+                } else {
+                    Some(
+                        dbrecord
+                            .to_bodyfile(&self.mapping, &all_type_records[&current_type_id][..])
+                            .expect("unable to create timeline from DbRecord"),
+                    )
+                }
+            })
+            .flatten()
+        {
+            println!("{}", bf_lines)
+        }
+        Ok(())
+    }
 }

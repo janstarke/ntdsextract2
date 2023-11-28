@@ -5,11 +5,15 @@ mod database_time;
 mod truncated_windows_file_time;
 mod utc_visitor;
 mod windows_file_time;
+mod unix_timestamp;
+mod timeline_entry;
 
 pub use database_time::DatabaseTime;
 pub use truncated_windows_file_time::TruncatedWindowsFileTime;
 use utc_visitor::*;
 pub use windows_file_time::WindowsFileTime;
+pub use unix_timestamp::*;
+pub use timeline_entry::*;
 
 lazy_static! {
     static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_utc(
@@ -40,12 +44,15 @@ macro_rules! impl_timestamp {
             }
         }
 
-        impl $type {
+        impl $crate::win32_types::UnixTimestamp for $type {
             #[allow(dead_code)]
-            pub fn timestamp(&self) -> i64 {
+            fn timestamp(&self) -> i64 {
                 self.0.timestamp()
             }
+        }
+        impl $crate::win32_types::TimelineEntry for $type {}
 
+        impl $type {
             pub fn from_ts<'de, D>(deserializer: D) -> Result<Self, D::Error>
             where
                 D: serde::Deserializer<'de>,

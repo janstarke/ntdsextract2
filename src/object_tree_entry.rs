@@ -4,11 +4,10 @@ use hashbrown::HashSet;
 use termtree::Tree;
 
 use crate::cache;
-use crate::cache::{EsedbRecord, EsedbTable};
 use anyhow::Result;
 
 /// represents an object in the DIT
-pub(crate) struct ObjectTreeEntry {
+pub struct ObjectTreeEntry {
     name: String,
     id: i32,
     //parent: Option<Weak<ObjectTreeEntry>>,
@@ -37,8 +36,8 @@ impl Display for ObjectTreeEntry {
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from<'table, 'record>(
-        data_table: &cache::DataTable<'table, 'record>,
+    pub(crate) fn from<'info, 'db>(
+        data_table: &cache::DataTable<'info, 'db>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         Self::populate_object_tree(data_table)
     }
@@ -80,8 +79,8 @@ impl ObjectTreeEntry {
             }
         }
     */
-    fn populate_object_tree<'table, 'record>(
-        data_table: &cache::DataTable<'table, 'record>,
+    fn populate_object_tree<'info, 'db>(
+        data_table: &cache::DataTable<'info, 'db>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         log::info!("populating the object tree");
 

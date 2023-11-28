@@ -80,10 +80,10 @@ fn main() {
         }
     }
 
-    write!(out_file, "{}", AppId::new("DsRecordId".to_owned(), 0xffffff01, "DNT_col".to_owned())).unwrap();
-    write!(out_file, "{}", AppId::new("DsParentRecordId".to_owned(), 0xffffff02, "PDNT_col".to_owned())).unwrap();
-    write!(out_file, "{}", AppId::new("DsRecordTime".to_owned(), 0xffffff03, "time_col".to_owned())).unwrap();
-    write!(out_file, "{}", AppId::new("DsAncestors".to_owned(), 0xffffff04, "Ancestors_col".to_owned())).unwrap();
+    write!(out_file, "{}", AppId::new("DsRecordId".to_owned(), 0x7fffff01, "DNT_col".to_owned())).unwrap();
+    write!(out_file, "{}", AppId::new("DsParentRecordId".to_owned(), 0x7fffff02, "PDNT_col".to_owned())).unwrap();
+    write!(out_file, "{}", AppId::new("DsRecordTime".to_owned(), 0x7fffff03, "time_col".to_owned())).unwrap();
+    write!(out_file, "{}", AppId::new("DsAncestors".to_owned(), 0x7fffff04, "Ancestors_col".to_owned())).unwrap();
 
     writeln!(out_file, "}}").unwrap();
 

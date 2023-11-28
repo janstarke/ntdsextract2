@@ -3,22 +3,21 @@ use libesedb::Value;
 use std::collections::{HashMap, HashSet};
 
 use crate::cache;
-use crate::cache::EsedbTable;
 use crate::value::FromValue;
 
 use super::LinkTable;
 
-pub(crate) struct LinkTableBuilder<'datatable, 'lt, 'lr, 'dt, 'dr> {
-    link_table: cache::LinkTable<'lt, 'lr>,
-    data_table: &'datatable cache::DataTable<'dt, 'dr>,
+pub(crate) struct LinkTableBuilder<'info, 'db> {
+    link_table: cache::LinkTable<'info, 'db>,
+    data_table: &'db cache::DataTable<'info, 'db>,
     schema_record_id: i32,
     columns: HashMap<String, i32>,
 }
 
-impl<'datatable, 'lt, 'lr, 'dt, 'dr> LinkTableBuilder<'datatable, 'lt, 'lr, 'dt, 'dr> {
+impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     pub fn from(
-        link_table: cache::LinkTable<'lt, 'lr>,
-        data_table: &'datatable cache::DataTable<'dt, 'dr>,
+        link_table: cache::LinkTable<'info, 'db>,
+        data_table: &'db cache::DataTable<'info, 'db>,
         schema_record_id: i32,
     ) -> Result<Self> {
         let columns = Self::read_column_names(&link_table)?;
@@ -31,7 +30,7 @@ impl<'datatable, 'lt, 'lr, 'dt, 'dr> LinkTableBuilder<'datatable, 'lt, 'lr, 'dt,
         })
     }
 
-    fn read_column_names(link_table: &cache::LinkTable<'lt, 'lr>) -> Result<HashMap<String, i32>> {
+    fn read_column_names(link_table: &cache::LinkTable<'info, 'db>) -> Result<HashMap<String, i32>> {
         let mut columns = HashMap::new();
         for index in 0..link_table.count_columns() - 1 {
             let column = link_table.column(index).unwrap();

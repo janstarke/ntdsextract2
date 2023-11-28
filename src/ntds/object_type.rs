@@ -1,6 +1,6 @@
-use strum::IntoStaticStr;
+use strum::{IntoStaticStr, Display, EnumString};
 
-#[derive(IntoStaticStr, Debug)]
+#[derive(IntoStaticStr, EnumString, Debug, Display, Eq, PartialEq, Hash)]
 pub enum ObjectType {
     Person,
     Group,

@@ -1,74 +1,70 @@
 use std::rc::Rc;
 
-use crate::{cache, ColumnInfoMapping};
-use ouroboros::self_referencing;
+use crate::{cache, EsedbInfo};
 
-use super::{Iter, EsedbTable};
+use super::Iter;
 
-#[self_referencing]
-pub struct Table<'table, 'record: 'table>
+pub struct Table<'info, 'db>
+where
+    'info: 'db,
 {
     table_id: &'static str,
 
-    table: libesedb::Table<'table>,
+    table: &'info libesedb::Table<'db>,
 
-    columns: Vec<cache::Column>,
+    columns: Rc<Vec<cache::Column>>,
 
-    #[borrows(table)]
-    records: Vec<cache::Record<'record>>,
+    records: Vec<cache::Record<'info, 'db>>,
 }
 
-impl<'table, 'record:'table> EsedbTable<'table, 'record> for Table<'table, 'record>
-{
-    fn iter<'s> (&'s self) -> Iter<'s, 'record> {
-        self.borrow_records().iter().into()
-    }
-}
-
-impl<'table, 'record:'table> Table<'table, 'record>
+impl<'info, 'db> Table<'info, 'db>
+where
+    'info: 'db,
 {
     pub fn try_from(
-        table: libesedb::Table<'table>,
+        table: &'info libesedb::Table<'db>,
         table_id: &'static str,
-        mapping: Rc<ColumnInfoMapping>,
+        esedbinfo: &'info EsedbInfo<'db>,
     ) -> std::io::Result<Self> {
         let mut columns = Vec::new();
 
         for column in table.iter_columns()? {
             columns.push(cache::Column::try_from(column?)?);
         }
-        let x = TableBuilder {
+        let columns = Rc::new(columns);
+
+        let mut records = Vec::new();
+        for (mut record_id, record) in table.iter_records().unwrap().enumerate() {
+            records.push(
+                cache::Record::try_from(
+                    record.unwrap(),
+                    table_id,
+                    record_id as i32,
+                    esedbinfo,
+                    Rc::clone(&columns),
+                )
+                .unwrap(),
+            );
+            record_id += 1;
+        }
+
+        Ok(Self {
             table,
             table_id,
-            records_builder: |table| {
-                let mut records = Vec::new();
-                let mut record_id = 0;
-                for record in table.iter_records().unwrap() {
-                    records.push(
-                        cache::Record::try_from(
-                            record.unwrap(),
-                            table_id,
-                            record_id,
-                            Rc::clone(&mapping),
-                        )
-                        .unwrap(),
-                    );
-                    record_id += 1;
-                }
-                records
-            },
+            records,
             columns,
-        }
-        .build();
+        })
+    }
 
-        Ok(x)
+    pub fn iter(&'db self) -> Iter<'info, 'db> {
+        self.records.iter().into()
     }
 
     pub fn count_columns(&self) -> i32 {
-        self.borrow_columns().len().try_into().unwrap()
+        self.columns.len().try_into().unwrap()
     }
 
     pub fn column(&self, pos: i32) -> Option<&cache::Column> {
-        self.borrow_columns().get(usize::try_from(pos).unwrap())
+        self.columns.get(usize::try_from(pos).unwrap())
     }
 }
