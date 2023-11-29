@@ -43,35 +43,38 @@ macro_rules! record_attribute {
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
-    record_attribute!(ds_object_sid, AttObjectSid, Sid);
     record_attribute!(ds_record_id, DsRecordId, i32);
     record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
     record_attribute!(ds_ancestors, DsAncestors, i32);
-    record_attribute!(ds_object_type_id, AttObjectCategory, i32);
-    record_attribute!(ds_object_name, AttCommonName, String);
-    record_attribute!(ds_object_name2, AttRdn, String);
-    record_attribute!(ds_sam_account_name, AttSamAccountName, String);
-    record_attribute!(ds_sam_account_type, AttSamAccountType, SamAccountType);
-    record_attribute!(ds_user_principal_name, AttUserPrincipalName, String);
-    record_attribute!(ds_user_account_control, AttUserAccountControl, UserAccountControl);
-    record_attribute!(ds_last_logon, AttLastLogon, WindowsFileTime);
-    record_attribute!(ds_last_logon_time_stamp, AttLastLogonTimestamp, WindowsFileTime);
-    record_attribute!(ds_account_expires, AttAccountExpires, WindowsFileTime);
-    record_attribute!(ds_password_last_set, AttPwdLastSet, WindowsFileTime);
-    record_attribute!(ds_bad_pwd_time, AttBadPasswordTime, WindowsFileTime);
-    record_attribute!(ds_logon_count, AttLogonCount, i32);
-    record_attribute!(ds_bad_pwd_count, AttBadPwdCount, i32);
-    record_attribute!(ds_primary_group_id, AttPrimaryGroupId, i32);
-    //record_attribute!(ds_aduser_objects, AttX509Cert, Vec<u8>);
-    record_attribute!(ds_att_comment, AttComment, String);
-    record_attribute!(ds_dns_host_name, AttDnsHostName, String);
-    record_attribute!(ds_os_name, AttOperatingSystem, String);
-    record_attribute!(ds_os_version, AttOperatingSystemVersion, String);
-    record_attribute!(ds_link_id, AttLinkId, u32);
-    record_attribute!(ds_ldap_display_name, AttLdapDisplayName, String);
-    record_attribute!(ds_creator_sid, AttMsDsCreatorSid, Sid);
-    record_attribute!(ds_admin_count, AttAdminCount, i32);
+    record_attribute!(att_object_sid, AttObjectSid, Sid);
+    record_attribute!(att_when_created, AttWhenCreated, TruncatedWindowsFileTime);
+    record_attribute!(att_when_changed, AttWhenChanged, TruncatedWindowsFileTime);
+    record_attribute!(att_object_type_id, AttObjectCategory, i32);
+    record_attribute!(att_object_name, AttCommonName, String);
+    record_attribute!(att_object_name2, AttRdn, String);
+    record_attribute!(att_sam_account_name, AttSamAccountName, String);
+    record_attribute!(att_sam_account_type, AttSamAccountType, SamAccountType);
+    record_attribute!(att_user_principal_name, AttUserPrincipalName, String);
+    record_attribute!(att_user_account_control, AttUserAccountControl, UserAccountControl);
+    record_attribute!(att_last_logon, AttLastLogon, WindowsFileTime);
+    record_attribute!(att_last_logon_time_stamp, AttLastLogonTimestamp, WindowsFileTime);
+    record_attribute!(att_account_expires, AttAccountExpires, WindowsFileTime);
+    record_attribute!(att_password_last_set, AttPwdLastSet, WindowsFileTime);
+    record_attribute!(att_bad_pwd_time, AttBadPasswordTime, WindowsFileTime);
+    record_attribute!(att_logon_count, AttLogonCount, i32);
+    record_attribute!(att_bad_pwd_count, AttBadPwdCount, i32);
+    record_attribute!(att_primary_group_id, AttPrimaryGroupId, i32);
+    //record_attribute!(att_aduser_objects, AttX509Cert, Vec<u8>);
+    record_attribute!(att_comment, AttComment, String);
+    record_attribute!(att_dns_host_name, AttDnsHostName, String);
+    record_attribute!(att_os_name, AttOperatingSystem, String);
+    record_attribute!(att_os_version, AttOperatingSystemVersion, String);
+    record_attribute!(att_link_id, AttLinkId, u32);
+    record_attribute!(att_ldap_display_name, AttLdapDisplayName, String);
+    record_attribute!(att_creator_sid, AttMsDsCreatorSid, Sid);
+    record_attribute!(att_admin_count, AttAdminCount, i32);
+    record_attribute!(att_is_deleted, AttIsDeleted, bool);
 
     pub fn get(&self, attribute_id: NtdsAttributeId) -> Option<RefMut<'_, i32, Value>> {
         self.0.get_by_id(attribute_id)

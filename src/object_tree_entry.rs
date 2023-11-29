@@ -88,10 +88,10 @@ impl ObjectTreeEntry {
         let mut uplinks = HashMap::new();
         let mut names = HashMap::new();
 
-        for record in data_table.iter_records() {
+        for record in data_table.iter() {
             let id = record.ds_record_id()?;
             let parent_id = record.ds_parent_record_id()?;
-            let name = record.ds_object_name2()?.to_owned();
+            let name = record.att_object_name2()?.to_owned();
 
             names.insert(id, name);
             uplinks.insert(id, parent_id);

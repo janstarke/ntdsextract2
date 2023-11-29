@@ -139,7 +139,7 @@ impl<'info, 'db> Table<'info, 'db, DataTable> {
         {
             if let Some(schema_parent_id) = record.ds_parent_record_id_opt()? {
                 if let Some(schema_parent) = self.find_p(RecordHasId(schema_parent_id)) {
-                    if let Some(parent_name) = schema_parent.ds_object_name2_opt()? {
+                    if let Some(parent_name) = schema_parent.att_object_name2_opt()? {
                         if parent_name == "Configuration" {
                             log::info!("found record id to be {}", record.ds_record_id()?);
                             return Ok(record.ds_record_id()?);

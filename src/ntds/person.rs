@@ -1,18 +1,20 @@
 use std::collections::HashMap;
+use std::convert::identity;
 
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
 use crate::ntds::ObjectType;
-use crate::{serialization::*, RecordHasRid, RecordHasId};
 use crate::win32_types::{
     SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
 };
 use crate::{ntds, OutputOptions};
-use anyhow::{bail, Result};
+use crate::{serialization::*, RecordHasId, RecordHasRid};
+use anyhow::Result;
 
-use super::{data_table, link_table, DataTable, DataTableRecord, LinkTable};
+use super::{DataTable, DataTableRecord, LinkTable};
+use crate::win32_types::TimelineEntry;
 
 #[derive(Getters, Serialize)]
 #[getset(get = "pub")]
@@ -33,8 +35,7 @@ pub struct Person {
 
     primary_group: Option<String>,
 
-    aduser_objects: Option<String>,
-
+    //aduser_objects: Option<String>,
     #[serde(serialize_with = "serialize_set")]
     member_of: SerializableSet,
 
@@ -78,14 +79,12 @@ impl ntds::Object for Person {
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
-        let primary_group_id = dbrecord.ds_primary_group_id()?;
+        let primary_group_id = dbrecord.att_primary_group_id_opt()?;
         let primary_group = primary_group_id.and_then(|group_id| {
-            data_table.data_table()
+            data_table
+                .data_table()
                 .find_p(RecordHasRid(group_id.try_into().unwrap()))
-                .map(|group| {
-                    group
-                        .ds_object_name2()
-                })
+                .map(|group| group.att_object_name2().unwrap())
         });
 
         let member_of = if let Some(children) = link_table.member_of(&object_id) {
@@ -94,12 +93,18 @@ impl ntds::Object for Person {
                 .filter_map(|child_id| data_table.data_table().find_p(RecordHasId(*child_id)))
                 .map(|record| {
                     record
-                        .ds_object_name2()
+                        .att_object_name2()
                         .expect("error while reading object name")
                 })
                 .collect()
         } else {
             vec![]
+        };
+
+        let member_of = if *options.flat_serialization() {
+            SerializableSet::Flat(member_of)
+        } else {
+            SerializableSet::Complex(member_of)
         };
 
         let all_attributes = if *options.display_all_attributes() {
@@ -109,29 +114,29 @@ impl ntds::Object for Person {
         };
 
         Ok(Self {
-            record_time: dbrecord.ds_record_time()?.unwrap(),
-            when_created: dbrecord.ds_when_created()?,
-            when_changed: dbrecord.ds_when_changed()?,
-            sid: dbrecord.ds_sid()?,
-            sam_account_name: dbrecord.ds_sam_account_name()?,
-            user_principal_name: dbrecord.ds_user_principal_name()?,
-            sam_account_type: dbrecord.ds_sam_account_type()?,
-            user_account_control: dbrecord.ds_user_account_control()?,
-            last_logon: dbrecord.ds_last_logon()?,
-            last_logon_time_stamp: dbrecord.ds_last_logon_time_stamp()?,
-            account_expires: dbrecord.ds_account_expires()?,
-            password_last_set: dbrecord.ds_password_last_set()?,
-            bad_pwd_time: dbrecord.ds_bad_pwd_time()?,
-            logon_count: dbrecord.ds_logon_count()?,
-            bad_pwd_count: dbrecord.ds_bad_pwd_count()?,
-            admin_count: dbrecord.ds_admin_count()?,
-            is_deleted: dbrecord.ds_is_deleted()?.unwrap_or(false),
+            record_time: dbrecord.ds_record_time_opt()?,
+            when_created: dbrecord.att_when_created_opt()?,
+            when_changed: dbrecord.att_when_changed_opt()?,
+            sid: dbrecord.att_object_sid_opt()?,
+            sam_account_name: dbrecord.att_sam_account_name_opt()?,
+            user_principal_name: dbrecord.att_user_principal_name_opt()?,
+            sam_account_type: dbrecord.att_sam_account_type_opt()?,
+            user_account_control: dbrecord.att_user_account_control_opt()?,
+            last_logon: dbrecord.att_last_logon_opt()?,
+            last_logon_time_stamp: dbrecord.att_last_logon_time_stamp_opt()?,
+            account_expires: dbrecord.att_account_expires_opt()?,
+            password_last_set: dbrecord.att_password_last_set_opt()?,
+            bad_pwd_time: dbrecord.att_bad_pwd_time_opt()?,
+            logon_count: dbrecord.att_logon_count_opt()?,
+            bad_pwd_count: dbrecord.att_bad_pwd_count_opt()?,
+            admin_count: dbrecord.att_admin_count_opt()?,
+            is_deleted: dbrecord.att_is_deleted_opt()?.unwrap_or(false),
             primary_group_id,
             primary_group,
-            comment: dbrecord.ds_att_comment()?,
-            aduser_objects: dbrecord.ds_aduser_objects()?,
+            comment: dbrecord.att_comment_opt()?,
+            //aduser_objects: dbrecord.att_u()?,
             member_of,
-            all_attributes: dbrecord.all_attributes(),
+            all_attributes,
         })
     }
 }
@@ -142,22 +147,22 @@ impl From<Person> for Vec<Bodyfile3Line> {
         if let Some(upn) = obj.sam_account_name {
             vec![
                 obj.record_time()
-                    .map(|ts| ts.cr_entry(upn, "record creation time", OT)),
+                    .map(|ts| ts.cr_entry(&upn, "record creation time", OT)),
                 obj.when_created()
-                    .map(|ts| ts.cr_entry(upn, "object created", OT)),
+                    .map(|ts| ts.cr_entry(&upn, "object created", OT)),
                 obj.when_changed()
-                    .map(|ts| ts.cr_entry(upn, "object changed", OT)),
+                    .map(|ts| ts.cr_entry(&upn, "object changed", OT)),
                 obj.last_logon()
-                    .map(|ts| ts.c_entry(upn, "last logon on this DC", OT)),
+                    .map(|ts| ts.c_entry(&upn, "last logon on this DC", OT)),
                 obj.last_logon_time_stamp()
-                    .map(|ts| ts.c_entry(upn, "last logon on any DC", OT)),
+                    .map(|ts| ts.c_entry(&upn, "last logon on any DC", OT)),
                 obj.bad_pwd_time()
-                    .map(|ts| ts.c_entry(upn, "bad pwd time", OT)),
+                    .map(|ts| ts.c_entry(&upn, "bad pwd time", OT)),
                 obj.password_last_set()
-                    .map(|ts| ts.c_entry(upn, "password last set", OT)),
+                    .map(|ts| ts.c_entry(&upn, "password last set", OT)),
             ]
-            .iter()
-            .filter_map(|x| x)
+            .into_iter()
+            .filter_map(identity)
             .collect()
         } else {
             Vec::new()

@@ -19,7 +19,7 @@ pub struct RecordHasRid(pub u32);
 
 impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasRid {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool {
-        match record.ds_object_sid_opt() {
+        match record.att_object_sid_opt() {
             Ok(Some(sid)) => sid.get_rid() == &self.0,
             _ => false,
         }
@@ -41,7 +41,7 @@ pub struct RecordHasAttRdn(pub &'static str);
 
 impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasAttRdn {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool {
-        match record.ds_object_name2_opt() {
+        match record.att_object_name2_opt() {
             Ok(Some(r)) => r == self.0,
             _ => false,
         }

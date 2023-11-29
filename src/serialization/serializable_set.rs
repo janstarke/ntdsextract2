@@ -1,15 +1,12 @@
-use serde::Serializer;
 use serde::ser::SerializeSeq;
+use serde::Serializer;
 
 pub enum SerializableSet {
     Flat(Vec<String>),
     Complex(Vec<String>),
 }
 
-pub(crate) fn serialize_set<S>(
-    set: &SerializableSet,
-    s: S,
-) -> Result<S::Ok, S::Error>
+pub(crate) fn serialize_set<S>(set: &SerializableSet, s: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

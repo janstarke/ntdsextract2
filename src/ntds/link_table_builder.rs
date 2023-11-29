@@ -133,8 +133,8 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         Ok(self
             .data_table
             .children_of(self.schema_record_id)
-            .find(|r| &r.ds_object_name2().expect("missing object_name2") == attribute_name)
+            .find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name)
             .expect(&format!("found no record by that name: '{attribute_name}'"))
-            .ds_link_id()?)
+            .att_link_id()?)
     }
 }

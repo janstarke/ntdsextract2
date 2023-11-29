@@ -18,7 +18,7 @@ use super::{Computer, ObjectType, Person, WriteTypenames};
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
 #[derive(Getters)]
-#[getset(get="pub")]
+#[getset(get = "pub")]
 pub struct DataTable<'info, 'db> {
     data_table: cache::Table<'info, 'db, cache::DataTable>,
     //database: Option<Weak<CDatabase<'r>>>,
@@ -64,7 +64,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
     pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.ds_object_name2()?.to_owned();
+            let object_name2 = dbrecord.att_object_name2()?.to_owned();
 
             type_records.insert(dbrecord.ds_record_id()?, object_name2);
         }
@@ -83,7 +83,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         }
 
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.ds_object_name2()?.to_string();
+            let object_name2 = dbrecord.att_object_name2()?.to_string();
 
             log::trace!("found a new type definition: '{}'", object_name2);
 
@@ -115,7 +115,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
     pub fn show_type_names(&self, writer: &impl WriteTypenames) -> Result<()> {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.ds_object_name2()?.to_owned();
+            let object_name2 = dbrecord.att_object_name2()?.to_owned();
 
             type_names.insert(object_name2);
 
@@ -126,7 +126,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let x = self
             .data_table
             .children_of(self.schema_record_id)
-            .map(|dbrecord| dbrecord.ds_object_name2().unwrap().to_owned());
+            .map(|dbrecord| dbrecord.att_object_name2().unwrap().to_owned());
         writer.write_typenames(x);
         /*
 
@@ -230,6 +230,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         &self,
         options: &OutputOptions,
         object_type: ObjectType,
+        link_table: &LinkTable,
     ) -> anyhow::Result<()> {
         let type_record = self
             .find_type_record(object_type)?
@@ -241,9 +242,9 @@ impl<'info, 'db> DataTable<'info, 'db> {
         for record in self
             .data_table
             .iter()
-            .filter(|dbrecord| dbrecord.ds_object_type_id().is_ok())
-            .filter(|dbrecord| dbrecord.ds_object_type_id().unwrap() == type_record_id)
-            .map(|dbrecord| O::new(dbrecord, options).unwrap())
+            .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
+            .filter(|dbrecord| dbrecord.att_object_type_id().unwrap() == type_record_id)
+            .map(|dbrecord| O::new(dbrecord, options, self, link_table).unwrap())
         {
             match options.format() {
                 OutputFormat::Csv => {
@@ -262,7 +263,8 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    pub fn show_timeline(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_timeline(&self, options: &OutputOptions,
+        link_table: &LinkTable,) -> anyhow::Result<()> {
         let type_records = self.find_type_records(hashset! {
         ObjectType::Person,
         ObjectType::Computer})?;
@@ -288,16 +290,16 @@ impl<'info, 'db> DataTable<'info, 'db> {
         for bf_lines in self
             .data_table
             .iter()
-            .filter(|dbrecord| dbrecord.ds_object_type_id_opt().unwrap().is_some())
+            .filter(|dbrecord| dbrecord.att_object_type_id_opt().unwrap().is_some())
             .filter_map(|dbrecord| {
-                let current_type_id = dbrecord.ds_object_type_id().unwrap();
+                let current_type_id = dbrecord.att_object_type_id().unwrap();
 
                 // `type_record_ids` is None if `all_objects` is True
                 if let Some(record_ids) = type_record_ids.as_ref() {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == ObjectType::Person {
-                                match Person::new(dbrecord, options) {
+                                match Person::new(dbrecord, options, self, link_table) {
                                     Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
@@ -305,7 +307,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                                     }
                                 }
                             } else if *type_name == ObjectType::Computer {
-                                match Computer::new(dbrecord, options) {
+                                match Computer::new(dbrecord, options, self, link_table) {
                                     Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
