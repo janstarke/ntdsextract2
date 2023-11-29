@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash, rc::Rc}
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::cache;
+use crate::cache::{self, DataTable};
 use anyhow::Result;
 
 /// represents an object in the DIT
@@ -37,7 +37,7 @@ impl Display for ObjectTreeEntry {
 
 impl ObjectTreeEntry {
     pub(crate) fn from<'info, 'db>(
-        data_table: &cache::DataTable<'info, 'db>,
+        data_table: &cache::Table<'info, 'db, DataTable>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         Self::populate_object_tree(data_table)
     }
@@ -80,7 +80,7 @@ impl ObjectTreeEntry {
         }
     */
     fn populate_object_tree<'info, 'db>(
-        data_table: &cache::DataTable<'info, 'db>,
+        data_table: &cache::Table<'info, 'db, DataTable>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         log::info!("populating the object tree");
 

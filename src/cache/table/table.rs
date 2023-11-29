@@ -1,10 +1,10 @@
-use std::rc::Rc;
+use std::{rc::Rc, marker::PhantomData};
 
-use crate::{cache, EsedbInfo};
+use crate::{cache::{self, Record}, EsedbInfo, ntds::DataTableRecord, RecordHasParent, RecordPredicate, RecordHasAttRdn, RecordHasId};
 
-use super::Iter;
+use super::{Iter, TableType, DataTable, LinkTable};
 
-pub struct Table<'info, 'db>
+pub struct Table<'info, 'db, T: TableType>
 where
     'info: 'db,
 {
@@ -15,9 +15,11 @@ where
     columns: Rc<Vec<cache::Column>>,
 
     records: Vec<cache::Record<'info, 'db>>,
+
+    _marker: PhantomData<T>,
 }
 
-impl<'info, 'db> Table<'info, 'db>
+impl<'info, 'db, T: TableType> Table<'info, 'db, T>
 where
     'info: 'db,
 {
@@ -53,11 +55,8 @@ where
             table_id,
             records,
             columns,
+            _marker: PhantomData
         })
-    }
-
-    pub fn iter(&'db self) -> Iter<'info, 'db> {
-        self.records.iter().into()
     }
 
     pub fn count_columns(&self) -> i32 {
@@ -66,5 +65,89 @@ where
 
     pub fn column(&self, pos: i32) -> Option<&cache::Column> {
         self.columns.get(usize::try_from(pos).unwrap())
+    }
+}
+
+impl<'info, 'db> Table<'info, 'db, LinkTable> {
+
+    pub fn iter(&'db self) -> impl Iterator<Item=&'info cache::Record<'info, 'db>> {
+        self.records.iter()
+    }
+}
+impl<'info, 'db> Table<'info, 'db, DataTable> {
+
+    pub fn iter(&'db self) -> Iter<'info, 'db> {
+        self.records.iter().into()
+    }
+
+    pub(crate) fn children_of(
+        &'db self,
+        parent_id: i32,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
+        let my_filter = RecordHasParent(parent_id);
+        self.iter().filter(move |r| my_filter.matches(r))
+    }
+
+    pub fn filter<C>(
+        &'db self,
+        predicate: C,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
+    where
+        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
+    {
+        self.iter().filter(move |r| predicate(r))
+    }
+
+    pub fn find<C>(
+        &'db self,
+        predicate: C,
+    ) -> Option<DataTableRecord<'info, 'db>>
+    where
+        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
+    {
+        self.iter().find(move |r| predicate(r))
+    }
+
+    pub fn filter_p<P>(
+        &'db self,
+        predicate: P,
+    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
+    where
+        P: RecordPredicate<'info, 'db>,
+    {
+        self.iter().filter(move |r| predicate.matches(r))
+    }
+
+    pub fn find_p<P>(
+        &'db self,
+        predicate: P,
+    ) -> Option<DataTableRecord<'info, 'db>>
+    where
+        P: RecordPredicate<'info, 'db>,
+    {
+        self.iter().find(move |r| predicate.matches(r))
+    }
+
+    /// returns the record id of the record which contains the Schema object
+    /// (which is identified by its name "Schema" in the object_name2 attribute)
+    pub fn get_schema_record_id(&self) -> crate::ntds::Result<i32> {
+        log::info!("obtaining schema record id");
+
+        for record in self
+            .filter_p(RecordHasAttRdn("Schema"))
+            .map(DataTableRecord::from)
+        {
+            if let Some(schema_parent_id) = record.ds_parent_record_id_opt()? {
+                if let Some(schema_parent) = self.find_p(RecordHasId(schema_parent_id)) {
+                    if let Some(parent_name) = schema_parent.ds_object_name2_opt()? {
+                        if parent_name == "Configuration" {
+                            log::info!("found record id to be {}", record.ds_record_id()?);
+                            return Ok(record.ds_record_id()?);
+                        }
+                    }
+                }
+            }
+        }
+        Err(crate::ntds::Error::MissingSchemaRecord)
     }
 }

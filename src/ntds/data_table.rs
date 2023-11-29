@@ -9,6 +9,7 @@ use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
 use bodyfile::Bodyfile3Line;
+use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
 
@@ -16,8 +17,10 @@ use super::{Computer, ObjectType, Person, WriteTypenames};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
+#[derive(Getters)]
+#[getset(get="pub")]
 pub struct DataTable<'info, 'db> {
-    data_table: cache::DataTable<'info, 'db>,
+    data_table: cache::Table<'info, 'db, cache::DataTable>,
     //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: i32,
     object_tree: Rc<ObjectTreeEntry>,
@@ -27,7 +30,7 @@ pub struct DataTable<'info, 'db> {
 impl<'info, 'db> DataTable<'info, 'db> {
     /// create a new datatable wrapper
     pub fn new(
-        data_table: cache::DataTable<'info, 'db>,
+        data_table: cache::Table<'info, 'db, cache::DataTable>,
         object_tree: Rc<ObjectTreeEntry>,
         schema_record_id: i32,
         link_table: Rc<LinkTable>,
@@ -190,7 +193,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
         let mut records = Vec::new();
 
-        for record in self.data_table.iter_records() {
+        for record in self.data_table.iter() {
             let matching_columns = record
                 .all_attributes()
                 .iter()
@@ -237,7 +240,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
         for record in self
             .data_table
-            .iter_records()
+            .iter()
             .filter(|dbrecord| dbrecord.ds_object_type_id().is_ok())
             .filter(|dbrecord| dbrecord.ds_object_type_id().unwrap() == type_record_id)
             .map(|dbrecord| O::new(dbrecord, options).unwrap())
@@ -284,7 +287,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
         for bf_lines in self
             .data_table
-            .iter_records()
+            .iter()
             .filter(|dbrecord| dbrecord.ds_object_type_id_opt().unwrap().is_some())
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord.ds_object_type_id().unwrap();

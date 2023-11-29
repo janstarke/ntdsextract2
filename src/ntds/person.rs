@@ -4,17 +4,17 @@ use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::{ntds, OutputOptions};
 use crate::ntds::ObjectType;
-use crate::serialization::*;
+use crate::{serialization::*, RecordHasRid, RecordHasId};
 use crate::win32_types::{
     SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
 };
+use crate::{ntds, OutputOptions};
 use anyhow::{bail, Result};
 
-use super::DataTableRecord;
+use super::{data_table, link_table, DataTable, DataTableRecord, LinkTable};
 
-#[derive(Getters, Serialize, Deserialize)]
+#[derive(Getters, Serialize)]
 #[getset(get = "pub")]
 pub struct Person {
     sid: Option<Sid>,
@@ -73,37 +73,36 @@ impl ntds::Object for Person {
     fn new(
         dbrecord: DataTableRecord,
         options: &OutputOptions,
+        data_table: &DataTable,
+        link_table: &LinkTable,
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
         let primary_group_id = dbrecord.ds_primary_group_id()?;
         let primary_group = primary_group_id.and_then(|group_id| {
-            dbrecord
-                .data_table()
-                .find_by_rid(group_id.try_into().unwrap())
-                .and_then(|group| {
+            data_table.data_table()
+                .find_p(RecordHasRid(group_id.try_into().unwrap()))
+                .map(|group| {
                     group
                         .ds_object_name2()
-                        .expect("unable to read object name2")
                 })
         });
 
-        let member_of = if let Some(children) = dbrecord.link_table().member_of(&object_id) {
+        let member_of = if let Some(children) = link_table.member_of(&object_id) {
             children
                 .iter()
-                .filter_map(|child_id| dbrecord.data_table().find_by_id(*child_id))
+                .filter_map(|child_id| data_table.data_table().find_p(RecordHasId(*child_id)))
                 .map(|record| {
                     record
                         .ds_object_name2()
                         .expect("error while reading object name")
-                        .expect("missing object name")
                 })
                 .collect()
         } else {
             vec![]
         };
 
-        let all_attributes = if options.display_all_attributes() {
+        let all_attributes = if *options.display_all_attributes() {
             Some(dbrecord.all_attributes())
         } else {
             None

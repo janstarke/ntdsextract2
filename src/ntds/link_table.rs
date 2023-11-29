@@ -14,8 +14,8 @@ pub struct LinkTable {
 impl LinkTable {
     /// create a new datatable wrapper
     pub fn new<'info, 'db>(
-        link_table: cache::LinkTable<'info, 'db>,
-        data_table: &cache::DataTable<'info, 'db>,
+        link_table: cache::Table<'info, 'db, cache::LinkTable>,
+        data_table: &cache::Table<'info, 'db, cache::DataTable>,
         schema_record_id: i32,
     ) -> Result<Self> {
         log::info!("reading link information and creating link_table cache");
