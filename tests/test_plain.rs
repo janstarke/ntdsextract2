@@ -6,14 +6,12 @@ use std::{
 
 use assert_cmd::Command;
 use flate2::read::GzDecoder;
-use libntdsextract2::Person;
+use libntdsextract2::ntds::Person;
 use tempfile::NamedTempFile;
 
 
 #[test]
 fn test_plain() {
-    libntdsextract2::set_display_all_attributes(false);
-
     let dstfile = read_test_data("ntds_plain.dit.gz");
 
     let mut cmd = Command::cargo_bin("ntdsextract2").unwrap();

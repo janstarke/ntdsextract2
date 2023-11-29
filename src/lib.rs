@@ -12,6 +12,7 @@ mod output_options;
 pub mod ntds;
 pub mod value;
 pub mod cache;
+pub mod output;
 
 pub use c_database::*;
 pub use column_information::*;

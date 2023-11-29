@@ -8,5 +8,5 @@ pub struct OutputOptions {
     flat_serialization: bool,
     display_all_attributes: bool,
     show_all_objects: bool,
-    format: OutputFormat
+    format: Option<OutputFormat>
 }

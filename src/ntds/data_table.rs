@@ -7,13 +7,14 @@ use crate::ntds::LinkTable;
 use crate::ntds::Result;
 use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
+use crate::output::Writer;
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
 
-use super::{Computer, ObjectType, Person, WriteTypenames};
+use super::{Computer, ObjectType, Person, Group};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
@@ -99,20 +100,20 @@ impl<'info, 'db> DataTable<'info, 'db> {
         log::info!("found {} type definitions", type_records.len());
         Ok(type_records)
     }
-    /*
-       pub fn show_users(&self, format: &OutputFormat) -> Result<()> {
-           self.show_typed_objects::<Person>(format, TYPENAME_PERSON)
-       }
 
-       pub fn show_groups(&self, format: &OutputFormat) -> Result<()> {
-           self.show_typed_objects::<Group>(format, TYPENAME_GROUP)
-       }
+    pub fn show_users(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        self.show_typed_objects::<Person>(options, ObjectType::Person)
+    }
 
-       pub fn show_computers(&self, format: &OutputFormat) -> Result<()> {
-           self.show_typed_objects::<Computer>(format, TYPENAME_COMPUTER)
-       }
-    */
-    pub fn show_type_names(&self, writer: &impl WriteTypenames) -> Result<()> {
+    pub fn show_groups(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        self.show_typed_objects::<Group>(options, ObjectType::Group)
+    }
+
+    pub fn show_computers(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        self.show_typed_objects::<Computer>(options, ObjectType::Computer)
+    }
+
+    pub fn show_type_names(&self, options: &OutputOptions) -> anyhow::Result<()> {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_owned();
@@ -123,27 +124,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 break;
             }
         }
-        let x = self
+        let names = self
             .data_table
             .children_of(self.schema_record_id)
             .map(|dbrecord| dbrecord.att_object_name2().unwrap().to_owned());
-        writer.write_typenames(x);
-        /*
-
-               match format {
-                   OutputFormat::Csv => {
-                       let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
-                       csv_wtr.serialize(type_names)?
-                   }
-                   OutputFormat::Json => {
-                       println!("{}", serde_json::to_string_pretty(&type_names)?);
-                   }
-                   OutputFormat::JsonLines => {
-                       println!("{}", serde_json::to_string(&type_names)?);
-                   }
-               }
-        */
-        Ok(())
+        options.format().unwrap().write_typenames(names)
     }
 
     pub fn show_tree(&self, max_depth: u8) -> Result<()> {
@@ -230,7 +215,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
         &self,
         options: &OutputOptions,
         object_type: ObjectType,
-        link_table: &LinkTable,
     ) -> anyhow::Result<()> {
         let type_record = self
             .find_type_record(object_type)?
@@ -244,9 +228,9 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .iter()
             .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
             .filter(|dbrecord| dbrecord.att_object_type_id().unwrap() == type_record_id)
-            .map(|dbrecord| O::new(dbrecord, options, self, link_table).unwrap())
+            .map(|dbrecord| O::new(dbrecord, options, self, &self.link_table).unwrap())
         {
-            match options.format() {
+            match options.format().unwrap() {
                 OutputFormat::Csv => {
                     csv_wtr.serialize(record)?;
                 }

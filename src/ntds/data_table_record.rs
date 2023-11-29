@@ -1,12 +1,13 @@
 use std::collections::HashMap;
-use std::convert::identity;
 
 use crate::cache;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
-use crate::win32_types::{Sid, TruncatedWindowsFileTime, SamAccountType, UserAccountControl, WindowsFileTime};
-use crate::ColumnInfoMapping;
 use crate::win32_types::TimelineEntry;
+use crate::win32_types::{
+    SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
+};
+use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
@@ -59,9 +60,17 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
     record_attribute!(att_sam_account_type, AttSamAccountType, SamAccountType);
     record_attribute!(att_user_principal_name, AttUserPrincipalName, String);
-    record_attribute!(att_user_account_control, AttUserAccountControl, UserAccountControl);
+    record_attribute!(
+        att_user_account_control,
+        AttUserAccountControl,
+        UserAccountControl
+    );
     record_attribute!(att_last_logon, AttLastLogon, WindowsFileTime);
-    record_attribute!(att_last_logon_time_stamp, AttLastLogonTimestamp, WindowsFileTime);
+    record_attribute!(
+        att_last_logon_time_stamp,
+        AttLastLogonTimestamp,
+        WindowsFileTime
+    );
     record_attribute!(att_account_expires, AttAccountExpires, WindowsFileTime);
     record_attribute!(att_password_last_set, AttPwdLastSet, WindowsFileTime);
     record_attribute!(att_bad_pwd_time, AttBadPasswordTime, WindowsFileTime);
@@ -126,12 +135,13 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
     }
 }
 
-
 impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj.att_sam_account_name_opt()?.or(obj.att_object_name_opt()?);
+        let my_name = obj
+            .att_sam_account_name_opt()?
+            .or(obj.att_object_name_opt()?);
         if let Some(upn) = &my_name {
             Ok(vec![
                 obj.ds_record_time_opt()?
@@ -150,7 +160,7 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
                     .map(|ts| ts.c_entry(upn, "password last set", "object")),
             ]
             .into_iter()
-            .filter_map(identity)
+            .flatten()
             .collect())
         } else {
             Ok(Vec::new())
