@@ -1,10 +1,13 @@
 use std::collections::HashMap;
+use std::convert::identity;
 
 use crate::cache;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
 use crate::win32_types::{Sid, TruncatedWindowsFileTime, SamAccountType, UserAccountControl, WindowsFileTime};
 use crate::ColumnInfoMapping;
+use crate::win32_types::TimelineEntry;
+use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
 use libesedb::Value;
@@ -120,5 +123,37 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
         }
 
         table
+    }
+}
+
+
+impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
+    type Error = anyhow::Error;
+
+    fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
+        let my_name = obj.att_sam_account_name_opt()?.or(obj.att_object_name_opt()?);
+        if let Some(upn) = &my_name {
+            Ok(vec![
+                obj.ds_record_time_opt()?
+                    .map(|ts| ts.cr_entry(upn, "record creation time", "object")),
+                obj.att_when_created_opt()?
+                    .map(|ts| ts.cr_entry(upn, "object created", "object")),
+                obj.att_when_changed_opt()?
+                    .map(|ts| ts.cr_entry(upn, "object changed", "object")),
+                obj.att_last_logon_opt()?
+                    .map(|ts| ts.c_entry(upn, "last logon on this DC", "object")),
+                obj.att_last_logon_time_stamp_opt()?
+                    .map(|ts| ts.c_entry(upn, "last logon on any DC", "object")),
+                obj.att_bad_pwd_time_opt()?
+                    .map(|ts| ts.c_entry(upn, "bad pwd time", "object")),
+                obj.att_password_last_set_opt()?
+                    .map(|ts| ts.c_entry(upn, "password last set", "object")),
+            ]
+            .into_iter()
+            .filter_map(identity)
+            .collect())
+        } else {
+            Ok(Vec::new())
+        }
     }
 }

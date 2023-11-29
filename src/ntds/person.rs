@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::convert::identity;
 
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
@@ -144,25 +143,25 @@ impl ntds::Object for Person {
 impl From<Person> for Vec<Bodyfile3Line> {
     fn from(obj: Person) -> Self {
         static OT: ObjectType = ObjectType::Person;
-        if let Some(upn) = obj.sam_account_name {
+        if let Some(upn) = &obj.sam_account_name {
             vec![
-                obj.record_time()
-                    .map(|ts| ts.cr_entry(&upn, "record creation time", OT)),
-                obj.when_created()
-                    .map(|ts| ts.cr_entry(&upn, "object created", OT)),
-                obj.when_changed()
-                    .map(|ts| ts.cr_entry(&upn, "object changed", OT)),
-                obj.last_logon()
-                    .map(|ts| ts.c_entry(&upn, "last logon on this DC", OT)),
-                obj.last_logon_time_stamp()
-                    .map(|ts| ts.c_entry(&upn, "last logon on any DC", OT)),
-                obj.bad_pwd_time()
-                    .map(|ts| ts.c_entry(&upn, "bad pwd time", OT)),
-                obj.password_last_set()
-                    .map(|ts| ts.c_entry(&upn, "password last set", OT)),
+                obj.record_time().as_ref()
+                    .map(|ts| ts.cr_entry(upn, "record creation time", OT)),
+                obj.when_created().as_ref()
+                    .map(|ts| ts.cr_entry(upn, "object created", OT)),
+                obj.when_changed().as_ref()
+                    .map(|ts| ts.cr_entry(upn, "object changed", OT)),
+                obj.last_logon().as_ref()
+                    .map(|ts| ts.c_entry(upn, "last logon on this DC", OT)),
+                obj.last_logon_time_stamp().as_ref()
+                    .map(|ts| ts.c_entry(upn, "last logon on any DC", OT)),
+                obj.bad_pwd_time().as_ref()
+                    .map(|ts| ts.c_entry(upn, "bad pwd time", OT)),
+                obj.password_last_set().as_ref()
+                    .map(|ts| ts.c_entry(upn, "password last set", OT)),
             ]
             .into_iter()
-            .filter_map(identity)
+            .flatten()
             .collect()
         } else {
             Vec::new()

@@ -1,8 +1,11 @@
-use std::{rc::Rc, marker::PhantomData};
+use std::{marker::PhantomData, rc::Rc};
 
-use crate::{cache::{self, Record}, EsedbInfo, ntds::DataTableRecord, RecordHasParent, RecordPredicate, RecordHasAttRdn, RecordHasId};
+use crate::{
+    cache, ntds::DataTableRecord, EsedbInfo, RecordHasAttRdn, RecordHasId, RecordHasParent,
+    RecordPredicate,
+};
 
-use super::{Iter, TableType, DataTable, LinkTable};
+use super::{DataTable, Iter, LinkTable, TableType};
 
 pub struct Table<'info, 'db, T: TableType>
 where
@@ -55,7 +58,7 @@ where
             table_id,
             records,
             columns,
-            _marker: PhantomData
+            _marker: PhantomData,
         })
     }
 
@@ -69,13 +72,11 @@ where
 }
 
 impl<'info, 'db> Table<'info, 'db, LinkTable> {
-
-    pub fn iter(&'db self) -> impl Iterator<Item=&'info cache::Record<'info, 'db>> {
+    pub fn iter(&'db self) -> impl Iterator<Item = &'info cache::Record<'info, 'db>> {
         self.records.iter()
     }
 }
 impl<'info, 'db> Table<'info, 'db, DataTable> {
-
     pub fn iter(&'db self) -> Iter<'info, 'db> {
         self.records.iter().into()
     }
@@ -88,40 +89,28 @@ impl<'info, 'db> Table<'info, 'db, DataTable> {
         self.iter().filter(move |r| my_filter.matches(r))
     }
 
-    pub fn filter<C>(
-        &'db self,
-        predicate: C,
-    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
+    pub fn filter<C>(&'db self, predicate: C) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
     where
         C: Fn(&DataTableRecord<'info, 'db>) -> bool,
     {
         self.iter().filter(move |r| predicate(r))
     }
 
-    pub fn find<C>(
-        &'db self,
-        predicate: C,
-    ) -> Option<DataTableRecord<'info, 'db>>
+    pub fn find<C>(&'db self, predicate: C) -> Option<DataTableRecord<'info, 'db>>
     where
         C: Fn(&DataTableRecord<'info, 'db>) -> bool,
     {
         self.iter().find(move |r| predicate(r))
     }
 
-    pub fn filter_p<P>(
-        &'db self,
-        predicate: P,
-    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
+    pub fn filter_p<P>(&'db self, predicate: P) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
     where
         P: RecordPredicate<'info, 'db>,
     {
         self.iter().filter(move |r| predicate.matches(r))
     }
 
-    pub fn find_p<P>(
-        &'db self,
-        predicate: P,
-    ) -> Option<DataTableRecord<'info, 'db>>
+    pub fn find_p<P>(&'db self, predicate: P) -> Option<DataTableRecord<'info, 'db>>
     where
         P: RecordPredicate<'info, 'db>,
     {

@@ -135,19 +135,19 @@ impl From<Computer> for Vec<Bodyfile3Line> {
         static OT: ObjectType = ObjectType::Computer;
         if let Some(upn) = &obj.sam_account_name {
             vec![
-                obj.record_time()
+                obj.record_time().as_ref()
                     .map(|ts| ts.cr_entry(upn, "record creation time", OT)),
-                obj.when_created()
+                obj.when_created().as_ref()
                     .map(|ts| ts.cr_entry(upn, "object created", OT)),
-                obj.when_changed()
+                obj.when_changed().as_ref()
                     .map(|ts| ts.cr_entry(upn, "object changed", OT)),
-                obj.last_logon()
+                obj.last_logon().as_ref()
                     .map(|ts| ts.c_entry(upn, "last logon on this DC", OT)),
-                obj.last_logon_time_stamp()
+                obj.last_logon_time_stamp().as_ref()
                     .map(|ts| ts.c_entry(upn, "last logon on any DC", OT)),
-                obj.bad_pwd_time()
+                obj.bad_pwd_time().as_ref()
                     .map(|ts| ts.c_entry(upn, "bad pwd time", OT)),
-                obj.password_last_set()
+                obj.password_last_set().as_ref()
                     .map(|ts| ts.c_entry(upn, "password last set", OT)),
             ]
             .into_iter()

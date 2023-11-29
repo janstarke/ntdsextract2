@@ -263,8 +263,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    pub fn show_timeline(&self, options: &OutputOptions,
-        link_table: &LinkTable,) -> anyhow::Result<()> {
+    pub fn show_timeline(
+        &self,
+        options: &OutputOptions,
+        link_table: &LinkTable,
+    ) -> anyhow::Result<()> {
         let type_records = self.find_type_records(hashset! {
         ObjectType::Person,
         ObjectType::Computer})?;
@@ -321,11 +324,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                         _ => None,
                     }
                 } else {
-                    Some(
-                        dbrecord
-                            .to_bodyfile(&self.mapping, &all_type_records[&current_type_id][..])
-                            .expect("unable to create timeline from DbRecord"),
-                    )
+                    Some(Vec::<Bodyfile3Line>::try_from(dbrecord).unwrap())
                 }
             })
             .flatten()
