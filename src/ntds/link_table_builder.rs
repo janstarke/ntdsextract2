@@ -112,7 +112,10 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         log::info!("searching for link attributes 'Member' and 'Is-Member-Of-DL'");
 
         let member_link_id = self.find_link_id(&String::from("Member"))?;
+        log::info!("'Member' has Link-ID '{member_link_id}'");
+
         let member_of_link_id = self.find_link_id(&String::from("Is-Member-Of-DL"))?;
+        log::info!("'Is-Member-Of-DL' has Link-ID '{member_of_link_id}'");
 
         ensure!(
             member_link_id & 1 == 0,
