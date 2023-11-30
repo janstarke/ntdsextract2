@@ -78,19 +78,23 @@ impl<'info, 'db> DataTable<'info, 'db> {
         mut types: HashSet<ObjectType>,
     ) -> anyhow::Result<HashMap<ObjectType, DataTableRecord<'info, 'db>>> {
         let mut type_records = HashMap::new();
+        /*
         let children = self.data_table.children_of(self.schema_record_id);
+        
         if !children.count() > 0 {
             return Err(anyhow::anyhow!(Error::SchemaRecordHasNoChildren));
         }
-
+        */
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_string();
 
             log::trace!("found a new type definition: '{}'", object_name2);
 
-            if types.remove(&object_name2[..].try_into()?) {
-                log::debug!("found requested type definition for '{object_name2}'");
-                type_records.insert(ObjectType::try_from(&object_name2[..])?, dbrecord);
+            if let Ok(object_type) = &object_name2[..].try_into() {
+                if types.remove(object_type) {
+                    log::debug!("found requested type definition for '{object_name2}'");
+                    type_records.insert(ObjectType::try_from(&object_name2[..])?, dbrecord);
+                }
             }
 
             if types.is_empty() {
@@ -102,14 +106,17 @@ impl<'info, 'db> DataTable<'info, 'db> {
     }
 
     pub fn show_users(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        log::debug!("show_users()");
         self.show_typed_objects::<Person>(options, ObjectType::Person)
     }
 
     pub fn show_groups(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        log::debug!("show_groups()");
         self.show_typed_objects::<Group>(options, ObjectType::Group)
     }
 
     pub fn show_computers(&self, options: &OutputOptions) -> anyhow::Result<()> {
+        log::debug!("show_computers()");
         self.show_typed_objects::<Computer>(options, ObjectType::Computer)
     }
 
@@ -220,6 +227,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .find_type_record(object_type)?
             .unwrap_or_else(|| panic!("missing record for type '{object_type}'"));
         let type_record_id = type_record.ds_record_id()?;
+        log::info!("found type record with id {type_record_id}");
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
 

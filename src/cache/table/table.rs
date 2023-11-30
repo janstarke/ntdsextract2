@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, rc::Rc};
 
 use crate::{
-    cache, ntds::DataTableRecord, EsedbInfo, RecordHasAttRdn, RecordHasId, RecordHasParent,
+    cache::{self, record}, ntds::DataTableRecord, EsedbInfo, RecordHasAttRdn, RecordHasId, RecordHasParent,
     RecordPredicate,
 };
 
@@ -39,7 +39,7 @@ where
         let columns = Rc::new(columns);
 
         let mut records = Vec::new();
-        for (mut record_id, record) in table.iter_records().unwrap().enumerate() {
+        for (record_id, record) in table.iter_records().unwrap().enumerate() {
             records.push(
                 cache::Record::try_from(
                     record.unwrap(),
@@ -50,8 +50,8 @@ where
                 )
                 .unwrap(),
             );
-            record_id += 1;
         }
+        log::info!("successfully cached {} records of table '{table_id}'", records.len());
 
         Ok(Self {
             table,
@@ -131,7 +131,7 @@ impl<'info, 'db> Table<'info, 'db, DataTable> {
                     if let Some(parent_name) = schema_parent.att_object_name2_opt()? {
                         if parent_name == "Configuration" {
                             log::info!("found record id to be {}", record.ds_record_id()?);
-                            return Ok(record.ds_record_id()?);
+                            return record.ds_record_id();
                         }
                     }
                 }

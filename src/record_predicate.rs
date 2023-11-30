@@ -30,6 +30,7 @@ pub struct RecordHasParent(pub i32);
 
 impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasParent {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool {
+        log::debug!("searching children of {}; current is {:?}", self.0, record.ds_parent_record_id_opt());
         match record.ds_parent_record_id_opt() {
             Ok(Some(r)) => r == self.0,
             _ => false,
