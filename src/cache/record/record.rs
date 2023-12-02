@@ -1,3 +1,5 @@
+use std::cell::{Ref, RefCell};
+use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 use std::rc::Rc;
@@ -16,7 +18,7 @@ use crate::ntds::NtdsAttributeId;
 pub struct Record<'info, 'db> {
     table_id: &'static str,
     record_id: i32,
-    values: DashMap<i32, Value>,
+    values: RefCell<HashMap<i32, Value>>,
     count: i32,
     record: libesedb::Record<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
@@ -39,16 +41,22 @@ impl Hash for Record<'_, '_> {
 }
 
 impl<'info, 'db> Record<'info, 'db> {
-    pub fn get_by_id(&self, attribute_id: NtdsAttributeId) -> Option<RefMut<'_, i32, Value>> {
+    pub fn get_by_id(&self, attribute_id: NtdsAttributeId) -> Option<&Value> {
         self.get_by_index(self.esedbinfo().mapping().index(attribute_id).id())
     }
 
-    pub fn get_by_index(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
+    pub fn get_by_index(&self, index: i32) -> Option<&Value> {
         self.value(index)
     }
 
-    fn value(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
-        self.values.entry(index).or_try_insert_with(|| self.record.value(index).map(|v| v.into())).map_err(|_why| log::error!("invalid index '{index}'")).ok()
+    fn value(&self, index: i32) -> Option<&Value> {
+        if ! self.values.borrow().contains_key(&index) {
+            match self.record.value(index) {
+                Ok(v) => {RefCell::borrow_mut(&self.values).insert(index, v.into());}
+                Err(_) => return None,
+            }
+        }
+        self.values.borrow().get(&index)
     }
 
     pub fn try_from(
