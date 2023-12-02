@@ -1,4 +1,4 @@
-use libesedb::Value;
+use crate::cache::Value;
 use num_traits::FromPrimitive;
 
 use crate::{ntds::Error, win32_types::SamAccountType};

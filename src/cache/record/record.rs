@@ -2,14 +2,14 @@ use std::hash::Hash;
 use std::ops::Index;
 use std::rc::Rc;
 
-use dashmap::mapref::one::RefMut;
 use dashmap::DashMap;
+use dashmap::mapref::one::RefMut;
 use getset::Getters;
-use libesedb::Value;
 
 use crate::cache;
-use crate::ntds::NtdsAttributeId;
+use crate::cache::Value;
 use crate::EsedbInfo;
+use crate::ntds::NtdsAttributeId;
 
 #[derive(Getters)]
 #[getset(get = "pub")]
@@ -20,7 +20,7 @@ pub struct Record<'info, 'db> {
     count: i32,
     record: libesedb::Record<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
-    columns: Rc<Vec<cache::Column>>
+    columns: Rc<Vec<cache::Column>>,
 }
 
 impl Eq for Record<'_, '_> {}
@@ -48,11 +48,7 @@ impl<'info, 'db> Record<'info, 'db> {
     }
 
     fn value(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
-        self.values
-            .entry(index)
-            .or_try_insert_with(|| self.record.value(index))
-            .map_err(|_why| log::error!("invalid index '{index}'"))
-            .ok()
+        self.values.entry(index).or_try_insert_with(|| self.record.value(index).map(|v| v.into())).map_err(|_why| log::error!("invalid index '{index}'")).ok()
     }
 
     pub fn try_from(
@@ -60,7 +56,7 @@ impl<'info, 'db> Record<'info, 'db> {
         table_id: &'static str,
         record_id: i32,
         esedbinfo: &'info EsedbInfo<'db>,
-        columns: Rc<Vec<cache::Column>>
+        columns: Rc<Vec<cache::Column>>,
     ) -> std::io::Result<Self> {
         Ok(Self {
             values: Default::default(),
@@ -69,7 +65,7 @@ impl<'info, 'db> Record<'info, 'db> {
             esedbinfo,
             table_id,
             record_id,
-            columns
+            columns,
         })
     }
 }

@@ -1,4 +1,4 @@
-use libesedb::Value;
+use crate::cache::Value;
 use crate::ntds::{Result, Error};
 
 pub trait FromValue {

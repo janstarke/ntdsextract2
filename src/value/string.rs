@@ -1,4 +1,4 @@
-use libesedb::Value;
+use crate::cache::Value;
 
 use crate::ntds::Error;
 
@@ -10,9 +10,9 @@ impl FromValue for String {
         Self: Sized,
     {
         match value {
-            Value::Text(val) => Ok(Some(val.to_owned())),
-            Value::LargeText(val) => Ok(Some(val.to_owned())),
-            Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(hex::encode(val))),
+            Value::Text(val) => Ok(Some(val.as_ref().to_owned())),
+            Value::LargeText(val) => Ok(Some(val.as_ref().to_owned())),
+            Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(hex::encode(val.as_ref()))),
             Value::Null(()) => Ok(None),
             _ => Err(Error::InvalidValueDetected(value.to_string())),
         }

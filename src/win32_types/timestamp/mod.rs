@@ -34,11 +34,11 @@ macro_rules! impl_timestamp {
     ($type: ident) => {
         impl $crate::value::FromValue for $type {
             fn from_value_opt(
-                value: &libesedb::Value,
+                value: &crate::cache::Value,
             ) -> Result<Option<Self>, $crate::ntds::Error> {
                 match value {
-                    libesedb::Value::Currency(val) => Ok(Some($type::from(*val))),
-                    libesedb::Value::Null(()) => Ok(None),
+                    crate::cache::Value::Currency(val) => Ok(Some($type::from(*val))),
+                    crate::cache::Value::Null(()) => Ok(None),
                     _ => Err($crate::ntds::Error::InvalidValueDetected(value.to_string())),
                 }
             }

@@ -1,8 +1,7 @@
 use anyhow::{bail, ensure, Result};
-use libesedb::Value;
 use std::collections::{HashMap, HashSet};
 
-use crate::cache::{self, DataTable};
+use crate::cache::{self, DataTable, Value};
 use crate::value::FromValue;
 
 use super::LinkTable;

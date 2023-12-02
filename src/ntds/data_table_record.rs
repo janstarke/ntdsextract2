@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::cache;
+use crate::cache::Value;
 use crate::ntds::{Error, NtdsAttributeId, Result};
 use crate::value::FromValue;
 use crate::win32_types::TimelineEntry;
@@ -11,7 +12,6 @@ use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use dashmap::mapref::one::RefMut;
-use libesedb::Value;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 

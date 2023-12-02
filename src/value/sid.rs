@@ -1,4 +1,4 @@
-use libesedb::Value;
+use crate::cache::Value;
 
 use crate::{ntds::Error, win32_types::Sid};
 
@@ -11,7 +11,7 @@ impl FromValue for Sid {
     {
         match value {
             Value::Binary(val) | Value::LargeBinary(val) => {
-                Ok(Some(Sid::try_from(val).or_else(|why| {
+                Ok(Some(Sid::try_from(val.as_ref()).or_else(|why| {
                     Err(Error::MiscConversionError {
                         value: value.to_string(),
                         intended_type: "Sid",
