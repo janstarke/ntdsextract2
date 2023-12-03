@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 
+#[derive(PartialEq)]
 pub enum Value {
     Null(()),
     Bool(bool),
@@ -19,6 +20,10 @@ pub enum Value {
     I64(i64),
     Guid(Box<Vec<u8>>),
     U16(u16)
+}
+
+impl Eq for Value {
+
 }
 
 impl From<libesedb::Value> for Value {

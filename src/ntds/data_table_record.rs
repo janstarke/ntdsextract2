@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-
+use std::ops::Deref;
 use crate::cache;
-use crate::cache::Value;
+use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::ntds::{Error, NtdsAttributeId, Result};
-use crate::value::FromValue;
+use crate::value::{FromValue, ToString};
 use crate::win32_types::TimelineEntry;
 use crate::win32_types::{
     SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
@@ -11,7 +11,6 @@ use crate::win32_types::{
 use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
-use dashmap::mapref::one::RefMut;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
@@ -25,28 +24,50 @@ impl<'info, 'db> From<&'db cache::Record<'info, 'db>> for DataTableRecord<'info,
 
 macro_rules! record_attribute {
     ($name: ident, $id: ident, $type: ty) => {
-        pub fn $name(&self) -> Result<$type> {
-            <$type>::from_value(
-                self.0
-                    .get_by_id(NtdsAttributeId::$id)
-                    .ok_or(Error::ValueIsMissing)?
-                    .value(),
-            )
+        pub fn $name(&self) -> anyhow::Result<$type> {
+            self.get_value(NtdsAttributeId::$id)
         }
-        concat_idents!(fn_name = $name, _opt {
-            pub fn fn_name (&self) -> Result<Option<$type>> {
-                <$type>::from_value_opt(
-                    self.0
-                        .get_by_id(NtdsAttributeId::$id)
-                        .ok_or(Error::ValueIsMissing)?
-                        .value(),
-                )
+
+        concat_idents!(fn_name=$name, _opt {
+            pub fn fn_name(&self) -> anyhow::Result<Option<$type>> {
+                self.get_value_opt(NtdsAttributeId::$id)
+            }
+        });
+
+        concat_idents!(fn_name=has_, $name {
+            pub fn fn_name(&self, other: &$type) -> anyhow::Result<bool> {
+                self.has_value(NtdsAttributeId::$id, other)
             }
         });
     };
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
+    fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T> where T: FromValue {
+        self.0.with_value(column, |v|
+            match v {
+                None => Err(anyhow::anyhow!(Error::ValueIsMissing)),
+                Some(v) => Ok(<T>::from_value(v)?)
+            }
+        )
+    }
+    fn get_value_opt<T>(&self, column: NtdsAttributeId) -> anyhow::Result<Option<T>> where T: FromValue {
+        self.0.with_value(column, |v|
+            match v {
+                None => Ok(None),
+                Some(v) => Ok(Some(<T>::from_value(v)?))
+            }
+        )
+    }
+    fn has_value<T>(&self, column: NtdsAttributeId, other: &T) -> anyhow::Result<bool> where T: FromValue + Eq {
+        self.0.with_value(column, |v|
+            match v {
+                None => Ok(false),
+                Some(v) => Ok(& (<T>::from_value(v)?) == other)
+            }
+        )
+    }
+
     record_attribute!(ds_record_id, DsRecordId, i32);
     record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
@@ -88,27 +109,36 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_admin_count, AttAdminCount, i32);
     record_attribute!(att_is_deleted, AttIsDeleted, bool);
 
-    pub fn get(&self, attribute_id: NtdsAttributeId) -> Option<RefMut<'_, i32, Value>> {
-        self.0.get_by_id(attribute_id)
-    }
-    pub fn get_by_index(&self, index: i32) -> Option<RefMut<'_, i32, Value>> {
-        self.0.get_by_index(index)
-    }
-
     pub fn mapping(&self) -> &ColumnInfoMapping {
         self.0.esedbinfo().mapping()
     }
     pub fn all_attributes(&self) -> HashMap<String, String> {
         self.0
-            .values()
+            .values().borrow()
             .iter()
-            .map(|m| {
+            .map(|(k, v)| {
                 (
-                    self.0.columns()[*m.key() as usize].name().to_owned(),
-                    m.value().to_string(),
+                    self.0.columns()[*(k.deref().deref()) as usize].name().to_owned(),
+                    match v {
+                        Some(x) => format!("{x}"),
+                        None => "".to_owned()
+                    },
                 )
             })
             .collect()
+    }
+}
+
+
+impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
+    fn with_value<T>(&self, index: NtdsAttributeId, function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+        self.0.with_value(index, function)
+    }
+}
+
+impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
+    fn with_value<T>(&self, index: ColumnIndex, function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+        self.0.with_value(index, function)
     }
 }
 
@@ -127,7 +157,7 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
         for key in keys {
             table.add_row(Row::new(vec![
                 TableCell::new(key),
-                TableCell::new(all_attributes[key].to_string()),
+                TableCell::new(all_attributes[key].clone()),
             ]));
         }
 
@@ -140,23 +170,23 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
         let my_name = obj
-            .att_sam_account_name_opt()?
-            .or(obj.att_object_name_opt()?);
-        if let Some(upn) = &my_name {
+            .att_sam_account_name()
+            .or(obj.att_object_name());
+        if let Ok(upn) = &my_name {
             Ok(vec![
-                obj.ds_record_time_opt()?
+                obj.ds_record_time()
                     .map(|ts| ts.cr_entry(upn, "record creation time", "object")),
-                obj.att_when_created_opt()?
+                obj.att_when_created()
                     .map(|ts| ts.cr_entry(upn, "object created", "object")),
-                obj.att_when_changed_opt()?
+                obj.att_when_changed()
                     .map(|ts| ts.cr_entry(upn, "object changed", "object")),
-                obj.att_last_logon_opt()?
+                obj.att_last_logon()
                     .map(|ts| ts.c_entry(upn, "last logon on this DC", "object")),
-                obj.att_last_logon_time_stamp_opt()?
+                obj.att_last_logon_time_stamp()
                     .map(|ts| ts.c_entry(upn, "last logon on any DC", "object")),
-                obj.att_bad_pwd_time_opt()?
+                obj.att_bad_pwd_time()
                     .map(|ts| ts.c_entry(upn, "bad pwd time", "object")),
-                obj.att_password_last_set_opt()?
+                obj.att_password_last_set()
                     .map(|ts| ts.c_entry(upn, "password last set", "object")),
             ]
             .into_iter()

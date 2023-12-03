@@ -1,7 +1,8 @@
-use anyhow::{bail, ensure, Result};
 use std::collections::{HashMap, HashSet};
 
-use crate::cache::{self, DataTable, Value};
+use anyhow::{anyhow, bail, ensure, Result};
+
+use crate::cache::{self, ColumnIndex, DataTable, Value, WithValue};
 use crate::value::FromValue;
 
 use super::LinkTable;
@@ -38,9 +39,9 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         Ok(columns)
     }
 
-    fn column_id(&self, name: &str) -> Result<i32> {
+    fn column_id(&self, name: &str) -> Result<ColumnIndex> {
         match self.columns.get(name) {
-            Some(id) => Ok(*id),
+            Some(id) => Ok(id.into()),
             None => bail!("no column by that name: '{name}'"),
         }
     }
@@ -63,26 +64,16 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         let mut backward_map = HashMap::new();
 
         for record in self.link_table.iter().filter(|r| {
-            r.get_by_index(link_base_id)
-                .as_ref()
-                .map_or(false, |value| match value.value() {
-                    Value::U32(v) => *v == member_link_id,
-                    Value::I32(v) => u32::try_from(*v).map_or(false, |v| v == link_base),
-                    _ => false,
-                })
+            r.with_value(link_base_id, |value| match value {
+                Some(Value::U32(v)) => Ok(*v == member_link_id),
+                Some(Value::I32(v)) => Ok(u32::try_from(*v).map_or(false, |v| v == link_base)),
+                _ => Ok(false),
+            }).unwrap_or(false)
         }) {
-            if let Some(forward_link_value) = record.get_by_index(link_dnt_id) {
-                if let Some(backward_link_value) = record.get_by_index(backward_dnt_id) {
-                    let forward_link = i32::from_value(forward_link_value.value())?;
-                    let backward_link = i32::from_value(backward_link_value.value())?;
-                    forward_map
-                        .entry(forward_link)
-                        .or_insert_with(HashSet::new)
-                        .insert(backward_link);
-                    backward_map
-                        .entry(backward_link)
-                        .or_insert_with(HashSet::new)
-                        .insert(forward_link);
+            if let Ok(forward_link) = record.with_value(link_dnt_id, |v| i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))) {
+                if let Ok(backward_link) = record.with_value(backward_dnt_id, |v| i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))) {
+                    forward_map.entry(forward_link).or_insert_with(HashSet::new).insert(backward_link);
+                    backward_map.entry(backward_link).or_insert_with(HashSet::new).insert(forward_link);
                 }
             }
         }
@@ -132,11 +123,6 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     }
 
     fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
-        Ok(self
-            .data_table
-            .children_of(self.schema_record_id)
-            .find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name)
-            .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"))
-            .att_link_id()?)
+        Ok(self.data_table.children_of(self.schema_record_id).find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name).unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'")).att_link_id()?)
     }
 }

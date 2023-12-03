@@ -2,7 +2,7 @@ use num_derive::FromPrimitive;
 use serde::{Deserialize, Serialize};
 use strum::EnumString;
 
-#[derive(EnumString, FromPrimitive, Deserialize, Serialize, PartialEq)]
+#[derive(EnumString, FromPrimitive, Deserialize, Serialize, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum SamAccountType {
     SAM_GROUP_OBJECT = 0x10000000,

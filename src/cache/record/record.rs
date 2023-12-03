@@ -1,15 +1,14 @@
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Index;
 use std::rc::Rc;
 
-use dashmap::DashMap;
-use dashmap::mapref::one::RefMut;
 use getset::Getters;
 
 use crate::cache;
-use crate::cache::Value;
+use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::EsedbInfo;
 use crate::ntds::NtdsAttributeId;
 
@@ -18,7 +17,7 @@ use crate::ntds::NtdsAttributeId;
 pub struct Record<'info, 'db> {
     table_id: &'static str,
     record_id: i32,
-    values: RefCell<HashMap<i32, Value>>,
+    values: RefCell<HashMap<ColumnIndex, Option<Value>>>,
     count: i32,
     record: libesedb::Record<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
@@ -40,25 +39,29 @@ impl Hash for Record<'_, '_> {
     }
 }
 
-impl<'info, 'db> Record<'info, 'db> {
-    pub fn get_by_id(&self, attribute_id: NtdsAttributeId) -> Option<&Value> {
-        self.get_by_index(self.esedbinfo().mapping().index(attribute_id).id())
+impl<'info, 'db> WithValue<NtdsAttributeId> for Record<'info, 'db> {
+    fn with_value<T>(&self, attribute_id: NtdsAttributeId, function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+        let column_id = self.esedbinfo().mapping().index(attribute_id).id().clone();
+        self.with_value(column_id, function)
     }
+}
 
-    pub fn get_by_index(&self, index: i32) -> Option<&Value> {
-        self.value(index)
-    }
-
-    fn value(&self, index: i32) -> Option<&Value> {
-        if ! self.values.borrow().contains_key(&index) {
-            match self.record.value(index) {
-                Ok(v) => {RefCell::borrow_mut(&self.values).insert(index, v.into());}
-                Err(_) => return None,
+impl<'info, 'db> WithValue<ColumnIndex> for Record<'info, 'db> {
+    fn with_value<T>(&self, index: ColumnIndex, mut function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+        match self.values.borrow_mut().entry(index) {
+            Entry::Occupied(e) => function(e.get().as_ref()),
+            Entry::Vacant(e) => match self.record.value(*index) {
+                Ok(v) => function(e.insert(match v {
+                    libesedb::Value::Null(()) => None,
+                    v => Some(v.into())
+                }).as_ref()),
+                Err(why) => Err(anyhow::anyhow!(why))
             }
         }
-        self.values.borrow().get(&index)
     }
+}
 
+impl<'info, 'db> Record<'info, 'db> {
     pub fn try_from(
         record: libesedb::Record<'db>,
         table_id: &'static str,

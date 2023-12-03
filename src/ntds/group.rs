@@ -78,7 +78,7 @@ impl ntds::Object for Group {
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
-        let primary_group_id = dbrecord.att_primary_group_id_opt()?;
+        let primary_group_id = dbrecord.att_primary_group_id().ok();
         let primary_group = primary_group_id.and_then(|group_id| {
             data_table
                 .data_table()
@@ -113,26 +113,26 @@ impl ntds::Object for Group {
         };
 
         Ok(Self {
-            record_time: dbrecord.ds_record_time_opt()?,
-            when_created: dbrecord.att_when_created_opt()?,
-            when_changed: dbrecord.att_when_changed_opt()?,
-            sid: dbrecord.att_object_sid_opt()?,
-            sam_account_name: dbrecord.att_sam_account_name_opt()?,
-            user_principal_name: dbrecord.att_user_principal_name_opt()?,
-            sam_account_type: dbrecord.att_sam_account_type_opt()?,
-            user_account_control: dbrecord.att_user_account_control_opt()?,
-            last_logon: dbrecord.att_last_logon_opt()?,
-            last_logon_time_stamp: dbrecord.att_last_logon_time_stamp_opt()?,
-            account_expires: dbrecord.att_account_expires_opt()?,
-            password_last_set: dbrecord.att_password_last_set_opt()?,
-            bad_pwd_time: dbrecord.att_bad_pwd_time_opt()?,
-            logon_count: dbrecord.att_logon_count_opt()?,
-            bad_pwd_count: dbrecord.att_bad_pwd_count_opt()?,
-            admin_count: dbrecord.att_admin_count_opt()?,
-            is_deleted: dbrecord.att_is_deleted_opt()?.unwrap_or(false),
+            record_time: dbrecord.ds_record_time().ok(),
+            when_created: dbrecord.att_when_created().ok(),
+            when_changed: dbrecord.att_when_changed().ok(),
+            sid: dbrecord.att_object_sid().ok(),
+            sam_account_name: dbrecord.att_sam_account_name().ok(),
+            user_principal_name: dbrecord.att_user_principal_name().ok(),
+            sam_account_type: dbrecord.att_sam_account_type().ok(),
+            user_account_control: dbrecord.att_user_account_control().ok(),
+            last_logon: dbrecord.att_last_logon().ok(),
+            last_logon_time_stamp: dbrecord.att_last_logon_time_stamp().ok(),
+            account_expires: dbrecord.att_account_expires().ok(),
+            password_last_set: dbrecord.att_password_last_set().ok(),
+            bad_pwd_time: dbrecord.att_bad_pwd_time().ok(),
+            logon_count: dbrecord.att_logon_count().ok(),
+            bad_pwd_count: dbrecord.att_bad_pwd_count().ok(),
+            admin_count: dbrecord.att_admin_count().ok(),
+            is_deleted: dbrecord.att_is_deleted().unwrap_or(false),
             primary_group_id,
             primary_group,
-            comment: dbrecord.att_comment_opt()?,
+            comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
             member_of,
             all_attributes,

@@ -52,7 +52,6 @@ lazy_static = "1.4"
 lazy-regex = "3"
 getset = "0"
 
-dashmap = "5"
 ouroboros = "0"
 
 [dev-dependencies]

@@ -62,7 +62,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(records.remove(&object_type))
     }
 
-    pub fn find_all_type_names(&self) -> Result<HashMap<i32, String>> {
+    pub fn find_all_type_names(&self) -> anyhow::Result<HashMap<i32, String>> {
         let mut type_records = HashMap::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_owned();
@@ -285,7 +285,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         for bf_lines in self
             .data_table
             .iter()
-            .filter(|dbrecord| dbrecord.att_object_type_id_opt().unwrap().is_some())
+            .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
             .filter_map(|dbrecord| {
                 let current_type_id = dbrecord.att_object_type_id().unwrap();
 

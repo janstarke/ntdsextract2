@@ -8,7 +8,7 @@ mod sid_visitor;
 
 ///
 /// https://devblogs.microsoft.com/oldnewthing/20040315-00/?p=40253
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct Sid {
     revision: u8,
     authority: u64,
