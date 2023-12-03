@@ -1,4 +1,3 @@
-use getset::Getters;
 use libesedb::{EseDb, Table};
 
 use crate::ColumnInfoMapping;

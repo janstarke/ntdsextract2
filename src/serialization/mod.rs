@@ -1,5 +1,4 @@
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::Serializer;
 
 use crate::win32_types::ToRfc3339;
 
@@ -16,7 +15,7 @@ where
         None => s.serialize_str(""),
     }
 }
-
+/*
 pub fn from_ts<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
 where
     D: Deserializer<'de>,
@@ -30,3 +29,4 @@ where
         ))),
     }
 }
+ */

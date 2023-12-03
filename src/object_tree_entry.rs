@@ -36,8 +36,8 @@ impl Display for ObjectTreeEntry {
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from<'info, 'db>(
-        data_table: &cache::Table<'info, 'db, DataTable>,
+    pub(crate) fn from(
+        data_table: &cache::Table<'_, '_, DataTable>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         Self::populate_object_tree(data_table)
     }
@@ -79,8 +79,8 @@ impl ObjectTreeEntry {
             }
         }
     */
-    fn populate_object_tree<'info, 'db>(
-        data_table: &cache::Table<'info, 'db, DataTable>,
+    fn populate_object_tree(
+        data_table: &cache::Table<'_, '_, DataTable>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         log::info!("populating the object tree");
 

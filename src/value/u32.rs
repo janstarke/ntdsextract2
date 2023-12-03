@@ -13,20 +13,16 @@ impl FromValue for u32 {
             Value::U8(val) => Ok(Some((*val).into())),
             Value::U16(val) => Ok(Some((*val).into())),
             Value::U32(val) => Ok(Some(*val)),
-            Value::I16(val) => Ok(Some((*val).try_into().or_else(|why| {
-                Err(Error::IntegerConversionError {
+            Value::I16(val) => Ok(Some((*val).try_into().map_err(|why| Error::IntegerConversionError {
                     value: value.to_string(),
                     intended_type: "i16",
                     why,
-                })
-            })?)),
-            Value::I32(val) => Ok(Some((*val).try_into().or_else(|why| {
-                Err(Error::IntegerConversionError {
+                })?)),
+            Value::I32(val) => Ok(Some((*val).try_into().map_err(|why| Error::IntegerConversionError {
                     value: value.to_string(),
                     intended_type: "i16",
                     why,
-                })
-            })?)),
+                })?)),
             Value::Null(()) => Ok(None),
             _ => Err(Error::InvalidValueDetected(value.to_string())),
         }

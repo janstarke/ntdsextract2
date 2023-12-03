@@ -11,13 +11,11 @@ impl FromValue for Sid {
     {
         match value {
             Value::Binary(val) | Value::LargeBinary(val) => {
-                Ok(Some(Sid::try_from(val.as_ref()).or_else(|why| {
-                    Err(Error::MiscConversionError {
+                Ok(Some(Sid::try_from(val.as_ref()).map_err(|why| Error::MiscConversionError {
                         value: value.to_string(),
                         intended_type: "Sid",
                         why,
-                    })
-                })?))
+                    })?))
             }
             Value::Null(()) => Ok(None),
             _ => Err(Error::InvalidValueDetected(value.to_string())),

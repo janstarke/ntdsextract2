@@ -3,9 +3,9 @@ use std::rc::Rc;
 
 use crate::ntds;
 use crate::ntds::object::Object;
+use crate::ntds::DataTableRecord;
 use crate::ntds::LinkTable;
 use crate::ntds::Result;
-use crate::ntds::{DataTableRecord, Error};
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
@@ -14,7 +14,7 @@ use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
 
-use super::{Computer, ObjectType, Person, Group};
+use super::{Computer, Group, ObjectType, Person};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
@@ -80,7 +80,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let mut type_records = HashMap::new();
         /*
         let children = self.data_table.children_of(self.schema_record_id);
-        
+
         if !children.count() > 0 {
             return Err(anyhow::anyhow!(Error::SchemaRecordHasNoChildren));
         }
@@ -263,8 +263,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let type_records = self.find_type_records(hashset! {
         ObjectType::Person,
         ObjectType::Computer})?;
-
-        let all_type_records = self.find_all_type_names()?;
 
         let type_record_ids = if *options.show_all_objects() {
             None

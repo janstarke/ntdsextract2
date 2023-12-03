@@ -30,7 +30,9 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         })
     }
 
-    fn read_column_names(link_table: &cache::Table<'info, 'db, cache::LinkTable>) -> Result<HashMap<String, i32>> {
+    fn read_column_names(
+        link_table: &cache::Table<'info, 'db, cache::LinkTable>,
+    ) -> Result<HashMap<String, i32>> {
         let mut columns = HashMap::new();
         for index in 0..link_table.count_columns() - 1 {
             let column = link_table.column(index).unwrap();
@@ -68,12 +70,23 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
                 Some(Value::U32(v)) => Ok(*v == member_link_id),
                 Some(Value::I32(v)) => Ok(u32::try_from(*v).map_or(false, |v| v == link_base)),
                 _ => Ok(false),
-            }).unwrap_or(false)
+            })
+            .unwrap_or(false)
         }) {
-            if let Ok(forward_link) = record.with_value(link_dnt_id, |v| i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))) {
-                if let Ok(backward_link) = record.with_value(backward_dnt_id, |v| i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))) {
-                    forward_map.entry(forward_link).or_insert_with(HashSet::new).insert(backward_link);
-                    backward_map.entry(backward_link).or_insert_with(HashSet::new).insert(forward_link);
+            if let Ok(forward_link) = record.with_value(link_dnt_id, |v| {
+                i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+            }) {
+                if let Ok(backward_link) = record.with_value(backward_dnt_id, |v| {
+                    i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+                }) {
+                    forward_map
+                        .entry(forward_link)
+                        .or_insert_with(HashSet::new)
+                        .insert(backward_link);
+                    backward_map
+                        .entry(backward_link)
+                        .or_insert_with(HashSet::new)
+                        .insert(forward_link);
                 }
             }
         }
@@ -93,7 +106,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         );
 
         Ok(LinkTable {
-            forward_map,
+            _forward_map: forward_map,
             backward_map,
         })
     }
@@ -123,6 +136,11 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     }
 
     fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
-        Ok(self.data_table.children_of(self.schema_record_id).find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name).unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'")).att_link_id()?)
+        self
+            .data_table
+            .children_of(self.schema_record_id)
+            .find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name)
+            .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"))
+            .att_link_id()
     }
 }

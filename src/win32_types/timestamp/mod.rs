@@ -34,11 +34,11 @@ macro_rules! impl_timestamp {
     ($type: ident) => {
         impl $crate::value::FromValue for $type {
             fn from_value_opt(
-                value: &crate::cache::Value,
+                value: &$crate::cache::Value,
             ) -> Result<Option<Self>, $crate::ntds::Error> {
                 match value {
-                    crate::cache::Value::Currency(val) => Ok(Some($type::from(*val))),
-                    crate::cache::Value::Null(()) => Ok(None),
+                    $crate::cache::Value::Currency(val) => Ok(Some($type::from(*val))),
+                    $crate::cache::Value::Null(()) => Ok(None),
                     _ => Err($crate::ntds::Error::InvalidValueDetected(value.to_string())),
                 }
             }
@@ -51,7 +51,7 @@ macro_rules! impl_timestamp {
             }
         }
         impl $crate::win32_types::TimelineEntry for $type {}
-
+/*
         impl $type {
             pub fn from_ts<'de, D>(deserializer: D) -> Result<Self, D::Error>
             where
@@ -60,6 +60,7 @@ macro_rules! impl_timestamp {
                 Ok(Self::from($crate::serialization::from_ts(deserializer)?))
             }
         }
+         */
 
         impl $crate::win32_types::ToRfc3339 for $type {
             fn to_rfc3339(&self) -> String {

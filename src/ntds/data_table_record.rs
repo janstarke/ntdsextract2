@@ -1,9 +1,7 @@
-use std::collections::HashMap;
-use std::ops::Deref;
 use crate::cache;
 use crate::cache::{ColumnIndex, Value, WithValue};
-use crate::ntds::{Error, NtdsAttributeId, Result};
-use crate::value::{FromValue, ToString};
+use crate::ntds::{Error, NtdsAttributeId};
+use crate::value::FromValue;
 use crate::win32_types::TimelineEntry;
 use crate::win32_types::{
     SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
@@ -11,6 +9,8 @@ use crate::win32_types::{
 use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
+use std::collections::HashMap;
+use std::ops::Deref;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
@@ -43,29 +43,32 @@ macro_rules! record_attribute {
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
-    fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T> where T: FromValue {
-        self.0.with_value(column, |v|
-            match v {
-                None => Err(anyhow::anyhow!(Error::ValueIsMissing)),
-                Some(v) => Ok(<T>::from_value(v)?)
-            }
-        )
+    fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T>
+    where
+        T: FromValue,
+    {
+        self.0.with_value(column, |v| match v {
+            None => Err(anyhow::anyhow!(Error::ValueIsMissing)),
+            Some(v) => Ok(<T>::from_value(v)?),
+        })
     }
-    fn get_value_opt<T>(&self, column: NtdsAttributeId) -> anyhow::Result<Option<T>> where T: FromValue {
-        self.0.with_value(column, |v|
-            match v {
-                None => Ok(None),
-                Some(v) => Ok(Some(<T>::from_value(v)?))
-            }
-        )
+    fn get_value_opt<T>(&self, column: NtdsAttributeId) -> anyhow::Result<Option<T>>
+    where
+        T: FromValue,
+    {
+        self.0.with_value(column, |v| match v {
+            None => Ok(None),
+            Some(v) => Ok(Some(<T>::from_value(v)?)),
+        })
     }
-    fn has_value<T>(&self, column: NtdsAttributeId, other: &T) -> anyhow::Result<bool> where T: FromValue + Eq {
-        self.0.with_value(column, |v|
-            match v {
-                None => Ok(false),
-                Some(v) => Ok(& (<T>::from_value(v)?) == other)
-            }
-        )
+    fn has_value<T>(&self, column: NtdsAttributeId, other: &T) -> anyhow::Result<bool>
+    where
+        T: FromValue + Eq,
+    {
+        self.0.with_value(column, |v| match v {
+            None => Ok(false),
+            Some(v) => Ok(&(<T>::from_value(v)?) == other),
+        })
     }
 
     record_attribute!(ds_record_id, DsRecordId, i32);
@@ -114,14 +117,17 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     }
     pub fn all_attributes(&self) -> HashMap<String, String> {
         self.0
-            .values().borrow()
+            .values()
+            .borrow()
             .iter()
             .map(|(k, v)| {
                 (
-                    self.0.columns()[*(k.deref().deref()) as usize].name().to_owned(),
+                    self.0.columns()[*(k.deref()) as usize]
+                        .name()
+                        .to_owned(),
                     match v {
                         Some(x) => format!("{x}"),
-                        None => "".to_owned()
+                        None => "".to_owned(),
                     },
                 )
             })
@@ -129,15 +135,22 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     }
 }
 
-
 impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
-    fn with_value<T>(&self, index: NtdsAttributeId, function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+    fn with_value<T>(
+        &self,
+        index: NtdsAttributeId,
+        function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
         self.0.with_value(index, function)
     }
 }
 
 impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
-    fn with_value<T>(&self, index: ColumnIndex, function: impl FnMut(Option<&Value>) -> anyhow::Result<T>) -> anyhow::Result<T> {
+    fn with_value<T>(
+        &self,
+        index: ColumnIndex,
+        function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
+    ) -> anyhow::Result<T> {
         self.0.with_value(index, function)
     }
 }
@@ -169,9 +182,7 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj
-            .att_sam_account_name()
-            .or(obj.att_object_name());
+        let my_name = obj.att_sam_account_name().or(obj.att_object_name());
         if let Ok(upn) = &my_name {
             Ok(vec![
                 obj.ds_record_time()
