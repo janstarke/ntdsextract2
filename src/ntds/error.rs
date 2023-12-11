@@ -8,14 +8,14 @@ pub enum Error {
     #[error("invalid value detected: '{0:?}'")]
     InvalidValueDetected(String),
 
-    #[error("unable to convert integer '{value:?}' to {self}: {why}")]
+    #[error("unable to convert integer '{value:?}' to {intended_type}: {why}")]
     IntegerConversionError {
         value: String,
         intended_type: &'static str,
         why: TryFromIntError,
     },
 
-    #[error("unable to convert '{value:?}' to {self}: {why}")]
+    #[error("unable to convert '{value:?}' to {intended_type}: {why}")]
     MiscConversionError {
         value: String,
         intended_type: &'static str,

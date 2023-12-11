@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::{
     ntds,
@@ -16,7 +16,7 @@ use anyhow::Result;
 
 use super::{DataTableRecord, ObjectType};
 
-#[derive(Serialize, Getters)]
+#[derive(Serialize, Getters, Deserialize)]
 #[getset(get = "pub")]
 #[serde(bound = "T: SerializationType")]
 pub struct Computer<T: SerializationType> {
