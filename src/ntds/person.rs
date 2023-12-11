@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::ntds::ObjectType;
 use crate::win32_types::{
@@ -15,7 +15,7 @@ use anyhow::Result;
 use super::{DataTable, DataTableRecord, LinkTable};
 use crate::win32_types::TimelineEntry;
 
-#[derive(Getters, Serialize)]
+#[derive(Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 #[serde(bound = "T: SerializationType")]
 pub struct Person<T:SerializationType> {

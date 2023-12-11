@@ -55,9 +55,7 @@ getset = "0"
 ouroboros = "0"
 
 [dev-dependencies]
-tempfile= "3"
 assert_cmd = "2"
-flate2 = "1"
 serde_test = "1"
 
 [build-dependencies]

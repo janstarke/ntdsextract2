@@ -1,25 +1,29 @@
 use std::marker::PhantomData;
 
-use serde::ser::SerializeSeq;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+use crate::SerializationType;
 
 pub struct StringSet<T: SerializationType>(Vec<String>, PhantomData<T>);
 
-impl<'a, T> From<Vec<&'a str>> for StringSet<T> where 
+impl<'a, T> From<Vec<&'a str>> for StringSet<T>
+where
     T: SerializationType,
 {
     fn from(value: Vec<&'a str>) -> Self {
-        Self(value.into_iter().map(|s| s.to_owned()).collect(), PhantomData)
+        Self(
+            value.into_iter().map(|s| s.to_owned()).collect(),
+            PhantomData,
+        )
     }
 }
 
 impl<T> From<Vec<String>> for StringSet<T>
-where T: SerializationType {
+where
+    T: SerializationType,
+{
     fn from(value: Vec<String>) -> Self {
-        Self (
-            value,
-            PhantomData
-        )
+        Self(value, PhantomData)
     }
 }
 
@@ -35,43 +39,15 @@ where
     }
 }
 
-pub trait SerializationType {
-    fn serialize<'a, S>(
-        items: impl Iterator<Item = &'a str>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
+impl<'de, T> Deserialize<'de> for StringSet<T>
+where
+    T: SerializationType,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        S: serde::Serializer;
-}
-pub struct CsvSerialization;
-
-pub struct JsonSerialization;
-
-impl SerializationType for CsvSerialization {
-    fn serialize<'a, S>(
-        items: impl Iterator<Item = &'a str>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+        D: serde::Deserializer<'de>,
     {
-        let v = Vec::from_iter(items).join(",");
-        serializer.serialize_str(&v)
-    }
-}
-impl SerializationType for JsonSerialization {
-    fn serialize<'a, S>(
-        items: impl Iterator<Item = &'a str>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut ser = serializer.serialize_seq(None)?;
-        for item in items {
-            ser.serialize_element(item)?;
-        }
-        ser.end()
+        T::deserialize(deserializer)
     }
 }
 
@@ -79,7 +55,9 @@ impl SerializationType for JsonSerialization {
 mod tests {
     use serde::Serialize;
 
-    use super::{CsvSerialization, JsonSerialization, SerializationType, StringSet};
+    use crate::{CsvSerialization, JsonSerialization};
+
+    use super::{SerializationType, StringSet};
 
     #[derive(Serialize)]
     #[serde(bound = "T: SerializationType")]
