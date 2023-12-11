@@ -6,12 +6,11 @@ use serde::Serialize;
 
 use crate::{
     ntds,
-    serialization::{serialize_set, to_ts, SerializableSet},
     win32_types::{
         SamAccountType, Sid, TimelineEntry, TruncatedWindowsFileTime, UserAccountControl,
         WindowsFileTime,
     },
-    OutputOptions, RecordHasId,
+    OutputOptions, RecordHasId, serialization::{SerializationType, StringSet},
 };
 use anyhow::Result;
 
@@ -19,7 +18,8 @@ use super::{DataTableRecord, ObjectType};
 
 #[derive(Serialize, Getters)]
 #[getset(get = "pub")]
-pub struct Computer {
+#[serde(bound = "T: SerializationType")]
+pub struct Computer<T: SerializationType> {
     sid: Option<Sid>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
@@ -34,33 +34,17 @@ pub struct Computer {
     primary_group_id: Option<i32>,
     is_deleted: bool,
 
-    #[serde(serialize_with = "serialize_set")]
-    member_of: SerializableSet,
+    member_of: StringSet<T>,
 
     comment: Option<String>,
 
-    #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     when_created: Option<TruncatedWindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     when_changed: Option<TruncatedWindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     last_logon: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     last_logon_time_stamp: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     account_expires: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     password_last_set: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     bad_pwd_time: Option<WindowsFileTime>,
 
     created_sid: Option<Sid>,
@@ -69,7 +53,7 @@ pub struct Computer {
     all_attributes: Option<HashMap<String, String>>,
 }
 
-impl ntds::Object for Computer {
+impl<T> ntds::Object for Computer<T> where T: SerializationType {
     fn new(
         dbrecord: DataTableRecord,
         options: &OutputOptions,
@@ -98,12 +82,6 @@ impl ntds::Object for Computer {
             None
         };
 
-        let member_of = if *options.flat_serialization() {
-            SerializableSet::Flat(member_of)
-        } else {
-            SerializableSet::Complex(member_of)
-        };
-
         Ok(Self {
             record_time: dbrecord.ds_record_time().ok(),
             when_created: dbrecord.att_when_created().ok(),
@@ -127,13 +105,13 @@ impl ntds::Object for Computer {
             created_sid: dbrecord.att_creator_sid().ok(),
             is_deleted: dbrecord.att_is_deleted().unwrap_or(false),
             all_attributes,
-            member_of,
+            member_of: member_of.into(),
         })
     }
 }
 
-impl From<Computer> for Vec<Bodyfile3Line> {
-    fn from(obj: Computer) -> Self {
+impl<T> From<Computer<T>> for Vec<Bodyfile3Line> where T: SerializationType {
+    fn from(obj: Computer<T>) -> Self {
         static OT: ObjectType = ObjectType::Computer;
         if let Some(upn) = &obj.sam_account_name {
             vec![

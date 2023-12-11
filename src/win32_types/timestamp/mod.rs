@@ -3,14 +3,12 @@ use lazy_static::lazy_static;
 
 mod database_time;
 mod truncated_windows_file_time;
-mod utc_visitor;
 mod windows_file_time;
 mod unix_timestamp;
 mod timeline_entry;
 
 pub use database_time::DatabaseTime;
 pub use truncated_windows_file_time::TruncatedWindowsFileTime;
-use utc_visitor::*;
 pub use windows_file_time::WindowsFileTime;
 pub use unix_timestamp::*;
 pub use timeline_entry::*;
@@ -44,30 +42,31 @@ macro_rules! impl_timestamp {
             }
         }
 
-        impl $crate::win32_types::UnixTimestamp for $type {
-            #[allow(dead_code)]
-            fn timestamp(&self) -> i64 {
-                self.0.timestamp()
-            }
-        }
-        impl $crate::win32_types::TimelineEntry for $type {}
-/*
-        impl $type {
-            pub fn from_ts<'de, D>(deserializer: D) -> Result<Self, D::Error>
+        impl serde::Serialize for $type {
+            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
             where
-                D: serde::Deserializer<'de>,
+                S: serde::Serializer,
             {
-                Ok(Self::from($crate::serialization::from_ts(deserializer)?))
-            }
-        }
-         */
-
-        impl $crate::win32_types::ToRfc3339 for $type {
-            fn to_rfc3339(&self) -> String {
-                self.0.to_rfc3339()
+                serializer.serialize_str(&self.0.to_rfc3339())
             }
         }
 
+        impl<'de> serde::Deserialize<'de> for $type {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: serde::Deserializer<'de> {
+                
+            use serde::de;
+            let buf = String::deserialize(deserializer)?;
+            match DateTime::parse_from_rfc3339(&buf[..]) {
+                Ok(dt) => Ok(Self(dt.with_timezone(&Utc))),
+                Err(why) => Err(de::Error::custom(format!(
+                    "unable to parse timestamp '{buf}': {why}"
+                ))),
+            }
+            }
+        }
+/*
         impl<'de> serde::Deserialize<'de> for $type {
             fn deserialize<D>(deserializer: D) -> std::prelude::v1::Result<Self, D::Error>
             where
@@ -76,6 +75,20 @@ macro_rules! impl_timestamp {
                 let me = deserializer
                     .deserialize_str($crate::win32_types::timestamp::UtcVisitor::default())?;
                 Ok(Self::from(me))
+            }
+        }
+ */
+        impl $crate::win32_types::UnixTimestamp for $type {
+            #[allow(dead_code)]
+            fn timestamp(&self) -> i64 {
+                self.0.timestamp()
+            }
+        }
+        impl $crate::win32_types::TimelineEntry for $type {}
+
+        impl $crate::win32_types::ToRfc3339 for $type {
+            fn to_rfc3339(&self) -> String {
+                self.0.to_rfc3339()
             }
         }
     };

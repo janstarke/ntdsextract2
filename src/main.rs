@@ -3,11 +3,27 @@ use std::path::Path;
 use anyhow::Result;
 use clap::Parser;
 use libesedb::EseDb;
-use libntdsextract2::{CDatabase, EntryId, EsedbInfo, OutputOptions};
+use libntdsextract2::{
+    CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization, OutputOptions,
+};
 use simplelog::{Config, TermLogger};
 
 mod cli;
 use cli::*;
+
+macro_rules! do_with_serialization {
+    ($cmd: expr, $db: expr, $function: ident, $options: expr) => {
+        if $cmd.flat_serialization() {
+            $db
+                .data_table()
+                .$function::<CsvSerialization>($options)
+        } else {
+            $db
+                .data_table()
+                .$function::<JsonSerialization>($options)
+        }
+    };
+}
 
 fn main() -> Result<()> {
     let cli = Args::parse();
@@ -34,10 +50,14 @@ fn main() -> Result<()> {
     options.set_format(cli.command.format());
 
     match &cli.command {
-        Commands::Group { .. } => database.data_table().show_groups(&options),
-        Commands::User { .. } => database.data_table().show_users(&options),
-        Commands::Computer { .. } => database.data_table().show_computers(&options),
-        Commands::Types { .. } => database.data_table().show_type_names(&options),
+        Commands::Group { .. } => 
+            do_with_serialization!(cli.command, database, show_groups, &options),
+        Commands::User { .. } => 
+        do_with_serialization!(cli.command, database, show_users, &options),
+        Commands::Computer { .. } => 
+        do_with_serialization!(cli.command, database, show_computers, &options),
+        Commands::Types { .. } => 
+        do_with_serialization!(cli.command, database, show_type_names, &options),
         Commands::Timeline { all_objects } => {
             options.set_show_all_objects(*all_objects);
             database

@@ -8,6 +8,7 @@ use crate::ntds::LinkTable;
 use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
+use crate::serialization::{SerializationType, CsvSerialization};
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
@@ -105,22 +106,22 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(type_records)
     }
 
-    pub fn show_users(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_users<T: SerializationType>(&self, options: &OutputOptions) -> anyhow::Result<()> {
         log::debug!("show_users()");
-        self.show_typed_objects::<Person>(options, ObjectType::Person)
+        self.show_typed_objects::<Person<T>>(options, ObjectType::Person)
     }
 
-    pub fn show_groups(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_groups<T: SerializationType>(&self, options: &OutputOptions) -> anyhow::Result<()> {
         log::debug!("show_groups()");
-        self.show_typed_objects::<Group>(options, ObjectType::Group)
+        self.show_typed_objects::<Group<T>>(options, ObjectType::Group)
     }
 
-    pub fn show_computers(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_computers<T: SerializationType>(&self, options: &OutputOptions) -> anyhow::Result<()> {
         log::debug!("show_computers()");
-        self.show_typed_objects::<Computer>(options, ObjectType::Computer)
+        self.show_typed_objects::<Computer<T>>(options, ObjectType::Computer)
     }
 
-    pub fn show_type_names(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_type_names<T>(&self, options: &OutputOptions) -> anyhow::Result<()> where T: SerializationType {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_owned();
@@ -292,7 +293,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == ObjectType::Person {
-                                match Person::new(dbrecord, options, self, link_table) {
+                                match Person::<CsvSerialization>::new(dbrecord, options, self, link_table) {
                                     Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
@@ -300,7 +301,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                                     }
                                 }
                             } else if *type_name == ObjectType::Computer {
-                                match Computer::new(dbrecord, options, self, link_table) {
+                                match Computer::<CsvSerialization>::new(dbrecord, options, self, link_table) {
                                     Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");

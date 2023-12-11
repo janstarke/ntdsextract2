@@ -3,27 +3,23 @@ use std::marker::PhantomData;
 use serde::ser::SerializeSeq;
 use serde::Serialize;
 
-pub trait SerializationType {
-    fn serialize<'a, S>(
-        items: impl Iterator<Item = &'a str>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer;
-}
-pub struct CsvSerialization;
-
-pub struct JsonSerialization;
-
 pub struct StringSet<T: SerializationType>(Vec<String>, PhantomData<T>);
 
-impl<'a, T, I> From<I> for StringSet<T>
-where
-    I: Iterator<Item = &'a str>,
+impl<'a, T> From<Vec<&'a str>> for StringSet<T> where 
     T: SerializationType,
 {
-    fn from(value: I) -> Self {
-        Self(value.map(|s| s.to_owned()).collect(), PhantomData)
+    fn from(value: Vec<&'a str>) -> Self {
+        Self(value.into_iter().map(|s| s.to_owned()).collect(), PhantomData)
+    }
+}
+
+impl<T> From<Vec<String>> for StringSet<T>
+where T: SerializationType {
+    fn from(value: Vec<String>) -> Self {
+        Self (
+            value,
+            PhantomData
+        )
     }
 }
 
@@ -38,6 +34,18 @@ where
         T::serialize(self.0.iter().map(|s| &s[..]), serializer)
     }
 }
+
+pub trait SerializationType {
+    fn serialize<'a, S>(
+        items: impl Iterator<Item = &'a str>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer;
+}
+pub struct CsvSerialization;
+
+pub struct JsonSerialization;
 
 impl SerializationType for CsvSerialization {
     fn serialize<'a, S>(
@@ -71,9 +79,7 @@ impl SerializationType for JsonSerialization {
 mod tests {
     use serde::Serialize;
 
-    use crate::serialization::{CsvSerialization, JsonSerialization, SerializationType};
-
-    use super::StringSet;
+    use super::{CsvSerialization, JsonSerialization, SerializationType, StringSet};
 
     #[derive(Serialize)]
     #[serde(bound = "T: SerializationType")]
@@ -86,7 +92,7 @@ mod tests {
         T: SerializationType,
     {
         SampleRecord {
-            data: StringSet::<T>::from(vec!["a", "b", "c"].into_iter()),
+            data: StringSet::<T>::from(vec!["a", "b", "c"]),
         }
     }
 

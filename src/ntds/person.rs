@@ -17,7 +17,8 @@ use crate::win32_types::TimelineEntry;
 
 #[derive(Getters, Serialize)]
 #[getset(get = "pub")]
-pub struct Person {
+#[serde(bound = "T: SerializationType")]
+pub struct Person<T:SerializationType> {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
@@ -35,33 +36,18 @@ pub struct Person {
     primary_group: Option<String>,
 
     //aduser_objects: Option<String>,
-    #[serde(serialize_with = "serialize_set")]
-    member_of: SerializableSet,
+    member_of: StringSet<T>,
 
     comment: Option<String>,
 
-    #[serde(serialize_with = "to_ts")]
     record_time: Option<TruncatedWindowsFileTime>,
 
-    #[serde(serialize_with = "to_ts")]
     when_created: Option<TruncatedWindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     when_changed: Option<TruncatedWindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     last_logon: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     last_logon_time_stamp: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     account_expires: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     password_last_set: Option<WindowsFileTime>,
-
-    #[serde(serialize_with = "to_ts")]
     bad_pwd_time: Option<WindowsFileTime>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -69,7 +55,7 @@ pub struct Person {
     all_attributes: Option<HashMap<String, String>>,
 }
 
-impl ntds::Object for Person {
+impl<T> ntds::Object for Person<T> where T: SerializationType {
     fn new(
         dbrecord: DataTableRecord,
         options: &OutputOptions,
@@ -100,12 +86,6 @@ impl ntds::Object for Person {
             vec![]
         };
 
-        let member_of = if *options.flat_serialization() {
-            SerializableSet::Flat(member_of)
-        } else {
-            SerializableSet::Complex(member_of)
-        };
-
         let all_attributes = if *options.display_all_attributes() {
             Some(dbrecord.all_attributes())
         } else {
@@ -134,14 +114,14 @@ impl ntds::Object for Person {
             primary_group,
             comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
-            member_of,
+            member_of: member_of.into(),
             all_attributes,
         })
     }
 }
 
-impl From<Person> for Vec<Bodyfile3Line> {
-    fn from(obj: Person) -> Self {
+impl<T> From<Person<T>> for Vec<Bodyfile3Line> where T: SerializationType {
+    fn from(obj: Person<T>) -> Self {
         static OT: ObjectType = ObjectType::Person;
         if let Some(upn) = &obj.sam_account_name {
             vec![

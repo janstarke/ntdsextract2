@@ -1,9 +1,8 @@
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 
 use crate::impl_timestamp;
 
 use super::BASE_DATETIME;
-
 
 #[derive(Eq, PartialEq)]
 pub struct TruncatedWindowsFileTime(DateTime<Utc>);

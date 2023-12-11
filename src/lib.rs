@@ -22,3 +22,4 @@ pub use record_predicate::*;
 pub use esedbinfo::*;
 pub use output_format::*;
 pub use output_options::*;
+pub use serialization::*;
