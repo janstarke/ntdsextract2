@@ -10,7 +10,7 @@ use crate::{
         SamAccountType, Sid, TimelineEntry, TruncatedWindowsFileTime, UserAccountControl,
         WindowsFileTime,
     },
-    OutputOptions, RecordHasId, serialization::{SerializationType, StringSet},
+    OutputOptions, serialization::{SerializationType, StringSet},
 };
 use anyhow::Result;
 
@@ -62,19 +62,7 @@ impl<T> ntds::Object for Computer<T> where T: SerializationType {
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
-        let member_of = if let Some(children) = link_table.member_of(&object_id) {
-            children
-                .iter()
-                .filter_map(|child_id| data_table.data_table().find_p(RecordHasId(*child_id)))
-                .map(|record| {
-                    record
-                        .att_object_name2()
-                        .expect("error while reading object name")
-                })
-                .collect()
-        } else {
-            vec![]
-        };
+        let member_of = link_table.member_names_of(object_id, data_table).into();
 
         let all_attributes = if *options.display_all_attributes() {
             Some(dbrecord.all_attributes())
@@ -105,7 +93,7 @@ impl<T> ntds::Object for Computer<T> where T: SerializationType {
             created_sid: dbrecord.att_creator_sid().ok(),
             is_deleted: dbrecord.att_is_deleted().unwrap_or(false),
             all_attributes,
-            member_of: member_of.into(),
+            member_of,
         })
     }
 }

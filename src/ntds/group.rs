@@ -9,7 +9,7 @@ use crate::win32_types::{
     SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
 };
 use crate::{ntds, OutputOptions};
-use crate::{serialization::*, RecordHasId, RecordHasRid};
+use crate::{serialization::*, RecordHasRid};
 use anyhow::Result;
 
 use super::{DataTable, DataTableRecord, LinkTable};
@@ -70,19 +70,7 @@ impl<T> ntds::Object for Group<T> where T: SerializationType {
                 .map(|group| group.att_object_name2().unwrap())
         });
 
-        let member_of = if let Some(children) = link_table.member_of(&object_id) {
-            children
-                .iter()
-                .filter_map(|child_id| data_table.data_table().find_p(RecordHasId(*child_id)))
-                .map(|record| {
-                    record
-                        .att_object_name2()
-                        .expect("error while reading object name")
-                })
-                .collect()
-        } else {
-            vec![]
-        };
+        let member_of = link_table.member_names_of(object_id, data_table).into();
 
         let all_attributes = if *options.display_all_attributes() {
             Some(dbrecord.all_attributes())
@@ -112,7 +100,7 @@ impl<T> ntds::Object for Group<T> where T: SerializationType {
             primary_group,
             comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
-            member_of: member_of.into(),
+            member_of,
             all_attributes,
         })
     }

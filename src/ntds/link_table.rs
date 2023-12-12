@@ -1,8 +1,10 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
-use crate::cache;
+use crate::{cache, RecordHasId};
 use crate::ntds::link_table_builder::LinkTableBuilder;
+
+use super::DataTable;
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS link_table is being wrapped
@@ -27,6 +29,24 @@ impl LinkTable {
     pub(crate) fn member_of(&self, dnt: &i32) -> Option<&HashSet<i32>> {
         self.backward_map.get(dnt)
     }
+
+    pub fn member_names_of(&self, object_id: i32, data_table: &DataTable<'_, '_>) -> Vec<String> {
+        let member_of = if let Some(children) = self.member_of(&object_id) {
+            children
+                .iter()
+                .filter_map(|child_id| data_table.data_table().find_p(RecordHasId(*child_id)))
+                .map(|record| {
+                    record
+                        .att_object_name2()
+                        .expect("error while reading object name")
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        member_of
+    }
+
 /*
     pub(crate) fn members(&self, dnt: &i32) -> Option<&HashSet<i32>> {
         self.forward_map.get(dnt)
