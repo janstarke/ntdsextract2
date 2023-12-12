@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ntds;
-use crate::ntds::object::Object;
+use crate::ntds::FromDataTable;
 use crate::ntds::DataTableRecord;
 use crate::ntds::LinkTable;
 use crate::ntds::Result;
@@ -219,7 +219,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    fn show_typed_objects<O: ntds::Object>(
+    fn show_typed_objects<O: ntds::FromDataTable>(
         &self,
         options: &OutputOptions,
         object_type: ObjectType,

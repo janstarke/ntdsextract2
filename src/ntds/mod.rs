@@ -5,11 +5,8 @@ mod link_table_builder;
 mod object_type;
 mod data_table_record;
 mod error;
-
+mod from_data_table;
 mod object;
-mod computer;
-mod person;
-mod group;
 
 pub use data_table::*;
 pub use link_table::*;
@@ -17,8 +14,9 @@ pub use attribute_id::*;
 pub use object_type::*;
 pub use data_table_record::*;
 pub use error::*;
-
+pub use from_data_table::*;
 pub use object::*;
-pub use person::*;
-pub use computer::*;
-pub use group::*;
+
+pub type Person<T> = Object<T, types::Person>;
+pub type Group<T> = Object<T, types::Group>;
+pub type Computer<T> = Object<T, types::Computer>;
