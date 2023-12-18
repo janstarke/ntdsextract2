@@ -16,11 +16,13 @@ use crate::cache::{ColumnIndex, Value};
 use crate::ntds::NtdsAttributeId;
 use crate::EsedbInfo;
 
+use super::EsedbRowId;
+
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct Record<'info, 'db> {
     table_id: &'static str,
-    record_id: i32,
+    record_id:  EsedbRowId,
     values: RefCell<HashMap<ColumnIndex, Option<Value>>>,
     count: i32,
     record: libesedb::Record<'db>,
@@ -80,7 +82,7 @@ impl<'info, 'db> Record<'info, 'db> {
     pub fn try_from(
         record: libesedb::Record<'db>,
         table_id: &'static str,
-        record_id: i32,
+        record_id: EsedbRowId,
         esedbinfo: &'info EsedbInfo<'db>,
         columns: Rc<Vec<cache::Column>>,
     ) -> std::io::Result<Self> {

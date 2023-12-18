@@ -1,15 +1,18 @@
 use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash, rc::Rc};
 
+use getset::Getters;
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::cache::{self, DataTable};
-use anyhow::Result;
+use crate::cache::{self, DataTable, RecordPointer};
+use anyhow::{bail, Result};
 
 /// represents an object in the DIT
+#[derive(Getters)]
+#[getset(get="pub")]
 pub struct ObjectTreeEntry {
     name: String,
-    id: i32,
+    id: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
 }
@@ -40,6 +43,17 @@ impl ObjectTreeEntry {
         data_table: &cache::Table<'_, '_, DataTable>,
     ) -> Result<Rc<ObjectTreeEntry>> {
         Self::populate_object_tree(data_table)
+    }
+
+    pub fn get(&self, rdn: &str) -> Option<Rc<Self>> {
+        log::debug!("searching for {rdn}");
+        for child in self.children.borrow().iter() {
+            log::debug!("  candidate is {}", child.name);
+            if child.name == rdn {
+                return Some(Rc::clone(child));
+            }
+        }
+        None
     }
 
     pub(crate) fn to_tree(me: &Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
@@ -94,7 +108,7 @@ impl ObjectTreeEntry {
             let name = record.att_object_name2()?.to_owned();
 
             names.insert(id, name);
-            uplinks.insert(id, parent_id);
+            uplinks.insert(id, parent_id.into());
             /*
             downlinks
                 .entry(parent_id)
@@ -106,35 +120,50 @@ impl ObjectTreeEntry {
         log::debug!("found {} entries in the DIT", names.len());
         log::debug!("ordering those elements in a tree structure now");
 
-        Self::create_tree_node(0, &uplinks, &mut names)
+        Self::create_tree_node(None, &uplinks, &mut names)
     }
 
     fn create_tree_node(
-        object_id: i32,
-        uplinks: &HashMap<i32, i32>,
-        names: &mut HashMap<i32, String>,
+        object_id: Option<&RecordPointer>,
+        uplinks: &HashMap<RecordPointer, RecordPointer>,
+        names: &mut HashMap<RecordPointer, String>,
     ) -> Result<Rc<ObjectTreeEntry>> {
-        let name = if object_id == 0 {
-            String::new()
-        } else {
-            names
-                .remove(&object_id)
-                .unwrap_or_else(|| panic!("missing name for object with id '{object_id}'"))
-        };
+        match object_id {
+            None => {
+                let mut children = uplinks
+                    .iter()
+                    .filter(|(_, parent)| parent.ds_record_id().inner() == 0);
+                match children.next() {
+                    None => bail!("missing root object"),
+                    Some((root, _)) => {
+                        if children.next().is_some() {
+                            bail!("more than one root object found");
+                        }
+                        Self::create_tree_node(Some(root), uplinks, names)
+                    }
+                }
+            }
 
-        //log::trace!("inserting new object '{}'", name);
+            Some(object_id) => {
+                let name = names
+                    .get(&object_id)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("missing name for object with id '{object_id}'")
+                    })?
+                    .to_owned();
 
-        let my_object = Rc::new(ObjectTreeEntry {
-            name,
-            id: object_id,
-            //parent: parent.and_then(|p| Some(Rc::downgrade(p))),
-            children: RefCell::new(HashSet::new()),
-        });
-
-        for (child_id, _) in uplinks.iter().filter(|(_, parent)| **parent == object_id) {
-            let child = Self::create_tree_node(*child_id, uplinks, names)?;
-            my_object.children.borrow_mut().insert(child);
+                let children: Result<HashSet<Rc<Self>>> = uplinks
+                    .iter()
+                    .filter(|(_, parent)| *parent == object_id)
+                    .map(|(c, _)| Self::create_tree_node(Some(c), uplinks, names))
+                    .collect();
+                Ok(Rc::new(ObjectTreeEntry {
+                    name,
+                    id: *object_id,
+                    //parent: parent.and_then(|p| Some(Rc::downgrade(p))),
+                    children: RefCell::new(children?),
+                }))
+            }
         }
-        Ok(my_object)
     }
 }

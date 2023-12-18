@@ -1,15 +1,20 @@
 mod iter;
+mod special_records;
 mod table_type;
 
+use anyhow::anyhow;
 pub use iter::*;
+pub use special_records::*;
 pub use table_type::*;
 
 use std::{marker::PhantomData, rc::Rc};
 
 use crate::{
-    cache, ntds::DataTableRecord, EsedbInfo, RecordHasAttRdn, RecordHasId, RecordHasParent,
-    RecordPredicate,
+    cache, ntds::DataTableRecord, object_tree_entry::ObjectTreeEntry, EsedbInfo,
+    RecordHasParent, RecordPredicate,
 };
+
+use super::RecordPointer;
 
 pub struct Table<'info, 'db, T: TableType>
 where
@@ -48,7 +53,7 @@ where
                 cache::Record::try_from(
                     record.unwrap(),
                     table_id,
-                    record_id as i32,
+                    (record_id as i32).into(),
                     esedbinfo,
                     Rc::clone(&columns),
                 )
@@ -90,7 +95,7 @@ impl<'info, 'db> Table<'info, 'db, DataTable> {
 
     pub(crate) fn children_of(
         &'db self,
-        parent_id: i32,
+        parent_id: RecordPointer,
     ) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
         let my_filter = RecordHasParent(parent_id);
         self.iter().filter(move |r| my_filter.matches(r))
@@ -124,26 +129,75 @@ impl<'info, 'db> Table<'info, 'db, DataTable> {
         self.iter().find(move |r| predicate.matches(r))
     }
 
-    /// returns the record id of the record which contains the Schema object
-    /// (which is identified by its name "Schema" in the object_name2 attribute)
-    pub fn get_schema_record_id(&self) -> anyhow::Result<i32> {
-        log::info!("obtaining schema record id");
+    pub fn find_by_id(&'db self, ptr: RecordPointer) -> Option<DataTableRecord<'info, 'db>> {
+        if let Some(row) = ptr.esedb_row() {
+            self.records
+                .get(row.inner() as usize)
+                .map(|r| DataTableRecord::new(r, *row))
+        } else {
+            self.iter().find(move |r| {
+                ptr.ds_record_id()
+                    == r.ds_record_id()
+                        .expect("unable to read record id")
+                        .ds_record_id()
+            })
+        }
+    }
 
-        for record in self
-            .filter_p(RecordHasAttRdn("Schema"))
-            .map(DataTableRecord::from)
-        {
-            if let Ok(schema_parent_id) = record.ds_parent_record_id() {
-                if let Some(schema_parent) = self.find_p(RecordHasId(schema_parent_id)) {
-                    if let Ok(parent_name) = schema_parent.att_object_name2() {
-                        if parent_name == "Configuration" {
-                            log::info!("found record id to be {}", record.ds_record_id()?);
-                            return record.ds_record_id();
-                        }
-                    }
+    pub fn get_special_records(&self, root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
+        log::info!("obtaining special record ids");
+
+        // search downward until we find a `Configuration` entry
+        let configuration_path = self
+            .find_first_in_tree(&root, "Configuration")
+            .ok_or(anyhow!("db has no `Configuration` entry"))?;
+
+        let schema_subpath = self
+            .find_child_by_name(&configuration_path[0], "Schema")
+            .ok_or(anyhow!("db has no `Schema` entry"))?;
+
+        let deleted_objects_subpath = self
+            .find_child_by_name(&configuration_path[0], "Deleted Objects")
+            .ok_or(anyhow!("db has no `Deleted Objects` entry"))?;
+
+        Ok(SpecialRecords::new(
+            schema_subpath,
+            deleted_objects_subpath
+        ))
+    }
+
+    pub fn path_to_str(&self, path: &Vec<Rc<ObjectTreeEntry>>) -> String {
+        let v: Vec<_> = path.iter().map(|e| e.name().to_owned()).collect();
+        v.join(",")
+    }
+
+    fn find_first_in_tree(
+        &self,
+        root: &Rc<ObjectTreeEntry>,
+        name: &str,
+    ) -> Option<Vec<Rc<ObjectTreeEntry>>> {
+        if root.name() == name {
+            Some(vec![Rc::clone(root)])
+        } else {
+            for child in root.children().borrow().iter() {
+                if let Some(mut path) = self.find_first_in_tree(child, name) {
+                    path.push(Rc::clone(root));
+                    return Some(path);
                 }
             }
+            None
         }
-        Err(anyhow::anyhow!(crate::ntds::Error::MissingSchemaRecord))
+    }
+
+    fn find_child_by_name(
+        &self,
+        root: &Rc<ObjectTreeEntry>,
+        name: &str,
+    ) -> Option<Rc<ObjectTreeEntry>> {
+        root.children()
+            .borrow()
+            .iter()
+            .find(|e| e.name() == name)
+            .map(|e| Rc::clone(e))
     }
 }

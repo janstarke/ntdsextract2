@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use crate::cache::RecordPointer;
 use crate::ntds;
 use crate::ntds::FromDataTable;
 use crate::ntds::DataTableRecord;
@@ -9,7 +10,7 @@ use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
 use crate::serialization::{SerializationType, CsvSerialization};
-use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasId, RecordHasRid};
+use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
@@ -24,7 +25,7 @@ use super::{Computer, Group, ObjectType, Person};
 pub struct DataTable<'info, 'db> {
     data_table: cache::Table<'info, 'db, cache::DataTable>,
     //database: Option<Weak<CDatabase<'r>>>,
-    schema_record_id: i32,
+    schema_record_id: RecordPointer,
     object_tree: Rc<ObjectTreeEntry>,
     link_table: Rc<LinkTable>,
 }
@@ -34,11 +35,10 @@ impl<'info, 'db> DataTable<'info, 'db> {
     pub fn new(
         data_table: cache::Table<'info, 'db, cache::DataTable>,
         object_tree: Rc<ObjectTreeEntry>,
-        schema_record_id: i32,
+        schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
     ) -> Result<Self> {
         Ok(Self {
-            //database: None,
             data_table,
             schema_record_id,
             object_tree,
@@ -46,15 +46,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
         })
     }
 
-    /*
-       pub fn set_database(&mut self, database: Weak<CDatabase<'r>>) {
-           self.database = Some(database);
-       }
-
-       pub(crate) fn data_table(&self) -> &CDataTable {
-           &self.data_table
-       }
-    */
     fn find_type_record(
         &'db self,
         object_type: ObjectType,
@@ -63,7 +54,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(records.remove(&object_type))
     }
 
-    pub fn find_all_type_names(&self) -> anyhow::Result<HashMap<i32, String>> {
+    pub fn find_all_type_names(&self) -> anyhow::Result<HashMap<RecordPointer, String>> {
         let mut type_records = HashMap::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_owned();
@@ -147,7 +138,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
     pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
         let record = match entry_id {
-            EntryId::Id(id) => self.data_table.find_p(RecordHasId(id)),
+            EntryId::Id(id) => self.data_table.find_by_id(id.into()),
             EntryId::Rid(rid) => self.data_table.find_p(RecordHasRid(rid)),
         };
 
@@ -277,7 +268,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                             *type_name,
                         )
                     })
-                    .collect::<HashMap<i32, ObjectType>>(),
+                    .collect::<HashMap<RecordPointer, ObjectType>>(),
             )
         };
 

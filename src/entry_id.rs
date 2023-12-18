@@ -1,4 +1,6 @@
+use crate::cache::RecordId;
+
 pub enum EntryId {
-    Id(i32),
+    Id(RecordId),
     Rid(u32),
 }

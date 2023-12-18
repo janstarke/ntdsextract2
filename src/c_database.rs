@@ -29,12 +29,13 @@ impl<'info, 'db> CDatabase<'info, 'db> {
 
         log::info!("reading schema information and creating record cache");
         let object_tree = ObjectTreeEntry::from(&cached_data_table)?;
-        let schema_record_id = cached_data_table.get_schema_record_id()?;
+        let special_records = cached_data_table.get_special_records(Rc::clone(&object_tree))?;
+        let schema_record_id = special_records.schema().id();
 
         log::debug!("found the schema record id is '{}'", schema_record_id);
 
-        let link_table = Rc::new(LinkTable::new(cached_link_table, &cached_data_table, schema_record_id)?);
-        let data_table = DataTable::new(cached_data_table, object_tree, schema_record_id, Rc::clone(&link_table))?;
+        let link_table = Rc::new(LinkTable::new(cached_link_table, &cached_data_table, *schema_record_id)?);
+        let data_table = DataTable::new(cached_data_table, object_tree, *schema_record_id, Rc::clone(&link_table))?;
         Ok(Self {
             esedbinfo,
             link_table,

@@ -69,7 +69,7 @@ fn main() -> Result<()> {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {
-                EntryId::Id(*entry_id)
+                EntryId::Id((*entry_id).into())
             };
             Ok(database.data_table().show_entry(id)?)
         }

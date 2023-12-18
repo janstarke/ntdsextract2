@@ -1,4 +1,4 @@
-use crate::cache;
+use crate::cache::{self, EsedbRowId, RecordPointer};
 use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
@@ -14,12 +14,9 @@ use std::ops::Deref;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
-pub struct DataTableRecord<'info, 'db>(&'db cache::Record<'info, 'db>);
-
-impl<'info, 'db> From<&'db cache::Record<'info, 'db>> for DataTableRecord<'info, 'db> {
-    fn from(record: &'db cache::Record<'info, 'db>) -> Self {
-        Self(record)
-    }
+pub struct DataTableRecord<'info, 'db> {
+    inner: &'db cache::Record<'info, 'db>,
+    row: EsedbRowId,
 }
 
 macro_rules! record_attribute {
@@ -43,11 +40,18 @@ macro_rules! record_attribute {
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
+    pub fn new(inner: &'db cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
+        Self {
+            inner,
+            row
+        }
+    }
+
     fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T>
     where
         T: FromValue,
     {
-        self.0.with_value(column, |v| match v {
+        self.inner.with_value(column, |v| match v {
             None => Err(anyhow::anyhow!(Error::ValueIsMissing)),
             Some(v) => Ok(<T>::from_value(v)?),
         })
@@ -56,7 +60,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     where
         T: FromValue,
     {
-        self.0.with_value(column, |v| match v {
+        self.inner.with_value(column, |v| match v {
             None => Ok(None),
             Some(v) => Ok(Some(<T>::from_value(v)?)),
         })
@@ -65,20 +69,28 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     where
         T: FromValue + Eq,
     {
-        self.0.with_value(column, |v| match v {
+        self.inner.with_value(column, |v| match v {
             None => Ok(false),
             Some(v) => Ok(&(<T>::from_value(v)?) == other),
         })
     }
 
-    record_attribute!(ds_record_id, DsRecordId, i32);
-    record_attribute!(ds_parent_record_id, DsParentRecordId, i32);
+    pub fn ds_record_id(&self) -> anyhow::Result<RecordPointer> {
+        Ok(RecordPointer::new(
+            self.get_value(NtdsAttributeId::DsRecordId)?,
+            self.row,
+        ))
+    }
+
+    //record_attribute!(ds_record_id, DsRecordId, RecordId);
+    record_attribute!(object_category, AttObjectCategory, RecordPointer);
+    record_attribute!(ds_parent_record_id, DsParentRecordId, RecordPointer);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
     record_attribute!(ds_ancestors, DsAncestors, i32);
     record_attribute!(att_object_sid, AttObjectSid, Sid);
     record_attribute!(att_when_created, AttWhenCreated, TruncatedWindowsFileTime);
     record_attribute!(att_when_changed, AttWhenChanged, TruncatedWindowsFileTime);
-    record_attribute!(att_object_type_id, AttObjectCategory, i32);
+    record_attribute!(att_object_type_id, AttObjectCategory, RecordPointer);
     record_attribute!(att_object_name, AttCommonName, String);
     record_attribute!(att_object_name2, AttRdn, String);
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
@@ -113,18 +125,16 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_is_deleted, AttIsDeleted, bool);
 
     pub fn mapping(&self) -> &ColumnInfoMapping {
-        self.0.esedbinfo().mapping()
+        self.inner.esedbinfo().mapping()
     }
     pub fn all_attributes(&self) -> HashMap<String, String> {
-        self.0
+        self.inner
             .values()
             .borrow()
             .iter()
             .map(|(k, v)| {
                 (
-                    self.0.columns()[*(k.deref()) as usize]
-                        .name()
-                        .to_owned(),
+                    self.inner.columns()[*(k.deref()) as usize].name().to_owned(),
                     match v {
                         Some(x) => format!("{x}"),
                         None => "".to_owned(),
@@ -141,7 +151,7 @@ impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
         index: NtdsAttributeId,
         function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        self.0.with_value(index, function)
+        self.inner.with_value(index, function)
     }
 }
 
@@ -151,7 +161,7 @@ impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
         index: ColumnIndex,
         function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
-        self.0.with_value(index, function)
+        self.inner.with_value(index, function)
     }
 }
 

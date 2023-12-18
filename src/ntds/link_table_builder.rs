@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use anyhow::{anyhow, bail, ensure, Result};
 
-use crate::cache::{self, ColumnIndex, DataTable, Value, WithValue};
+use crate::cache::{self, ColumnIndex, DataTable, RecordPointer, Value, WithValue};
 use crate::value::FromValue;
 
 use super::LinkTable;
@@ -10,7 +10,7 @@ use super::LinkTable;
 pub(crate) struct LinkTableBuilder<'info, 'db> {
     link_table: cache::Table<'info, 'db, cache::LinkTable>,
     data_table: &'db cache::Table<'info, 'db, DataTable>,
-    schema_record_id: i32,
+    schema_record_id: RecordPointer,
     columns: HashMap<String, i32>,
 }
 
@@ -18,7 +18,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     pub fn from(
         link_table: cache::Table<'info, 'db, cache::LinkTable>,
         data_table: &'db cache::Table<'info, 'db, DataTable>,
-        schema_record_id: i32,
+        schema_record_id: RecordPointer,
     ) -> Result<Self> {
         let columns = Self::read_column_names(&link_table)?;
 
@@ -74,10 +74,10 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
             .unwrap_or(false)
         }) {
             if let Ok(forward_link) = record.with_value(link_dnt_id, |v| {
-                i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+                RecordPointer::from_value(v.unwrap()).map_err(|e| anyhow!(e))
             }) {
                 if let Ok(backward_link) = record.with_value(backward_dnt_id, |v| {
-                    i32::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+                    RecordPointer::from_value(v.unwrap()).map_err(|e| anyhow!(e))
                 }) {
                     forward_map
                         .entry(forward_link)
@@ -136,8 +136,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     }
 
     fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
-        self
-            .data_table
+        self.data_table
             .children_of(self.schema_record_id)
             .find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name)
             .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"))
