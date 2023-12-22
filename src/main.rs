@@ -9,6 +9,8 @@ use libntdsextract2::{
 use simplelog::{Config, TermLogger};
 
 mod cli;
+mod progress_bar;
+
 use cap::Cap;
 use cli::*;
 use std::alloc;

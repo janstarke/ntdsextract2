@@ -13,7 +13,7 @@ pub mod ntds;
 pub mod value;
 pub mod cache;
 pub mod output;
-
+mod progress_bar;
 pub use c_database::*;
 pub use column_information::*;
 pub use entry_id::*;
@@ -23,3 +23,4 @@ pub use esedbinfo::*;
 pub use output_format::*;
 pub use output_options::*;
 pub use serialization::*;
+use progress_bar::*;

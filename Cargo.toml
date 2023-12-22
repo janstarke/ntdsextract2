@@ -54,6 +54,7 @@ getset = "0"
 
 ouroboros = "0"
 cap = "0.1.2"
+indicatif = "0.17"
 
 [dev-dependencies]
 assert_cmd = "2"

@@ -45,7 +45,9 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let mut record_rows = HashMap::new();
         let mut children_of: HashMap<RecordId, HashSet<RecordPointer>> = HashMap::new();
         let mut root = None;
-        for esedb_row_id in 0..info.data_table().count_records()? {
+        let count = info.data_table().count_records()?;
+        let mut bar = crate::create_progressbar("Creating cache for record IDs", count.try_into()?)?;
+        for esedb_row_id in 0..count {
             let record = info.data_table().record(esedb_row_id)?;
             let parent = match RecordId::from_value_opt(&Value::from(record.value(parent_column)?))? {
                 Some(v) => v,
@@ -83,7 +85,10 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                     root = Some(record_ptr);
                 }
             }
+
+            bar.inc(1);
         }
+        bar.finish_and_clear();
 
         Ok(Self {
             records,
