@@ -57,7 +57,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         (0..self.number_of_records).map(|row| self.data_table_record_from(row.into()).unwrap())
     }
 
-    fn data_table_record_from(
+    pub fn data_table_record_from(
         &self,
         row: EsedbRowId,
     ) -> std::io::Result<DataTableRecord<'info, 'db>> {

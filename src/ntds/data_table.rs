@@ -224,20 +224,27 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
         let bar = create_progressbar(
             format!("loading {object_type} records"),
-            (*self.data_table().number_of_records()).try_into()?,
+            (self
+                .data_table()
+                .metadata()
+                .entries_of_type(&type_record_id).count())
+            .try_into()?,
         )?;
 
         for record in self
-            .data_table
-            .iter()
-            .map(|r| {bar.inc(1); r})
-            .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
-            .filter(|dbrecord| dbrecord.att_object_type_id().unwrap() == type_record_id)
-            .map(|dbrecord| O::new(dbrecord, options, self, &self.link_table).unwrap())
+            .data_table()
+            .metadata()
+            .entries_of_type(&type_record_id)
+            .map(|e| {
+                self.data_table()
+                    .data_table_record_from(*e.record_ptr().esedb_row())
+            })
         {
+            let record = O::new(record?, options, self, &self.link_table)?;
             match options.format().unwrap() {
                 OutputFormat::Csv => {
                     csv_wtr.serialize(record)?;
+                    csv_wtr.flush()?;
                 }
                 OutputFormat::Json => {
                     println!("{}", serde_json::to_string_pretty(&record)?);
@@ -246,6 +253,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                     println!("{}", serde_json::to_string(&record)?);
                 }
             }
+            bar.inc(1);
         }
         bar.finish_and_clear();
         drop(csv_wtr);
@@ -290,15 +298,21 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .map(|ptr| self.data_table().find_record(ptr))
             .map(|r| r.map_err(|e| anyhow!(e)))
             .try_for_each(|r| {
-                let _ = r.and_then(|record| {
-                    if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
-                        self.timelines_from_supported_type(record, record_type, options, link_table)
-                    } else {
-                        Vec::<Bodyfile3Line>::try_from(record)
-                    }
-                })?
-                .into_iter()
-                .map(|l| println!("{l}"));
+                let _ = r
+                    .and_then(|record| {
+                        if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
+                            self.timelines_from_supported_type(
+                                record,
+                                record_type,
+                                options,
+                                link_table,
+                            )
+                        } else {
+                            Vec::<Bodyfile3Line>::try_from(record)
+                        }
+                    })?
+                    .into_iter()
+                    .map(|l| println!("{l}"));
                 Ok(())
             })
     }

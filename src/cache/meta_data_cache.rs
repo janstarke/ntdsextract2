@@ -5,6 +5,7 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::value::FromValue;
+use crate::win32_types::Sid;
 use crate::{ntds::NtdsAttributeId, EsedbInfo};
 
 use super::{EsedbRowId, RecordId, RecordPointer, Value};
@@ -16,6 +17,7 @@ pub struct DataEntryCore {
     parent: RecordId,
     object_category: Option<RecordId>,
     rdn: String,
+    sid: Option<Sid>,
 }
 
 lazy_static! {
@@ -39,6 +41,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let parent_column = **info.mapping().index(NtdsAttributeId::DsParentRecordId).id();
         let rdn_column = **info.mapping().index(NtdsAttributeId::AttRdn).id();
         let object_category_column = **info.mapping().index(NtdsAttributeId::AttObjectCategory).id();
+        let sid_column = **info.mapping().index(NtdsAttributeId::AttObjectSid).id();
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
@@ -61,6 +64,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                 None => continue
             };
             let object_category = RecordId::from_value_opt(&Value::from(record.value(object_category_column)?))?;
+            let sid = Sid::from_value_opt(&Value::from(record.value(sid_column)?))?;
 
             let record_ptr = RecordPointer::new(record_id, esedb_row_id.into());
 
@@ -69,7 +73,8 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                 parent,
                 //cn,
                 rdn,
-                object_category
+                object_category,
+                sid
             });
 
             record_rows.insert(record_id, RecordPointer::new(record_id, esedb_row_id.into()));
@@ -134,6 +139,13 @@ impl MetaDataCache {
             .unwrap_or(&EMPTY_HASHSET)
             .iter()
             .map(|ptr| &self[ptr.esedb_row()])
+    }
+
+    pub fn entries_with_rid(&self, rid: u32)  -> impl Iterator<Item = &DataEntryCore> + '_ {
+        self.records.iter().filter(move |r| match r.sid() {
+            Some(sid) => sid.get_rid() == &rid,
+            _ => false
+        })
     }
 
     pub fn entries_of_type(&self, ot: &RecordId) -> impl Iterator<Item = &DataEntryCore> + '_ {

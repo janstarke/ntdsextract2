@@ -73,8 +73,9 @@ where
         let primary_group_id = dbrecord.att_primary_group_id().ok();
         let primary_group = primary_group_id.and_then(|group_id| {
             data_table
-                .data_table()
-                .find_p(RecordHasRid(group_id.try_into().unwrap()))
+                .data_table().metadata().entries_with_rid(group_id.try_into().unwrap())
+                .next() // there should be at most one entry with this rid
+                .map(|e| data_table.data_table().data_table_record_from(*e.record_ptr().esedb_row()).unwrap())
                 .map(|group| group.att_object_name2().unwrap())
         });
 

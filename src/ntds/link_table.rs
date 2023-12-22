@@ -1,8 +1,8 @@
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
-use crate::cache::{self, RecordId};
 use crate::cache::RecordPointer;
+use crate::cache::{self, RecordId};
 use crate::ntds::link_table_builder::LinkTableBuilder;
 
 use super::DataTable;
@@ -20,7 +20,7 @@ impl LinkTable {
     pub fn new<'info, 'db>(
         link_table: cache::LinkTable<'info, 'db>,
         data_table: &cache::DataTable<'info, 'db>,
-        schema_record_id: RecordPointer
+        schema_record_id: RecordPointer,
     ) -> Result<Self> {
         log::info!("reading link information and creating link_table cache");
 
