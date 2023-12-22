@@ -11,23 +11,24 @@ use std::rc::Rc;
 
 use getset::Getters;
 
-use crate::cache;
 use crate::cache::{ColumnIndex, Value};
 use crate::ntds::NtdsAttributeId;
 use crate::EsedbInfo;
 
-use super::EsedbRowId;
+use super::{EsedbRowId, ColumnsOfTable};
 
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct Record<'info, 'db> {
     table_id: &'static str,
-    record_id:  EsedbRowId,
+    record_id: EsedbRowId,
     values: RefCell<HashMap<ColumnIndex, Option<Value>>>,
     count: i32,
     record: libesedb::Record<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
-    columns: Rc<Vec<cache::Column>>,
+
+    // this is needed for `::all_atributes`
+    columns: Rc<ColumnsOfTable>,
 }
 
 impl Eq for Record<'_, '_> {}
@@ -84,7 +85,7 @@ impl<'info, 'db> Record<'info, 'db> {
         table_id: &'static str,
         record_id: EsedbRowId,
         esedbinfo: &'info EsedbInfo<'db>,
-        columns: Rc<Vec<cache::Column>>,
+        columns: Rc<ColumnsOfTable>,
     ) -> std::io::Result<Self> {
         Ok(Self {
             values: Default::default(),

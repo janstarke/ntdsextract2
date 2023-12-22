@@ -1,20 +1,20 @@
+use getset::Getters;
+
+use super::ColumnIndex;
+
+#[derive(Getters)]
+#[getset(get="pub")]
 pub struct Column {
+    index: ColumnIndex,
     name: String,
 }
 
-impl<'a> TryFrom<libesedb::Column<'a>> for Column {
-    type Error = std::io::Error;
-
-    fn try_from(col: libesedb::Column<'a>) -> Result<Self, Self::Error> {
+impl<'a> Column {
+    pub fn new(col: libesedb::Column<'a>, index: ColumnIndex) -> Result<Self, std::io::Error> {
         // log::warn!("caching column {name}", name=col.name()?);
         Ok(Self{
             name: col.name()?,
+            index
         })
-    }
-}
-
-impl Column {
-    pub fn name(&self) -> &str {
-        &self.name[..]
     }
 }

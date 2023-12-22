@@ -7,6 +7,7 @@ mod data_table_record;
 mod error;
 mod from_data_table;
 mod object;
+mod schema;
 
 pub use data_table::*;
 pub use link_table::*;
@@ -16,6 +17,7 @@ pub use data_table_record::*;
 pub use error::*;
 pub use from_data_table::*;
 pub use object::*;
+pub use schema::*;
 
 pub type Person<T> = Object<T, types::Person>;
 pub type Group<T> = Object<T, types::Group>;

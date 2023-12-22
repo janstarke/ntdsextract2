@@ -1,90 +1,67 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{anyhow, bail, ensure, Result};
+use anyhow::{anyhow, ensure, Result};
 
-use crate::cache::{self, ColumnIndex, DataTable, RecordPointer, Value, WithValue};
+use crate::cache::{self, MetaDataCache, RecordId, RecordPointer, Value, WithValue};
 use crate::value::FromValue;
 
 use super::LinkTable;
 
 pub(crate) struct LinkTableBuilder<'info, 'db> {
-    link_table: cache::Table<'info, 'db, cache::LinkTable>,
-    data_table: &'db cache::Table<'info, 'db, DataTable>,
+    link_table: cache::LinkTable<'info, 'db>,
+    data_table: &'db cache::DataTable<'info, 'db>,
     schema_record_id: RecordPointer,
-    columns: HashMap<String, i32>,
 }
 
 impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     pub fn from(
-        link_table: cache::Table<'info, 'db, cache::LinkTable>,
-        data_table: &'db cache::Table<'info, 'db, DataTable>,
+        link_table: cache::LinkTable<'info, 'db>,
+        data_table: &'db cache::DataTable<'info, 'db>,
         schema_record_id: RecordPointer,
     ) -> Result<Self> {
-        let columns = Self::read_column_names(&link_table)?;
-
         Ok(Self {
             link_table,
             data_table,
             schema_record_id,
-            columns,
         })
     }
 
-    fn read_column_names(
-        link_table: &cache::Table<'info, 'db, cache::LinkTable>,
-    ) -> Result<HashMap<String, i32>> {
-        let mut columns = HashMap::new();
-        for index in 0..link_table.count_columns() - 1 {
-            let column = link_table.column(index).unwrap();
-            columns.insert(column.name().to_owned(), index);
-        }
-        Ok(columns)
-    }
-
-    fn column_id(&self, name: &str) -> Result<ColumnIndex> {
-        match self.columns.get(name) {
-            Some(id) => Ok(id.into()),
-            None => bail!("no column by that name: '{name}'"),
-        }
-    }
-    /*
-        fn from_column<I: FromValue>(&self, record: &Record, name: &str) -> Result<I> {
-            let id = self.column_id(name)?;
-            I::from_value(record.value(id)?, name)
-        }
-    */
-    pub fn build(self) -> Result<LinkTable> {
+    pub fn build(self, metadata: &MetaDataCache) -> Result<LinkTable> {
         log::info!("building link table associations");
 
         let (member_link_id, _member_of_link_id) = self.find_member_link_id_pair()?;
         let link_base = member_link_id / 2;
-        let link_dnt_id = self.column_id("link_DNT")?;
-        let backward_dnt_id = self.column_id("backlink_DNT")?;
-        let link_base_id = self.column_id("link_base")?;
+        let link_dnt_id = self.link_table.link_dnt_id();
+        let backlink_dnt_id = self.link_table.backlink_dnt_id();
+        let link_base_id = self.link_table.link_base_id();
 
         let mut forward_map = HashMap::new();
         let mut backward_map = HashMap::new();
 
         for record in self.link_table.iter().filter(|r| {
-            r.with_value(link_base_id, |value| match value {
+            r.with_value(*link_base_id, |value| match value {
                 Some(Value::U32(v)) => Ok(*v == member_link_id),
                 Some(Value::I32(v)) => Ok(u32::try_from(*v).map_or(false, |v| v == link_base)),
                 _ => Ok(false),
             })
             .unwrap_or(false)
         }) {
-            if let Ok(forward_link) = record.with_value(link_dnt_id, |v| {
-                RecordPointer::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+            if let Ok(forward_link) = record.with_value(*link_dnt_id, |v| {
+                RecordId::from_value(v.unwrap())
+                    .map_err(|e| anyhow!(e))
+                    .map(|id| *metadata.ptr_from_id(&id))
             }) {
-                if let Ok(backward_link) = record.with_value(backward_dnt_id, |v| {
-                    RecordPointer::from_value(v.unwrap()).map_err(|e| anyhow!(e))
+                if let Ok(backward_link) = record.with_value(*backlink_dnt_id, |v| {
+                    RecordId::from_value(v.unwrap())
+                        .map_err(|e| anyhow!(e))
+                        .map(|id| *metadata.ptr_from_id(&id))
                 }) {
                     forward_map
-                        .entry(forward_link)
+                        .entry(*forward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
                         .insert(backward_link);
                     backward_map
-                        .entry(backward_link)
+                        .entry(*backward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
                         .insert(forward_link);
                 }

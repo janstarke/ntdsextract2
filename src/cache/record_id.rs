@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use crate::value::FromValue;
 
+use super::RecordPointer;
+
 #[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
 pub struct RecordId(i32);
 
@@ -28,5 +30,11 @@ impl FromValue for RecordId {
 impl RecordId {
     pub fn inner(&self) -> i32 {
         self.0
+    }
+}
+
+impl From<RecordPointer> for RecordId {
+    fn from(value: RecordPointer) -> Self {
+        *value.ds_record_id()
     }
 }

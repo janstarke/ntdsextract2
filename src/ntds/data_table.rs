@@ -1,48 +1,52 @@
+use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::cache::RecordPointer;
+use crate::cache::{FindRecord, RecordPointer};
 use crate::ntds;
-use crate::ntds::FromDataTable;
 use crate::ntds::DataTableRecord;
+use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
 use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
-use crate::serialization::{SerializationType, CsvSerialization};
+use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
 
-use super::{Computer, Group, ObjectType, Person};
+use super::{Computer, Group, ObjectType, Person, Schema};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct DataTable<'info, 'db> {
-    data_table: cache::Table<'info, 'db, cache::DataTable>,
+    data_table: cache::DataTable<'info, 'db>,
     //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: RecordPointer,
     object_tree: Rc<ObjectTreeEntry>,
     link_table: Rc<LinkTable>,
+    schema: Schema,
 }
 
 impl<'info, 'db> DataTable<'info, 'db> {
     /// create a new datatable wrapper
     pub fn new(
-        data_table: cache::Table<'info, 'db, cache::DataTable>,
+        data_table: cache::DataTable<'info, 'db>,
         object_tree: Rc<ObjectTreeEntry>,
         schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
+        schema: Schema,
     ) -> Result<Self> {
         Ok(Self {
             data_table,
             schema_record_id,
             object_tree,
             link_table,
+            schema,
         })
     }
 
@@ -52,17 +56,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
     ) -> anyhow::Result<Option<DataTableRecord<'info, 'db>>> {
         let mut records = self.find_type_records(hashset! {object_type})?;
         Ok(records.remove(&object_type))
-    }
-
-    pub fn find_all_type_names(&self) -> anyhow::Result<HashMap<RecordPointer, String>> {
-        let mut type_records = HashMap::new();
-        for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.att_object_name2()?.to_owned();
-
-            type_records.insert(dbrecord.ds_record_id()?, object_name2);
-        }
-        log::info!("found all required type definitions");
-        Ok(type_records)
     }
 
     pub fn find_type_records(
@@ -107,12 +100,18 @@ impl<'info, 'db> DataTable<'info, 'db> {
         self.show_typed_objects::<Group<T>>(options, ObjectType::Group)
     }
 
-    pub fn show_computers<T: SerializationType>(&self, options: &OutputOptions) -> anyhow::Result<()> {
+    pub fn show_computers<T: SerializationType>(
+        &self,
+        options: &OutputOptions,
+    ) -> anyhow::Result<()> {
         log::debug!("show_computers()");
         self.show_typed_objects::<Computer<T>>(options, ObjectType::Computer)
     }
 
-    pub fn show_type_names<T>(&self, options: &OutputOptions) -> anyhow::Result<()> where T: SerializationType {
+    pub fn show_type_names<T>(&self, options: &OutputOptions) -> anyhow::Result<()>
+    where
+        T: SerializationType,
+    {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
             let object_name2 = dbrecord.att_object_name2()?.to_owned();
@@ -138,7 +137,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
     pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
         let record = match entry_id {
-            EntryId::Id(id) => self.data_table.find_by_id(id.into()),
+            EntryId::Id(id) => self.data_table.find_record(&id).ok(),
             EntryId::Rid(rid) => self.data_table.find_p(RecordHasRid(rid)),
         };
 
@@ -210,7 +209,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    fn show_typed_objects<O: ntds::FromDataTable>(
+    pub fn show_typed_objects<O: ntds::FromDataTable>(
         &self,
         options: &OutputOptions,
         object_type: ObjectType,
@@ -247,31 +246,93 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
+    fn timelines_from_supported_type(
+        &self,
+        record: DataTableRecord,
+        record_type: &ObjectType,
+        options: &OutputOptions,
+        link_table: &LinkTable,
+    ) -> anyhow::Result<Vec<Bodyfile3Line>> {
+        Ok(match record_type {
+            ObjectType::Person => Vec::<Bodyfile3Line>::from(Person::<CsvSerialization>::new(
+                record, options, self, link_table,
+            )?),
+            ObjectType::Group => Vec::<Bodyfile3Line>::from(Group::<CsvSerialization>::new(
+                record, options, self, link_table,
+            )?),
+            ObjectType::Computer => Vec::<Bodyfile3Line>::from(Computer::<CsvSerialization>::new(
+                record, options, self, link_table,
+            )?),
+        })
+    }
+
+    fn show_timeline_for_records<'a>(
+        &self,
+        options: &OutputOptions,
+        link_table: &LinkTable,
+        records: impl Iterator<Item = &'a RecordPointer>,
+    ) -> anyhow::Result<()> {
+        let known_types: HashMap<_, _> = self
+            .schema
+            .supported_type_entries()
+            .iter()
+            .map(|(ot, ptr)| (ptr.ds_record_id(), ot))
+            .collect();
+
+        records
+            .map(|ptr| self.data_table().find_record(ptr))
+            .map(|r| r.map_err(|e| anyhow!(e)))
+            .try_for_each(|r| {
+                r.and_then(|record| {
+                    if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
+                        self.timelines_from_supported_type(record, record_type, options, link_table)
+                    } else {
+                        Vec::<Bodyfile3Line>::try_from(record)
+                    }
+                })?
+                .into_iter()
+                .map(|l| println!("{l}"));
+                Ok(())
+            })
+    }
+
     pub fn show_timeline(
         &self,
         options: &OutputOptions,
         link_table: &LinkTable,
     ) -> anyhow::Result<()> {
-        let type_records = self.find_type_records(hashset! {
-        ObjectType::Person,
-        ObjectType::Computer})?;
-
-        let type_record_ids = if *options.show_all_objects() {
-            None
-        } else {
-            Some(
-                type_records
-                    .iter()
-                    .map(|(type_name, dbrecord)| {
-                        (
-                            dbrecord.ds_record_id().expect("unable to read record id"),
-                            *type_name,
-                        )
-                    })
-                    .collect::<HashMap<RecordPointer, ObjectType>>(),
+        if *options.show_all_objects() {
+            self.show_timeline_for_records(
+                options,
+                link_table,
+                self.data_table()
+                    .metadata()
+                    .entries_of_types(
+                        self.schema
+                            .all_type_entries()
+                            .iter()
+                            .map(|e| *e.ds_record_id())
+                            .collect(),
+                    )
+                    .map(|e| e.record_ptr()),
             )
-        };
-
+        } else {
+            self.show_timeline_for_records(
+                options,
+                link_table,
+                self.data_table()
+                    .metadata()
+                    .entries_of_types(
+                        self.schema
+                            .supported_type_entries()
+                            .values()
+                            .map(|e| *e.ds_record_id())
+                            .collect(),
+                    )
+                    .map(|e| e.record_ptr()),
+            )
+        }
+        /*
         for bf_lines in self
             .data_table
             .iter()
@@ -284,7 +345,9 @@ impl<'info, 'db> DataTable<'info, 'db> {
                     match record_ids.get(&current_type_id) {
                         Some(type_name) => {
                             if *type_name == ObjectType::Person {
-                                match Person::<CsvSerialization>::new(dbrecord, options, self, link_table) {
+                                match Person::<CsvSerialization>::new(
+                                    dbrecord, options, self, link_table,
+                                ) {
                                     Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
@@ -292,7 +355,9 @@ impl<'info, 'db> DataTable<'info, 'db> {
                                     }
                                 }
                             } else if *type_name == ObjectType::Computer {
-                                match Computer::<CsvSerialization>::new(dbrecord, options, self, link_table) {
+                                match Computer::<CsvSerialization>::new(
+                                    dbrecord, options, self, link_table,
+                                ) {
                                     Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
                                     Err(why) => {
                                         log::error!("unable to parse person: {why}");
@@ -314,5 +379,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
             println!("{}", bf_lines)
         }
         Ok(())
+         */
     }
 }

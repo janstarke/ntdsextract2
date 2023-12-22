@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use super::RecordPointer;
+
 #[derive(Eq, PartialEq, Hash, Copy, Clone, Default, Debug)]
 pub struct EsedbRowId(i32);
 
@@ -22,5 +24,11 @@ impl EsedbRowId {
 
     pub fn step(&mut self) {
         self.0 += 1;
+    }
+}
+
+impl From<RecordPointer> for EsedbRowId {
+    fn from(value: RecordPointer) -> Self {
+        *value.esedb_row()
     }
 }

@@ -1,4 +1,4 @@
-use crate::{cache::RecordPointer, ntds::DataTableRecord};
+use crate::{cache::RecordId, ntds::DataTableRecord};
 
 pub trait RecordPredicate<'info, 'db> {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool;
@@ -15,7 +15,7 @@ impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasRid {
     }
 }
 
-pub struct RecordHasParent(pub RecordPointer);
+pub struct RecordHasParent(pub RecordId);
 
 impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasParent {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool {

@@ -53,6 +53,7 @@ lazy-regex = "3"
 getset = "0"
 
 ouroboros = "0"
+cap = "0.1.2"
 
 [dev-dependencies]
 assert_cmd = "2"

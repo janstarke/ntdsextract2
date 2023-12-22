@@ -1,18 +1,18 @@
-use std::{cell::RefCell, collections::HashMap, fmt::Display, hash::Hash, rc::Rc};
+use anyhow::anyhow;
+use std::{cell::RefCell, fmt::Display, hash::Hash, rc::Rc};
 
 use getset::Getters;
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::cache::{self, DataTable, RecordPointer};
-use anyhow::{bail, Result};
+use crate::cache::{MetaDataCache, RecordPointer, SpecialRecords};
 
 /// represents an object in the DIT
 #[derive(Getters)]
-#[getset(get="pub")]
+#[getset(get = "pub")]
 pub struct ObjectTreeEntry {
     name: String,
-    id: RecordPointer,
+    record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
 }
@@ -21,28 +21,26 @@ impl Eq for ObjectTreeEntry {}
 
 impl PartialEq for ObjectTreeEntry {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.id == other.id
+        self.name == other.name && self.record_ptr == other.record_ptr
     }
 }
 
 impl Hash for ObjectTreeEntry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
-        self.id.hash(state);
+        self.record_ptr.hash(state);
     }
 }
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (id={})", self.name, self.id)
+        write!(f, "{} (id={})", self.name, self.record_ptr)
     }
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from(
-        data_table: &cache::Table<'_, '_, DataTable>,
-    ) -> Result<Rc<ObjectTreeEntry>> {
-        Self::populate_object_tree(data_table)
+    pub(crate) fn from(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
+        Self::populate_object_tree(metadata)
     }
 
     pub fn get(&self, rdn: &str) -> Option<Rc<Self>> {
@@ -93,77 +91,70 @@ impl ObjectTreeEntry {
             }
         }
     */
-    fn populate_object_tree(
-        data_table: &cache::Table<'_, '_, DataTable>,
-    ) -> Result<Rc<ObjectTreeEntry>> {
+    fn populate_object_tree(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-
-        //let mut downlinks = HashMap::new();
-        let mut uplinks = HashMap::new();
-        let mut names = HashMap::new();
-
-        for record in data_table.iter() {
-            let id = record.ds_record_id()?;
-            let parent_id = record.ds_parent_record_id()?;
-            let name = record.att_object_name2()?.to_owned();
-
-            names.insert(id, name);
-            uplinks.insert(id, parent_id.into());
-            /*
-            downlinks
-                .entry(parent_id)
-                .or_insert_with(HashSet::new)
-                .insert(id);
-             */
-        }
-
-        log::debug!("found {} entries in the DIT", names.len());
-        log::debug!("ordering those elements in a tree structure now");
-
-        Self::create_tree_node(None, &uplinks, &mut names)
+        Self::create_tree_node(metadata.root(), &metadata)
     }
 
     fn create_tree_node(
-        object_id: Option<&RecordPointer>,
-        uplinks: &HashMap<RecordPointer, RecordPointer>,
-        names: &mut HashMap<RecordPointer, String>,
-    ) -> Result<Rc<ObjectTreeEntry>> {
-        match object_id {
-            None => {
-                let mut children = uplinks
-                    .iter()
-                    .filter(|(_, parent)| parent.ds_record_id().inner() == 0);
-                match children.next() {
-                    None => bail!("missing root object"),
-                    Some((root, _)) => {
-                        if children.next().is_some() {
-                            bail!("more than one root object found");
-                        }
-                        Self::create_tree_node(Some(root), uplinks, names)
-                    }
+        record_ptr: &RecordPointer,
+        metadata: &MetaDataCache,
+    ) -> Rc<ObjectTreeEntry> {
+        let name = metadata[record_ptr].rdn().to_owned();
+        let children = metadata
+            .children_of(record_ptr)
+            .map(|c| Self::create_tree_node(c.record_ptr(), metadata))
+            .collect();
+        Rc::new(ObjectTreeEntry {
+            name,
+            record_ptr: *record_ptr,
+            children: RefCell::new(children),
+        })
+    }
+
+    pub fn get_special_records(root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
+        log::info!("obtaining special record ids");
+
+        // search downward until we find a `Configuration` entry
+        let configuration_path = ObjectTreeEntry::find_first_in_tree(&root, "Configuration")
+            .ok_or(anyhow!("db has no `Configuration` entry"))?;
+
+        let schema_subpath = configuration_path[0]
+            .find_child_by_name("Schema")
+            .ok_or(anyhow!("db has no `Schema` entry"))?;
+
+        let deleted_objects_subpath = configuration_path[0]
+            .find_child_by_name("Deleted Objects")
+            .ok_or(anyhow!("db has no `Deleted Objects` entry"))?;
+
+        Ok(SpecialRecords::new(schema_subpath, deleted_objects_subpath))
+    }
+
+    pub fn find_first_in_tree(
+        root: &Rc<ObjectTreeEntry>,
+        name: &str,
+    ) -> Option<Vec<Rc<ObjectTreeEntry>>> {
+        if root.name() == name {
+            Some(vec![Rc::clone(root)])
+        } else {
+            for child in root.children().borrow().iter() {
+                if let Some(mut path) = Self::find_first_in_tree(child, name) {
+                    path.push(Rc::clone(root));
+                    return Some(path);
                 }
             }
-
-            Some(object_id) => {
-                let name = names
-                    .get(&object_id)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("missing name for object with id '{object_id}'")
-                    })?
-                    .to_owned();
-
-                let children: Result<HashSet<Rc<Self>>> = uplinks
-                    .iter()
-                    .filter(|(_, parent)| *parent == object_id)
-                    .map(|(c, _)| Self::create_tree_node(Some(c), uplinks, names))
-                    .collect();
-                Ok(Rc::new(ObjectTreeEntry {
-                    name,
-                    id: *object_id,
-                    //parent: parent.and_then(|p| Some(Rc::downgrade(p))),
-                    children: RefCell::new(children?),
-                }))
-            }
+            None
         }
+    }
+
+    pub fn find_child_by_name(
+        &self,
+        name: &str,
+    ) -> Option<Rc<ObjectTreeEntry>> {
+        self.children()
+            .borrow()
+            .iter()
+            .find(|e| e.name() == name)
+            .map(|e| Rc::clone(e))
     }
 }

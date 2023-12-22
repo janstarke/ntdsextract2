@@ -6,6 +6,8 @@ mod column_index;
 mod record_pointer;
 mod record_id;
 mod esedb_row_id;
+mod meta_data_cache;
+mod columns_of_table;
 
 pub use record::*;
 pub use table::*;
@@ -15,3 +17,5 @@ pub use column_index::*;
 pub use record_pointer::*;
 pub use record_id::*;
 pub use esedb_row_id::*;
+pub use meta_data_cache::*;
+pub use columns_of_table::*;

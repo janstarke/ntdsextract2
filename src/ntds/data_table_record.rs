@@ -1,4 +1,4 @@
-use crate::cache::{self, EsedbRowId, RecordPointer};
+use crate::cache::{self, EsedbRowId, RecordId};
 use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
@@ -10,12 +10,11 @@ use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use std::collections::HashMap;
-use std::ops::Deref;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
 pub struct DataTableRecord<'info, 'db> {
-    inner: &'db cache::Record<'info, 'db>,
+    inner: cache::Record<'info, 'db>,
     row: EsedbRowId,
 }
 
@@ -40,7 +39,7 @@ macro_rules! record_attribute {
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
-    pub fn new(inner: &'db cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
+    pub fn new(inner: cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
         Self {
             inner,
             row
@@ -75,22 +74,15 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
         })
     }
 
-    pub fn ds_record_id(&self) -> anyhow::Result<RecordPointer> {
-        Ok(RecordPointer::new(
-            self.get_value(NtdsAttributeId::DsRecordId)?,
-            self.row,
-        ))
-    }
-
-    //record_attribute!(ds_record_id, DsRecordId, RecordId);
-    record_attribute!(object_category, AttObjectCategory, RecordPointer);
-    record_attribute!(ds_parent_record_id, DsParentRecordId, RecordPointer);
+    record_attribute!(ds_record_id, DsRecordId, RecordId);
+    record_attribute!(object_category, AttObjectCategory, RecordId);
+    record_attribute!(ds_parent_record_id, DsParentRecordId, RecordId);
     record_attribute!(ds_record_time, DsRecordTime, TruncatedWindowsFileTime);
     record_attribute!(ds_ancestors, DsAncestors, i32);
     record_attribute!(att_object_sid, AttObjectSid, Sid);
     record_attribute!(att_when_created, AttWhenCreated, TruncatedWindowsFileTime);
     record_attribute!(att_when_changed, AttWhenChanged, TruncatedWindowsFileTime);
-    record_attribute!(att_object_type_id, AttObjectCategory, RecordPointer);
+    record_attribute!(att_object_type_id, AttObjectCategory, RecordId);
     record_attribute!(att_object_name, AttCommonName, String);
     record_attribute!(att_object_name2, AttRdn, String);
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
@@ -134,7 +126,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
             .iter()
             .map(|(k, v)| {
                 (
-                    self.inner.columns()[*(k.deref()) as usize].name().to_owned(),
+                    self.inner.columns()[k].name().to_owned(),
                     match v {
                         Some(x) => format!("{x}"),
                         None => "".to_owned(),

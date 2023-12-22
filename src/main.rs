@@ -9,23 +9,26 @@ use libntdsextract2::{
 use simplelog::{Config, TermLogger};
 
 mod cli;
+use cap::Cap;
 use cli::*;
+use std::alloc;
 
 macro_rules! do_with_serialization {
     ($cmd: expr, $db: expr, $function: ident, $options: expr) => {
         if $cmd.flat_serialization() {
-            $db
-                .data_table()
-                .$function::<CsvSerialization>($options)
+            $db.$function::<CsvSerialization>($options)
         } else {
-            $db
-                .data_table()
-                .$function::<JsonSerialization>($options)
+            $db.$function::<JsonSerialization>($options)
         }
     };
 }
 
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+
 fn main() -> Result<()> {
+    ALLOCATOR.set_limit(4096 * 1024 * 1024).unwrap();
+
     let cli = Args::parse();
     let _ = TermLogger::init(
         cli.verbose.log_level_filter(),
@@ -50,28 +53,30 @@ fn main() -> Result<()> {
     options.set_format(cli.command.format());
 
     match &cli.command {
-        Commands::Group { .. } => 
-            do_with_serialization!(cli.command, database, show_groups, &options),
-        Commands::User { .. } => 
-        do_with_serialization!(cli.command, database, show_users, &options),
-        Commands::Computer { .. } => 
-        do_with_serialization!(cli.command, database, show_computers, &options),
-        Commands::Types { .. } => 
-        do_with_serialization!(cli.command, database, show_type_names, &options),
+        Commands::Group { .. } => {
+            do_with_serialization!(cli.command, database, show_groups, &options)
+        }
+        Commands::User { .. } => {
+            do_with_serialization!(cli.command, database, show_users, &options)
+        }
+        Commands::Computer { .. } => {
+            do_with_serialization!(cli.command, database, show_computers, &options)
+        }
+        Commands::Types { .. } => {
+            do_with_serialization!(cli.command, database, show_type_names, &options)
+        }
         Commands::Timeline { all_objects } => {
             options.set_show_all_objects(*all_objects);
-            database
-                .data_table()
-                .show_timeline(&options, database.link_table())
+            database.show_timeline(&options)
         }
-        Commands::Tree { max_depth } => Ok(database.data_table().show_tree(*max_depth)?),
+        Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
         Commands::Entry { entry_id, use_sid } => {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {
                 EntryId::Id((*entry_id).into())
             };
-            Ok(database.data_table().show_entry(id)?)
+            Ok(database.show_entry(id)?)
         }
         Commands::Search { regex, ignore_case } => {
             let regex = if *ignore_case {
@@ -79,7 +84,7 @@ fn main() -> Result<()> {
             } else {
                 regex.to_owned()
             };
-            database.data_table().search_entries(&regex)
+            database.search_entries(&regex)
         }
     }
 }
