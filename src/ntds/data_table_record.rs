@@ -15,7 +15,7 @@ use term_table::table_cell::{Alignment, TableCell};
 
 pub struct DataTableRecord<'info, 'db> {
     inner: cache::Record<'info, 'db>,
-    row: EsedbRowId,
+    _row: EsedbRowId,
 }
 
 macro_rules! record_attribute {
@@ -42,7 +42,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     pub fn new(inner: cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
         Self {
             inner,
-            row
+            _row: row
         }
     }
 

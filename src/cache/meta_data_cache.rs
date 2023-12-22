@@ -6,7 +6,6 @@ use lazy_static::lazy_static;
 
 use crate::value::FromValue;
 use crate::{ntds::NtdsAttributeId, EsedbInfo};
-use crate::ntds::Error;
 
 use super::{EsedbRowId, RecordId, RecordPointer, Value};
 
@@ -46,7 +45,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let mut children_of: HashMap<RecordId, HashSet<RecordPointer>> = HashMap::new();
         let mut root = None;
         let count = info.data_table().count_records()?;
-        let mut bar = crate::create_progressbar("Creating cache for record IDs", count.try_into()?)?;
+        let bar = crate::create_progressbar("Creating cache for record IDs".to_string(), count.try_into()?)?;
         for esedb_row_id in 0..count {
             let record = info.data_table().record(esedb_row_id)?;
             let parent = match RecordId::from_value_opt(&Value::from(record.value(parent_column)?))? {

@@ -10,6 +10,7 @@ use crate::ntds::LinkTable;
 use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
+use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
 use bodyfile::Bodyfile3Line;
@@ -221,10 +222,15 @@ impl<'info, 'db> DataTable<'info, 'db> {
         log::info!("found type record with id {type_record_id}");
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        let bar = create_progressbar(
+            format!("loading {object_type} records"),
+            (*self.data_table().number_of_records()).try_into()?,
+        )?;
 
         for record in self
             .data_table
             .iter()
+            .map(|r| {bar.inc(1); r})
             .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
             .filter(|dbrecord| dbrecord.att_object_type_id().unwrap() == type_record_id)
             .map(|dbrecord| O::new(dbrecord, options, self, &self.link_table).unwrap())
@@ -241,6 +247,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 }
             }
         }
+        bar.finish_and_clear();
         drop(csv_wtr);
 
         Ok(())
@@ -283,7 +290,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .map(|ptr| self.data_table().find_record(ptr))
             .map(|r| r.map_err(|e| anyhow!(e)))
             .try_for_each(|r| {
-                r.and_then(|record| {
+                let _ = r.and_then(|record| {
                     if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
                         self.timelines_from_supported_type(record, record_type, options, link_table)
                     } else {

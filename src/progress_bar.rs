@@ -1,5 +1,7 @@
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
-pub(crate) fn create_progressbar(message: &'static str, count: u64) -> anyhow::Result<ProgressBar> {
+
+#[allow(dead_code)]
+pub(crate) fn create_progressbar(message: String, count: u64) -> anyhow::Result<ProgressBar> {
     let bar = indicatif::ProgressBar::new(count);
     let target = ProgressDrawTarget::stderr_with_hz(10);
     bar.set_draw_target(target);

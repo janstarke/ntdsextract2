@@ -4,7 +4,7 @@ use crate::{
     cache::{self, MetaDataCache},
     ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema},
     object_tree_entry::ObjectTreeEntry,
-    EsedbInfo, OutputOptions, SerializationType, EntryId,
+    EsedbInfo, OutputOptions, SerializationType, EntryId, progress_bar::create_progressbar,
 };
 
 pub struct CDatabase<'info, 'db> {
@@ -15,11 +15,13 @@ pub struct CDatabase<'info, 'db> {
 
 impl<'info, 'db> CDatabase<'info, 'db> {
     pub fn new(esedbinfo: &'info EsedbInfo<'db>) -> anyhow::Result<Self> {
-        log::info!("creating cache for ntds metadata");
         let metadata_cache = MetaDataCache::try_from(esedbinfo)?;
 
-        log::info!("reading schema information and creating record cache");
+        let bar = create_progressbar("Loading data".to_string(), 5)?;
+
+        bar.set_message("reading schema information and creating record cache");
         let object_tree = ObjectTreeEntry::from(&metadata_cache);
+        bar.inc(1);
 
         let special_records = ObjectTreeEntry::get_special_records(Rc::clone(&object_tree))?;
         let schema_record_id = special_records.schema().record_ptr();
@@ -27,19 +29,25 @@ impl<'info, 'db> CDatabase<'info, 'db> {
 
         let schema = Schema::new(&metadata_cache, &special_records);
 
+        bar.set_message("loading data table");
         let cached_data_table =
             cache::DataTable::new(esedbinfo.data_table(), "datatable", esedbinfo, metadata_cache)?;
-        log::info!("cached data_table");
+        bar.inc(1);
 
+        bar.set_message("loading link table");
         let cached_link_table =
             cache::LinkTable::try_from(esedbinfo.link_table(), "link_table", esedbinfo)?;
-        log::info!("cached link_table");
+        bar.inc(1);
 
+        bar.set_message("creating link table object");
         let link_table = Rc::new(LinkTable::new(
             cached_link_table,
             &cached_data_table,
             *schema_record_id
         )?);
+        bar.inc(1);
+
+        bar.set_message("creating data table object");
         let data_table = DataTable::new(
             cached_data_table,
             object_tree,
@@ -47,6 +55,9 @@ impl<'info, 'db> CDatabase<'info, 'db> {
             Rc::clone(&link_table),
             schema
         )?;
+        bar.inc(1);
+
+        bar.finish_and_clear();
         Ok(Self {
             _esedbinfo: esedbinfo,
             link_table,
