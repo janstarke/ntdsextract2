@@ -1,4 +1,4 @@
-use crate::{cache::RecordId, ntds::DataTableRecord};
+use crate::{cache::RecordId, ntds::DataTableRecord, win32_types::NameWithGuid};
 
 pub trait RecordPredicate<'info, 'db> {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool;
@@ -31,7 +31,7 @@ impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasParent {
     }
 }
 
-pub struct RecordHasAttRdn(pub &'static str);
+pub struct RecordHasAttRdn(pub NameWithGuid);
 
 impl<'info, 'db> RecordPredicate<'info, 'db> for RecordHasAttRdn {
     fn matches(&self, record: &DataTableRecord<'info, 'db>) -> bool {

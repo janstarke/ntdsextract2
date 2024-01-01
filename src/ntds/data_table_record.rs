@@ -4,7 +4,7 @@ use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
 use crate::win32_types::TimelineEntry;
 use crate::win32_types::{
-    SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
+    NameWithGuid, SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
 };
 use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
@@ -84,7 +84,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_when_changed, AttWhenChanged, TruncatedWindowsFileTime);
     record_attribute!(att_object_type_id, AttObjectCategory, RecordId);
     record_attribute!(att_object_name, AttCommonName, String);
-    record_attribute!(att_object_name2, AttRdn, String);
+    record_attribute!(att_object_name2, AttRdn, NameWithGuid);
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
     record_attribute!(att_sam_account_type, AttSamAccountType, SamAccountType);
     record_attribute!(att_user_principal_name, AttUserPrincipalName, String);

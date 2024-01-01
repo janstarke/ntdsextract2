@@ -115,7 +115,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
     fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
         self.data_table
             .children_of(self.schema_record_id)
-            .find(|r| &r.att_object_name2().expect("missing object_name2") == attribute_name)
+            .find(|r| r.att_object_name2().expect("missing object_name2").name() == attribute_name)
             .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"))
             .att_link_id()
     }

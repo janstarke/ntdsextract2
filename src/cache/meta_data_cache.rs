@@ -5,7 +5,7 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::value::FromValue;
-use crate::win32_types::Sid;
+use crate::win32_types::{Sid, NameWithGuid};
 use crate::{ntds::NtdsAttributeId, EsedbInfo};
 
 use super::{EsedbRowId, RecordId, RecordPointer, Value};
@@ -16,7 +16,7 @@ pub struct DataEntryCore {
     record_ptr: RecordPointer,
     parent: RecordId,
     object_category: Option<RecordId>,
-    rdn: String,
+    rdn: NameWithGuid,
     sid: Option<Sid>,
 }
 
@@ -67,7 +67,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                     Some(v) => v,
                     None => continue,
                 };
-            let rdn = match String::from_value_opt(&Value::from(record.value(rdn_column)?))? {
+            let rdn = match NameWithGuid::from_value_opt(&Value::from(record.value(rdn_column)?))? {
                 Some(v) => v,
                 None => continue,
             };

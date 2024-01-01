@@ -1,28 +1,25 @@
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
-use crate::SerializationType;
+use crate::{win32_types::NameWithGuid, SerializationType};
 
-pub struct StringSet<T: SerializationType>(Vec<String>, PhantomData<T>);
+pub struct StringSet<T: SerializationType>(Vec<NameWithGuid>, PhantomData<T>);
 
-impl<'a, T> From<Vec<&'a str>> for StringSet<T>
+impl<'a, T> From<Vec<&'a NameWithGuid>> for StringSet<T>
 where
     T: SerializationType,
 {
-    fn from(value: Vec<&'a str>) -> Self {
-        Self(
-            value.into_iter().map(|s| s.to_owned()).collect(),
-            PhantomData,
-        )
+    fn from(value: Vec<&'a NameWithGuid>) -> Self {
+        Self(value.into_iter().cloned().collect(), PhantomData)
     }
 }
 
-impl<T> From<Vec<String>> for StringSet<T>
+impl<T> From<Vec<NameWithGuid>> for StringSet<T>
 where
     T: SerializationType,
 {
-    fn from(value: Vec<String>) -> Self {
+    fn from(value: Vec<NameWithGuid>) -> Self {
         Self(value, PhantomData)
     }
 }
@@ -35,7 +32,11 @@ where
     where
         S: serde::Serializer,
     {
-        T::serialize(self.0.iter().map(|s| &s[..]), serializer)
+        let mut ser = serializer.serialize_seq(Some(self.0.len()))?;
+        for s in self.0.iter() {
+            ser.serialize_element(s)?;
+        }
+        ser.end()
     }
 }
 
@@ -55,7 +56,7 @@ where
 mod tests {
     use serde::Serialize;
 
-    use crate::{CsvSerialization, JsonSerialization};
+    use crate::{win32_types::NameWithGuid, CsvSerialization, JsonSerialization};
 
     use super::{SerializationType, StringSet};
 
@@ -70,7 +71,11 @@ mod tests {
         T: SerializationType,
     {
         SampleRecord {
-            data: StringSet::<T>::from(vec!["a", "b", "c"]),
+            data: StringSet::<T>::from(vec![
+                NameWithGuid::try_from("a").unwrap(),
+                NameWithGuid::try_from("b").unwrap(),
+                NameWithGuid::try_from("c").unwrap(),
+            ]),
         }
     }
 

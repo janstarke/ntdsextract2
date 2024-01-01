@@ -2,7 +2,7 @@ use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry};
+use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry, NameWithGuid};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
 use crate::{OutputOptions, SerializationType, StringSet};
 
@@ -20,7 +20,7 @@ where
 {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
-    rdn: Option<String>,
+    rdn: Option<NameWithGuid>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
@@ -33,7 +33,7 @@ where
     #[allow(dead_code)]
     primary_group_id: Option<i32>,
 
-    primary_group: Option<String>,
+    primary_group: Option<NameWithGuid>,
 
     //aduser_objects: Option<String>,
     member_of: StringSet<T>,
@@ -125,29 +125,33 @@ where
 {
     fn from(obj: Object<T, O>) -> Self {
         let object_type = O::object_type();
-        if let Some(upn) = obj.sam_account_name.as_ref().or(obj.rdn.as_ref()) {
+        let upn = match obj.sam_account_name() {
+            Some(n) => Some(n.to_string()),
+            None => obj.rdn().as_ref().map(|n| n.to_string())
+        };
+        if let Some(upn) = upn {
             vec![
                 obj.record_time()
                     .as_ref()
-                    .map(|ts| ts.cr_entry(upn, "record creation time", object_type)),
+                    .map(|ts| ts.cr_entry(&upn, "record creation time", object_type)),
                 obj.when_created()
                     .as_ref()
-                    .map(|ts| ts.cr_entry(upn, "object created", object_type)),
+                    .map(|ts| ts.cr_entry(&upn, "object created", object_type)),
                 obj.when_changed()
                     .as_ref()
-                    .map(|ts| ts.c_entry(upn, "object changed", object_type)),
+                    .map(|ts| ts.c_entry(&upn, "object changed", object_type)),
                 obj.last_logon()
                     .as_ref()
-                    .map(|ts| ts.a_entry(upn, "last logon on this DC", object_type)),
+                    .map(|ts| ts.a_entry(&upn, "last logon on this DC", object_type)),
                 obj.last_logon_time_stamp()
                     .as_ref()
-                    .map(|ts| ts.c_entry(upn, "last logon on any DC", object_type)),
+                    .map(|ts| ts.c_entry(&upn, "last logon on any DC", object_type)),
                 obj.bad_pwd_time()
                     .as_ref()
-                    .map(|ts| ts.c_entry(upn, "bad pwd time", object_type)),
+                    .map(|ts| ts.c_entry(&upn, "bad pwd time", object_type)),
                 obj.password_last_set()
                     .as_ref()
-                    .map(|ts| ts.m_entry(upn, "password last set", object_type)),
+                    .map(|ts| ts.m_entry(&upn, "password last set", object_type)),
             ]
             .into_iter()
             .flatten()

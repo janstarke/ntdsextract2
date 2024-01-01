@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{SerializationType, StringSet};
+use crate::{SerializationType, StringSet, win32_types::NameWithGuid};
 
 pub struct CsvSerialization;
 
@@ -21,7 +21,10 @@ impl SerializationType for CsvSerialization {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        let parts: Vec<_> = s.split(',').collect();
+        let mut parts = Vec::new();
+        for s in s.split(',') {
+            parts.push(NameWithGuid::try_from(s).unwrap())
+        }
         Ok(parts.into())
     }
 }

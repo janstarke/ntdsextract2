@@ -5,13 +5,13 @@ use getset::Getters;
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::cache::{MetaDataCache, RecordPointer, SpecialRecords};
+use crate::{cache::{MetaDataCache, RecordPointer, SpecialRecords}, win32_types::NameWithGuid};
 
 /// represents an object in the DIT
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct ObjectTreeEntry {
-    name: String,
+    name: NameWithGuid,
     record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
@@ -34,7 +34,7 @@ impl Hash for ObjectTreeEntry {
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (id={})", self.name, self.record_ptr)
+        write!(f, "{} ({})", self.name, self.record_ptr)
     }
 }
 
@@ -47,7 +47,7 @@ impl ObjectTreeEntry {
         log::debug!("searching for {rdn}");
         for child in self.children.borrow().iter() {
             log::debug!("  candidate is {}", child.name);
-            if child.name == rdn {
+            if child.name.name() == rdn {
                 return Some(Rc::clone(child));
             }
         }
@@ -134,7 +134,7 @@ impl ObjectTreeEntry {
         root: &Rc<ObjectTreeEntry>,
         name: &str,
     ) -> Option<Vec<Rc<ObjectTreeEntry>>> {
-        if root.name() == name {
+        if root.name().name() == name {
             Some(vec![Rc::clone(root)])
         } else {
             for child in root.children().borrow().iter() {
@@ -154,7 +154,7 @@ impl ObjectTreeEntry {
         self.children()
             .borrow()
             .iter()
-            .find(|e| e.name() == name)
+            .find(|e| e.name().name() == name)
             .map(Rc::clone)
     }
 }

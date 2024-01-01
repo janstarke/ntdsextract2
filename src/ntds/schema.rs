@@ -19,7 +19,7 @@ impl Schema {
         let mut supported_type_entries = HashMap::new();
         let mut all_type_entries = HashSet::new();
         for record in metadata.children_of(special_records.schema().record_ptr()) {
-            if let Ok(object_type) = ObjectType::try_from(&record.rdn()[..]) {
+            if let Ok(object_type) = ObjectType::try_from(&record.rdn().name()[..]) {
                 supported_type_entries.insert(object_type, *record.record_ptr());
             }
             all_type_entries.insert(*record.record_ptr());

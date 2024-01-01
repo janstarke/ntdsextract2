@@ -14,7 +14,6 @@ use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
 use bodyfile::Bodyfile3Line;
-use csv::QuoteStyle;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
@@ -116,7 +115,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
     {
         let mut type_names = HashSet::new();
         for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.att_object_name2()?.to_owned();
+            let object_name2 = dbrecord.att_object_name2()?.to_string();
 
             type_names.insert(object_name2);
 
@@ -127,7 +126,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let names = self
             .data_table
             .children_of(self.schema_record_id)
-            .map(|dbrecord| dbrecord.att_object_name2().unwrap().to_owned());
+            .map(|dbrecord| dbrecord.att_object_name2().unwrap().to_string());
         options.format().unwrap().write_typenames(names)
     }
 

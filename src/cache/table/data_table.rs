@@ -4,7 +4,7 @@ use getset::Getters;
 use std::rc::Rc;
 
 use crate::{
-    cache::{self, EsedbRowId, MetaDataCache, RecordId, ColumnsOfTable},
+    cache::{self, ColumnsOfTable, EsedbRowId, MetaDataCache, RecordId},
     ntds::DataTableRecord,
     object_tree_entry::ObjectTreeEntry,
     EsedbInfo, RecordHasParent, RecordPredicate,
@@ -21,10 +21,10 @@ where
     _table: &'info libesedb::Table<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
 
-    #[getset(get="pub")]
+    #[getset(get = "pub")]
     metadata: MetaDataCache,
 
-    #[getset(get="pub")]
+    #[getset(get = "pub")]
     number_of_records: i32,
 
     // this is needed for `::all_atributes`
@@ -47,7 +47,7 @@ where
             esedbinfo,
             metadata,
             number_of_records: table.count_records()?,
-            columns: Rc::new(ColumnsOfTable::try_from(table)?)
+            columns: Rc::new(ColumnsOfTable::try_from(table)?),
         })
     }
 }
@@ -67,7 +67,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self._table_id,
                 row,
                 self.esedbinfo,
-                Rc::clone(&self.columns)
+                Rc::clone(&self.columns),
             )?,
             row,
         ))
@@ -128,21 +128,21 @@ impl<'info, 'db> DataTable<'info, 'db> {
     }
 
     pub fn path_to_str(&self, path: &[Rc<ObjectTreeEntry>]) -> String {
-        let v: Vec<_> = path.iter().map(|e| e.name().to_owned()).collect();
+        let v: Vec<_> = path.iter().map(|e| e.name().to_string()).collect();
         v.join(",")
     }
 }
 
 pub trait FindRecord<'info, 'db, T>
 where
-    'info: 'db
+    'info: 'db,
 {
     fn find_record(&'db self, id: &T) -> std::io::Result<DataTableRecord<'info, 'db>>;
 }
 
 impl<'info, 'db> FindRecord<'info, 'db, EsedbRowId> for DataTable<'info, 'db>
 where
-    'info: 'db
+    'info: 'db,
 {
     fn find_record(&'db self, id: &EsedbRowId) -> std::io::Result<DataTableRecord<'info, 'db>> {
         self.data_table_record_from(*id)
