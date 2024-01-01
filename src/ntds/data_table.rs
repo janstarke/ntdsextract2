@@ -14,6 +14,7 @@ use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
 use bodyfile::Bodyfile3Line;
+use csv::QuoteStyle;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
@@ -221,7 +222,9 @@ impl<'info, 'db> DataTable<'info, 'db> {
         let type_record_id = type_record.ds_record_id()?;
         log::info!("found type record with id {type_record_id}");
 
-        let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
+        let mut csv_wtr = csv::WriterBuilder::new()
+            .flexible(false)
+            .from_writer(std::io::stdout());
         let bar = create_progressbar(
             format!("loading {object_type} records"),
             (self
