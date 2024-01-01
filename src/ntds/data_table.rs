@@ -293,26 +293,27 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .iter()
             .map(|(ot, ptr)| (ptr.ds_record_id(), ot))
             .collect();
+        let tmp :Vec<_> = records.collect();
+        let records = tmp.into_iter();
 
         records
             .map(|ptr| self.data_table().find_record(ptr))
             .map(|r| r.map_err(|e| anyhow!(e)))
             .try_for_each(|r| {
-                let _ = r
-                    .and_then(|record| {
-                        if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
-                            self.timelines_from_supported_type(
-                                record,
-                                record_type,
-                                options,
-                                link_table,
-                            )
-                        } else {
-                            Vec::<Bodyfile3Line>::try_from(record)
-                        }
-                    })?
-                    .into_iter()
-                    .map(|l| println!("{l}"));
+                let record = r?;
+                let lines = if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
+                    self.timelines_from_supported_type(
+                        record,
+                        record_type,
+                        options,
+                        link_table,
+                    )?
+                } else {
+                    Vec::<Bodyfile3Line>::try_from(record)?
+                };
+                for line in lines.into_iter() {
+                    println!("{line}");
+                }
                 Ok(())
             })
     }

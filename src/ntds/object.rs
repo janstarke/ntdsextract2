@@ -133,10 +133,10 @@ where
                     .map(|ts| ts.cr_entry(upn, "object created", object_type)),
                 obj.when_changed()
                     .as_ref()
-                    .map(|ts| ts.cr_entry(upn, "object changed", object_type)),
+                    .map(|ts| ts.c_entry(upn, "object changed", object_type)),
                 obj.last_logon()
                     .as_ref()
-                    .map(|ts| ts.c_entry(upn, "last logon on this DC", object_type)),
+                    .map(|ts| ts.a_entry(upn, "last logon on this DC", object_type)),
                 obj.last_logon_time_stamp()
                     .as_ref()
                     .map(|ts| ts.c_entry(upn, "last logon on any DC", object_type)),
@@ -145,7 +145,7 @@ where
                     .map(|ts| ts.c_entry(upn, "bad pwd time", object_type)),
                 obj.password_last_set()
                     .as_ref()
-                    .map(|ts| ts.c_entry(upn, "password last set", object_type)),
+                    .map(|ts| ts.m_entry(upn, "password last set", object_type)),
             ]
             .into_iter()
             .flatten()
