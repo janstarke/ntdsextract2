@@ -20,7 +20,7 @@ pub struct NameWithGuid {
 impl Display for NameWithGuid {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.guid {
-            Some(guid) => write!(f, "{} (deleted, was in {guid}", self.name),
+            Some(guid) => write!(f, "{} (deleted, was in {guid})", self.name),
             None => self.name.fmt(f),
         }
     }
@@ -33,22 +33,19 @@ impl FromValue for NameWithGuid {
     {
         match value {
             Value::Text(s) | Value::LargeText(s) => {
-                match regex_captures!(r#"^(?P<name>.*)(\x0aDEL:(?P<guid>\d+))?$"#, s) {
-                    None => Err(ntds::Error::InvalidValueDetected(value.to_string())),
-                    Some((_, name, _, guid)) => {
-                        if guid.is_empty() {
-                            Ok(Some(Self {
-                                name: name.to_owned(),
-                                guid: None,
-                            }))
+                let mut lines = s.lines();
+                let name = lines.next().unwrap().to_string();
+                let guid = match lines.next() {
+                    None => None,
+                    Some(part) => {
+                        if let Some(stripped) = part.strip_prefix("DEL:") {
+                            Some(stripped.to_string())
                         } else {
-                            Ok(Some(Self {
-                                name: name.to_owned(),
-                                guid: Some(guid.to_owned()),
-                            }))
+                            return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                         }
                     }
-                }
+                };
+                Ok(Some(Self { name, guid }))
             }
             Value::Null(()) => Ok(None),
             _ => Err(ntds::Error::InvalidValueDetected(value.to_string())),
@@ -79,13 +76,12 @@ impl TryFrom<&str> for NameWithGuid {
     }
 }
 
-impl TryFrom<String> for NameWithGuid{
+impl TryFrom<String> for NameWithGuid {
     type Error = anyhow::Error;
 
     fn try_from(v: String) -> Result<Self, Self::Error> {
         Self::try_from(&v[..])
     }
-
 }
 
 impl Serialize for NameWithGuid {
