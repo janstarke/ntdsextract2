@@ -1,10 +1,11 @@
 use std::fmt::Display;
+use core::hash::Hash;
 
 use getset::Getters;
 
 use super::{EsedbRowId, RecordId};
 
-#[derive(Getters, Hash, Debug, Clone, Copy)]
+#[derive(Getters, Debug, Clone, Copy)]
 #[getset(get = "pub", set = "pub")]
 pub struct RecordPointer {
     ds_record_id: RecordId,
@@ -14,8 +15,8 @@ pub struct RecordPointer {
 impl RecordPointer {
     pub fn new(ds_record_id: RecordId, esedb_row: EsedbRowId) -> Self {
         Self {
-            ds_record_id: ds_record_id,
-            esedb_row: esedb_row,
+            ds_record_id,
+            esedb_row,
         }
     }
 }
@@ -37,3 +38,10 @@ impl PartialEq for RecordPointer {
 }
 
 impl Eq for RecordPointer {}
+
+impl Hash for RecordPointer {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.ds_record_id.hash(state);
+        self.esedb_row.hash(state);
+    }
+}

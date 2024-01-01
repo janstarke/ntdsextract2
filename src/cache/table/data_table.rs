@@ -127,7 +127,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(SpecialRecords::new(schema_subpath, deleted_objects_subpath))
     }
 
-    pub fn path_to_str(&self, path: &Vec<Rc<ObjectTreeEntry>>) -> String {
+    pub fn path_to_str(&self, path: &[Rc<ObjectTreeEntry>]) -> String {
         let v: Vec<_> = path.iter().map(|e| e.name().to_owned()).collect();
         v.join(",")
     }

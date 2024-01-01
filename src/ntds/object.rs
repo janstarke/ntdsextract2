@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{OutputOptions, SerializationType, StringSet, RecordHasRid};
+use crate::{OutputOptions, SerializationType, StringSet};
 
 use super::{DataTable, DataTableRecord, HasObjectType, LinkTable, FromDataTable};
 use std::collections::HashMap;

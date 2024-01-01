@@ -93,7 +93,7 @@ impl ObjectTreeEntry {
     */
     fn populate_object_tree(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-        Self::create_tree_node(metadata.root(), &metadata)
+        Self::create_tree_node(metadata.root(), metadata)
     }
 
     fn create_tree_node(
@@ -155,6 +155,6 @@ impl ObjectTreeEntry {
             .borrow()
             .iter()
             .find(|e| e.name() == name)
-            .map(|e| Rc::clone(e))
+            .map(Rc::clone)
     }
 }
