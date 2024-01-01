@@ -20,6 +20,7 @@ where
 {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
+    rdn: Option<String>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
@@ -93,6 +94,7 @@ where
             when_changed: dbrecord.att_when_changed().ok(),
             sid: dbrecord.att_object_sid().ok(),
             sam_account_name: dbrecord.att_sam_account_name().ok(),
+            rdn: dbrecord.att_object_name2().ok(),
             user_principal_name: dbrecord.att_user_principal_name().ok(),
             sam_account_type: dbrecord.att_sam_account_type().ok(),
             user_account_control: dbrecord.att_user_account_control().ok(),
@@ -123,7 +125,7 @@ where
 {
     fn from(obj: Object<T, O>) -> Self {
         let object_type = O::object_type();
-        if let Some(upn) = &obj.sam_account_name {
+        if let Some(upn) = obj.sam_account_name.as_ref().or(obj.rdn.as_ref()) {
             vec![
                 obj.record_time()
                     .as_ref()
