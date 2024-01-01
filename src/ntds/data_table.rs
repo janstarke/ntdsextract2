@@ -227,7 +227,8 @@ impl<'info, 'db> DataTable<'info, 'db> {
             (self
                 .data_table()
                 .metadata()
-                .entries_of_type(&type_record_id).count())
+                .entries_of_type(&type_record_id)
+                .count())
             .try_into()?,
         )?;
 
@@ -293,21 +294,16 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .iter()
             .map(|(ot, ptr)| (ptr.ds_record_id(), ot))
             .collect();
-        let tmp :Vec<_> = records.collect();
-        let records = tmp.into_iter();
 
         records
             .map(|ptr| self.data_table().find_record(ptr))
             .map(|r| r.map_err(|e| anyhow!(e)))
             .try_for_each(|r| {
                 let record = r?;
-                let lines = if let Some(record_type) = known_types.get(&record.att_object_type_id()?) {
-                    self.timelines_from_supported_type(
-                        record,
-                        record_type,
-                        options,
-                        link_table,
-                    )?
+                let lines = if let Some(record_type) =
+                    known_types.get(&record.att_object_type_id()?)
+                {
+                    self.timelines_from_supported_type(record, record_type, options, link_table)?
                 } else {
                     Vec::<Bodyfile3Line>::try_from(record)?
                 };
@@ -323,84 +319,26 @@ impl<'info, 'db> DataTable<'info, 'db> {
         options: &OutputOptions,
         link_table: &LinkTable,
     ) -> anyhow::Result<()> {
-        if *options.show_all_objects() {
-            self.show_timeline_for_records(
-                options,
-                link_table,
-                self.data_table()
-                    .metadata()
-                    .entries_of_types(
-                        self.schema
-                            .all_type_entries()
-                            .iter()
-                            .map(|e| *e.ds_record_id())
-                            .collect(),
-                    )
-                    .map(|e| e.record_ptr()),
-            )
+        let types = if *options.show_all_objects() {
+            self.schema
+                .all_type_entries()
+                .iter()
+                .map(|e| *e.ds_record_id())
+                .collect()
         } else {
-            self.show_timeline_for_records(
-                options,
-                link_table,
-                self.data_table()
-                    .metadata()
-                    .entries_of_types(
-                        self.schema
-                            .supported_type_entries()
-                            .values()
-                            .map(|e| *e.ds_record_id())
-                            .collect(),
-                    )
-                    .map(|e| e.record_ptr()),
-            )
-        }
-        /*
-        for bf_lines in self
-            .data_table
-            .iter()
-            .filter(|dbrecord| dbrecord.att_object_type_id().is_ok())
-            .filter_map(|dbrecord| {
-                let current_type_id = dbrecord.att_object_type_id().unwrap();
-
-                // `type_record_ids` is None if `all_objects` is True
-                if let Some(record_ids) = type_record_ids.as_ref() {
-                    match record_ids.get(&current_type_id) {
-                        Some(type_name) => {
-                            if *type_name == ObjectType::Person {
-                                match Person::<CsvSerialization>::new(
-                                    dbrecord, options, self, link_table,
-                                ) {
-                                    Ok(person) => Some(Vec::<Bodyfile3Line>::from(person)),
-                                    Err(why) => {
-                                        log::error!("unable to parse person: {why}");
-                                        None
-                                    }
-                                }
-                            } else if *type_name == ObjectType::Computer {
-                                match Computer::<CsvSerialization>::new(
-                                    dbrecord, options, self, link_table,
-                                ) {
-                                    Ok(computer) => Some(Vec::<Bodyfile3Line>::from(computer)),
-                                    Err(why) => {
-                                        log::error!("unable to parse person: {why}");
-                                        None
-                                    }
-                                }
-                            } else {
-                                None
-                            }
-                        }
-                        _ => None,
-                    }
-                } else {
-                    Some(Vec::<Bodyfile3Line>::try_from(dbrecord).unwrap())
-                }
-            })
-            .flatten()
-        {
-            println!("{}", bf_lines)
-        }
-        Ok(())
-         */
+            self.schema
+                .supported_type_entries()
+                .values()
+                .map(|e| *e.ds_record_id())
+                .collect()
+        };
+        self.show_timeline_for_records(
+            options,
+            link_table,
+            self.data_table()
+                .metadata()
+                .entries_of_types(types)
+                .map(|e| e.record_ptr()),
+        )
     }
 }
