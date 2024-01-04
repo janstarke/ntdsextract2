@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use crate::cache::RecordPointer;
 use crate::cache::{self, RecordId};
 use crate::ntds::link_table_builder::LinkTableBuilder;
-use crate::win32_types::NameWithGuid;
+use crate::win32_types::Rdn;
 
 use super::DataTable;
 use crate::cache::FindRecord;
@@ -37,7 +37,7 @@ impl LinkTable {
         &self,
         object_id: RecordId,
         data_table: &DataTable<'_, '_>,
-    ) -> Vec<NameWithGuid> {
+    ) -> Vec<Rdn> {
         let member_of = if let Some(children) = self.member_of(&object_id) {
             children
                 .iter()

@@ -5,13 +5,13 @@ use getset::Getters;
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::{cache::{MetaDataCache, RecordPointer, SpecialRecords}, win32_types::NameWithGuid};
+use crate::{cache::{MetaDataCache, RecordPointer, SpecialRecords}, win32_types::Rdn};
 
 /// represents an object in the DIT
 #[derive(Getters)]
 #[getset(get = "pub")]
 pub struct ObjectTreeEntry {
-    name: NameWithGuid,
+    name: Rdn,
     record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,

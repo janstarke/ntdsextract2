@@ -1,12 +1,12 @@
 use serde::Deserialize;
 
-use crate::{SerializationType, StringSet, win32_types::NameWithGuid};
+use crate::{SerializationType, RdnSet, win32_types::Rdn};
 
 pub struct CsvSerialization;
 
 impl SerializationType for CsvSerialization {
-    fn serialize<'a, S>(
-        items: impl Iterator<Item = &'a str>,
+    fn serialize<S>(
+        items: impl Iterator<Item = String>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
@@ -16,14 +16,14 @@ impl SerializationType for CsvSerialization {
         serializer.serialize_str(&v)
     }
 
-    fn deserialize<'de, D>(deserializer: D) -> Result<StringSet<Self>, D::Error>
+    fn deserialize<'de, D>(deserializer: D) -> Result<RdnSet<Self>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
         let mut parts = Vec::new();
         for s in s.split(',') {
-            parts.push(NameWithGuid::try_from(s).unwrap())
+            parts.push(Rdn::try_from(s).unwrap())
         }
         Ok(parts.into())
     }

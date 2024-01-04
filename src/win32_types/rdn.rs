@@ -12,21 +12,21 @@ use crate::value::FromValue;
 
 #[derive(Getters, Eq, PartialEq, Clone, Hash)]
 #[getset(get = "pub")]
-pub struct NameWithGuid {
+pub struct Rdn {
     name: String,
     guid: Option<String>,
 }
 
-impl Display for NameWithGuid {
+impl Display for Rdn {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.guid {
-            Some(guid) => write!(f, "{} (deleted, was in {guid})", self.name),
+            Some(_guid) => write!(f, "{} (DELETED)", self.name),
             None => self.name.fmt(f),
         }
     }
 }
 
-impl FromValue for NameWithGuid {
+impl FromValue for Rdn {
     fn from_value_opt(value: &Value) -> ntds::Result<Option<Self>>
     where
         Self: Sized,
@@ -53,7 +53,7 @@ impl FromValue for NameWithGuid {
     }
 }
 
-impl TryFrom<&str> for NameWithGuid {
+impl TryFrom<&str> for Rdn {
     type Error = anyhow::Error;
 
     fn try_from(v: &str) -> Result<Self, Self::Error> {
@@ -61,12 +61,12 @@ impl TryFrom<&str> for NameWithGuid {
             None => bail!("invalid object name: '{v}'"),
             Some((_, name, _, guid)) => {
                 if guid.is_empty() {
-                    Ok(NameWithGuid {
+                    Ok(Rdn {
                         name: name.to_owned(),
                         guid: None,
                     })
                 } else {
-                    Ok(NameWithGuid {
+                    Ok(Rdn {
                         name: name.to_owned(),
                         guid: Some(guid.to_owned()),
                     })
@@ -76,7 +76,7 @@ impl TryFrom<&str> for NameWithGuid {
     }
 }
 
-impl TryFrom<String> for NameWithGuid {
+impl TryFrom<String> for Rdn {
     type Error = anyhow::Error;
 
     fn try_from(v: String) -> Result<Self, Self::Error> {
@@ -84,7 +84,7 @@ impl TryFrom<String> for NameWithGuid {
     }
 }
 
-impl Serialize for NameWithGuid {
+impl Serialize for Rdn {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -97,7 +97,7 @@ impl Serialize for NameWithGuid {
     }
 }
 
-impl<'de> Deserialize<'de> for NameWithGuid {
+impl<'de> Deserialize<'de> for Rdn {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -110,7 +110,7 @@ impl<'de> Deserialize<'de> for NameWithGuid {
 pub struct NameWithGuidVisitor {}
 
 impl<'de> Visitor<'de> for NameWithGuidVisitor {
-    type Value = NameWithGuid;
+    type Value = Rdn;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         write!(
@@ -122,6 +122,6 @@ impl<'de> Visitor<'de> for NameWithGuidVisitor {
     where
         E: Error,
     {
-        NameWithGuid::try_from(v).or(Err(E::custom(format!("invalid object name: '{v}'"))))
+        Rdn::try_from(v).or(Err(E::custom(format!("invalid object name: '{v}'"))))
     }
 }

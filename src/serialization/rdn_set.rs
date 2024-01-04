@@ -1,30 +1,30 @@
 use std::marker::PhantomData;
 
-use serde::{ser::SerializeSeq, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{win32_types::NameWithGuid, SerializationType};
+use crate::{win32_types::Rdn, SerializationType};
 
-pub struct StringSet<T: SerializationType>(Vec<NameWithGuid>, PhantomData<T>);
+pub struct RdnSet<T: SerializationType>(Vec<Rdn>, PhantomData<T>);
 
-impl<'a, T> From<Vec<&'a NameWithGuid>> for StringSet<T>
+impl<'a, T> From<Vec<&'a Rdn>> for RdnSet<T>
 where
     T: SerializationType,
 {
-    fn from(value: Vec<&'a NameWithGuid>) -> Self {
+    fn from(value: Vec<&'a Rdn>) -> Self {
         Self(value.into_iter().cloned().collect(), PhantomData)
     }
 }
 
-impl<T> From<Vec<NameWithGuid>> for StringSet<T>
+impl<T> From<Vec<Rdn>> for RdnSet<T>
 where
     T: SerializationType,
 {
-    fn from(value: Vec<NameWithGuid>) -> Self {
+    fn from(value: Vec<Rdn>) -> Self {
         Self(value, PhantomData)
     }
 }
 
-impl<T> Serialize for StringSet<T>
+impl<T> Serialize for RdnSet<T>
 where
     T: SerializationType,
 {
@@ -32,15 +32,11 @@ where
     where
         S: serde::Serializer,
     {
-        let mut ser = serializer.serialize_seq(Some(self.0.len()))?;
-        for s in self.0.iter() {
-            ser.serialize_element(s)?;
-        }
-        ser.end()
+        T::serialize(self.0.iter().map(|rdn| rdn.to_string()), serializer)
     }
 }
 
-impl<'de, T> Deserialize<'de> for StringSet<T>
+impl<'de, T> Deserialize<'de> for RdnSet<T>
 where
     T: SerializationType,
 {
@@ -56,14 +52,14 @@ where
 mod tests {
     use serde::Serialize;
 
-    use crate::{win32_types::NameWithGuid, CsvSerialization, JsonSerialization};
+    use crate::{win32_types::Rdn, CsvSerialization, JsonSerialization};
 
-    use super::{SerializationType, StringSet};
+    use super::{RdnSet, SerializationType};
 
     #[derive(Serialize)]
     #[serde(bound = "T: SerializationType")]
     struct SampleRecord<T: SerializationType> {
-        data: StringSet<T>,
+        data: RdnSet<T>,
     }
 
     fn test_data<T>() -> SampleRecord<T>
@@ -71,10 +67,10 @@ mod tests {
         T: SerializationType,
     {
         SampleRecord {
-            data: StringSet::<T>::from(vec![
-                NameWithGuid::try_from("a").unwrap(),
-                NameWithGuid::try_from("b").unwrap(),
-                NameWithGuid::try_from("c").unwrap(),
+            data: RdnSet::<T>::from(vec![
+                Rdn::try_from("a").unwrap(),
+                Rdn::try_from("b").unwrap(),
+                Rdn::try_from("c").unwrap(),
             ]),
         }
     }

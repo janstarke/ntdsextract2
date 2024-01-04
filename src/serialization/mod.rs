@@ -1,5 +1,5 @@
-mod string_set;
-pub use string_set::*;
+mod rdn_set;
+pub use rdn_set::*;
 
 mod serialization_type;
 pub use serialization_type::*;

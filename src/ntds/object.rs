@@ -2,9 +2,9 @@ use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry, NameWithGuid};
+use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry, Rdn};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{OutputOptions, SerializationType, StringSet};
+use crate::{OutputOptions, SerializationType, RdnSet};
 
 use super::{DataTable, DataTableRecord, HasObjectType, LinkTable, FromDataTable};
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ where
 {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
-    rdn: Option<NameWithGuid>,
+    rdn: Option<Rdn>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
@@ -33,10 +33,10 @@ where
     #[allow(dead_code)]
     primary_group_id: Option<i32>,
 
-    primary_group: Option<NameWithGuid>,
+    primary_group: Option<Rdn>,
 
     //aduser_objects: Option<String>,
-    member_of: StringSet<T>,
+    member_of: RdnSet<T>,
 
     comment: Option<String>,
 
