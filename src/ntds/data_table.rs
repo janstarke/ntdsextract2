@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::cache::{FindRecord, RecordPointer};
+use crate::cache::{FindRecord, RecordPointer, SpecialRecords};
 use crate::ntds;
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
@@ -32,6 +32,7 @@ pub struct DataTable<'info, 'db> {
     object_tree: Rc<ObjectTreeEntry>,
     link_table: Rc<LinkTable>,
     schema: Schema,
+    special_records: SpecialRecords,
 }
 
 impl<'info, 'db> DataTable<'info, 'db> {
@@ -42,6 +43,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
         schema: Schema,
+        special_records: SpecialRecords,
     ) -> Result<Self> {
         Ok(Self {
             data_table,
@@ -49,6 +51,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             object_tree,
             link_table,
             schema,
+            special_records,
         })
     }
 
@@ -316,13 +319,21 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .map(|r| r.map_err(|e| anyhow!(e)))
             .try_for_each(|r| {
                 let record = r?;
-                let lines = if let Some(record_type) =
-                    known_types.get(&record.att_object_type_id()?)
-                {
-                    self.timelines_from_supported_type(record, record_type, options, link_table)?
+                let lines = if let Some(object_type) = record.att_object_type_id_opt()? {
+                    if let Some(record_type) = known_types.get(&object_type) {
+                        self.timelines_from_supported_type(
+                            record,
+                            record_type,
+                            options,
+                            link_table,
+                        )?
+                    } else {
+                        Vec::<Bodyfile3Line>::try_from(record)?
+                    }
                 } else {
                     Vec::<Bodyfile3Line>::try_from(record)?
                 };
+                
                 for line in lines.into_iter() {
                     println!("{line}");
                 }
@@ -334,6 +345,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         &self,
         options: &OutputOptions,
         link_table: &LinkTable,
+        include_deleted: bool,
     ) -> anyhow::Result<()> {
         let types = if *options.show_all_objects() {
             self.schema
@@ -348,6 +360,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .map(|e| *e.ds_record_id())
                 .collect()
         };
+
         self.show_timeline_for_records(
             options,
             link_table,
@@ -355,6 +368,17 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .metadata()
                 .entries_of_types(types)
                 .map(|e| e.record_ptr()),
-        )
+        )?;
+
+        if include_deleted {
+            let records = self
+                .data_table()
+                .metadata()
+                .children_ptr_of(self.special_records().deleted_objects().record_ptr());
+            self.show_timeline_for_records(options, link_table, records)
+                .unwrap();
+        }
+
+        Ok(())
     }
 }

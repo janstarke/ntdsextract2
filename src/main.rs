@@ -67,9 +67,12 @@ fn main() -> Result<()> {
         Commands::Types { .. } => {
             do_with_serialization!(cli.command, database, show_type_names, &options)
         }
-        Commands::Timeline { all_objects } => {
+        Commands::Timeline {
+            all_objects,
+            include_deleted,
+        } => {
             options.set_show_all_objects(*all_objects);
-            database.show_timeline(&options)
+            database.show_timeline(&options, *include_deleted)
         }
         Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
         Commands::Entry { entry_id, use_sid } => {

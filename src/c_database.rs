@@ -47,6 +47,7 @@ impl<'info, 'db> CDatabase<'info, 'db> {
             *schema_record_id,
             Rc::clone(&link_table),
             schema,
+            special_records,
         )?;
 
         Ok(Self {
@@ -87,8 +88,8 @@ impl<'info, 'db> CDatabase<'info, 'db> {
         self.data_table.show_type_names::<T>(options)
     }
 
-    pub fn show_timeline(&self, options: &OutputOptions) -> anyhow::Result<()> {
-        self.data_table.show_timeline(options, &self.link_table)
+    pub fn show_timeline(&self, options: &OutputOptions, include_deleted: bool) -> anyhow::Result<()> {
+        self.data_table.show_timeline(options, &self.link_table, include_deleted)
     }
 
     pub fn show_entry(&self, entry_id: EntryId) -> crate::ntds::Result<()> {

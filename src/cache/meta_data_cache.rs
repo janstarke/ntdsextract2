@@ -143,11 +143,15 @@ impl MetaDataCache {
     }
 
     pub fn children_of(&self, parent: &RecordPointer) -> impl Iterator<Item = &DataEntryCore> {
+        self.children_ptr_of(parent)
+            .map(|ptr| &self[ptr.esedb_row()])
+    }
+    
+    pub fn children_ptr_of(&self, parent: &RecordPointer) -> impl Iterator<Item = &RecordPointer> {
         self.children_of
             .get(parent.ds_record_id())
             .unwrap_or(&EMPTY_HASHSET)
             .iter()
-            .map(|ptr| &self[ptr.esedb_row()])
     }
 
     pub fn entries_with_rid(&self, rid: u32) -> impl Iterator<Item = &DataEntryCore> + '_ {

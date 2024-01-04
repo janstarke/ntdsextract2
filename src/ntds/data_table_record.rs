@@ -82,7 +82,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_when_created, AttWhenCreated, TruncatedWindowsFileTime);
     record_attribute!(att_when_changed, AttWhenChanged, TruncatedWindowsFileTime);
     record_attribute!(att_object_type_id, AttObjectCategory, RecordId);
-    record_attribute!(att_object_name, AttCommonName, String);
+    record_attribute!(att_object_name, AttCommonName, Rdn);
     record_attribute!(att_object_name2, AttRdn, Rdn);
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
     record_attribute!(att_sam_account_type, AttSamAccountType, SamAccountType);
@@ -203,7 +203,7 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj.att_sam_account_name().or(obj.att_object_name());
+        let my_name = obj.att_sam_account_name().or(obj.att_object_name().map(|s| s.to_string()));
         if let Ok(upn) = &my_name {
             Ok(vec![
                 obj.ds_record_time()

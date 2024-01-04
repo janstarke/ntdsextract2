@@ -41,6 +41,10 @@ pub enum Commands {
         /// show objects of any type (this might be a lot)
         #[clap(long("all-objects"))]
         all_objects: bool,
+
+        /// include also deleted objects (which don't have a AttObjectCategory attribute)
+        #[clap(long("include-deleted"))]
+        include_deleted: bool,
     },
 
     /// list all defined types
