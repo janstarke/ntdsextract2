@@ -8,6 +8,8 @@ mod error;
 mod from_data_table;
 mod object;
 mod schema;
+mod attribute_name;
+mod attribute_value;
 
 pub use data_table::*;
 pub use link_table::*;
@@ -18,6 +20,9 @@ pub use error::*;
 pub use from_data_table::*;
 pub use object::*;
 pub use schema::*;
+pub use attribute_name::*;
+pub use attribute_value::*;
+
 
 pub type Person<T> = Object<T, types::Person>;
 pub type Group<T> = Object<T, types::Group>;

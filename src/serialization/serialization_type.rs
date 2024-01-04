@@ -1,7 +1,7 @@
 use crate::RdnSet;
 
 pub trait SerializationType {
-    fn serialize<'a, S>(
+    fn serialize<S>(
         items: impl Iterator<Item = String>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>

@@ -7,7 +7,6 @@ mod windows_file_time;
 mod unix_timestamp;
 mod timeline_entry;
 
-pub use database_time::DatabaseTime;
 pub use truncated_windows_file_time::TruncatedWindowsFileTime;
 pub use windows_file_time::WindowsFileTime;
 pub use unix_timestamp::*;

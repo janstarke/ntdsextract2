@@ -7,6 +7,7 @@ use crate::ntds;
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
+use crate::ntds::NtdsAttributeId;
 use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
@@ -168,11 +169,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
     pub fn search_entries(&self, regex: &str) -> anyhow::Result<()> {
         let re = Regex::new(regex)?;
         let mut table_columns = vec![
-            "DNT_col".to_owned(),
-            "PDNT_col".to_owned(),
-            "ATTm3".to_owned(),
-            "ATTm589825".to_owned(),
-            "ATTb590606".to_owned(),
+            NtdsAttributeId::DsRecordId,
+            NtdsAttributeId::DsParentRecordId,
+            NtdsAttributeId::AttCommonName,
+            NtdsAttributeId::AttRdn,
+            NtdsAttributeId::AttObjectCategory,
         ];
 
         let mut records = Vec::new();
@@ -181,13 +182,22 @@ impl<'info, 'db> DataTable<'info, 'db> {
             let matching_columns = record
                 .all_attributes()
                 .iter()
-                .filter(|(_, v)| re.is_match(v))
-                .map(|(a, v)| (a.to_owned(), v.to_owned()))
-                .collect::<Vec<(String, String)>>();
+                .filter(|(_, (_, _, v))| re.is_match(v.value()))
+                .map(|(id, (col_name, att_name, value))| {
+                    (
+                        *id,
+                        (
+                            col_name.to_string(),
+                            att_name.to_string(),
+                            value.to_string(),
+                        ),
+                    )
+                })
+                .collect::<HashMap<NtdsAttributeId, (String, String, String)>>();
             if !matching_columns.is_empty() {
-                for (a, _) in matching_columns {
-                    if !table_columns.contains(&a) {
-                        table_columns.push(a);
+                for id in matching_columns.keys() {
+                    if !table_columns.contains(id) {
+                        table_columns.push(*id);
                     }
                 }
                 records.push(record);
@@ -196,12 +206,16 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
         let mut csv_wtr = csv::Writer::from_writer(std::io::stdout());
         let empty_string = "".to_owned();
-        csv_wtr.write_record(&table_columns)?;
+        csv_wtr.write_record(table_columns.iter().map(|c| {
+            let s: &str = c.into();
+            s
+        }))?;
         for record in records.into_iter() {
             let all_attributes = record.all_attributes();
             csv_wtr.write_record(table_columns.iter().map(|a| {
                 all_attributes
                     .get(a)
+                    .map(|(_col_name, _att_name, value)| value.value())
                     .unwrap_or(&empty_string)
                     .replace('\n', "\\n")
                     .replace('\r', "\\r")

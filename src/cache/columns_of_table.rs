@@ -1,10 +1,13 @@
-use std::{ops::{Index, Deref}, collections::HashMap};
+use std::{
+    collections::HashMap,
+    ops::{Deref, Index},
+};
 
 use libesedb::Table;
 
 use super::{Column, ColumnIndex};
 
-pub struct ColumnsOfTable{
+pub struct ColumnsOfTable {
     ids: Vec<Column>,
     names: HashMap<String, ColumnIndex>,
 }
@@ -20,7 +23,7 @@ impl TryFrom<&Table<'_>> for ColumnsOfTable {
             names.insert(column.name().to_owned(), index.into());
             ids.push(column);
         }
-        Ok(Self { ids, names})
+        Ok(Self { ids, names })
     }
 }
 

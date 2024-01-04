@@ -22,12 +22,15 @@ use super::{EsedbRowId, ColumnsOfTable};
 pub struct Record<'info, 'db> {
     table_id: &'static str,
     record_id: EsedbRowId,
+
+    #[getset(skip)]
     values: RefCell<HashMap<ColumnIndex, Option<Value>>>,
+
     count: i32,
     record: libesedb::Record<'db>,
     esedbinfo: &'info EsedbInfo<'db>,
 
-    // this is needed for `::all_atributes`
+    // this is needed for `::all_attributes`
     columns: Rc<ColumnsOfTable>,
 }
 

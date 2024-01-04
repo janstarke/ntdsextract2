@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
+use super::{AttributeName, AttributeValue};
+
 pub struct DataTableRecord<'info, 'db> {
     inner: cache::Record<'info, 'db>,
     _row: EsedbRowId,
@@ -40,10 +42,7 @@ macro_rules! record_attribute {
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
     pub fn new(inner: cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
-        Self {
-            inner,
-            _row: row
-        }
+        Self { inner, _row: row }
     }
 
     fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T>
@@ -119,20 +118,38 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     pub fn mapping(&self) -> &ColumnInfoMapping {
         self.inner.esedbinfo().mapping()
     }
-    pub fn all_attributes(&self) -> HashMap<String, String> {
-        self.inner
-            .values()
-            .borrow()
-            .iter()
-            .map(|(k, v)| {
-                (
-                    self.inner.columns()[k].name().to_owned(),
-                    match v {
-                        Some(x) => format!("{x}"),
-                        None => "".to_owned(),
-                    },
-                )
+    pub fn all_attributes(
+        &self,
+    ) -> HashMap<NtdsAttributeId, (String, AttributeName, AttributeValue)> {
+        (0..*self.inner.count())
+            .map(ColumnIndex::from)
+            .filter_map(|idx| {
+                let column = &self.inner.columns()[idx];
+                if column.attribute_id().is_some() {
+                    Some(column)
+                } else {
+                    None
+                }
             })
+            .map(|column| {
+                self.inner.with_value(*column.index(), |v| {
+                    Ok(v.map(|x| {
+                        (
+                            column.attribute_id().unwrap(),
+                            (
+                                column.name().to_string(),
+                                column
+                                    .attribute_name()
+                                    .as_ref().cloned()
+                                    .unwrap_or(AttributeName::from(column.name().to_string())),
+                                AttributeValue::from(x.to_string()),
+                            ),
+                        )
+                    }))
+                })
+            })
+            .filter_map(Result::ok)
+            .flatten()
             .collect()
     }
 }
@@ -161,7 +178,7 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
     fn from(value: &DataTableRecord<'info, 'db>) -> Self {
         let mut table = term_table::Table::new();
         let all_attributes = value.all_attributes();
-        let mut keys = all_attributes.keys().collect::<Vec<&String>>();
+        let mut keys: Vec<_> = all_attributes.keys().collect();
         keys.sort();
 
         table.add_row(Row::new(vec![
@@ -169,10 +186,12 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
             TableCell::new_with_alignment("Value", 1, Alignment::Center),
         ]));
 
-        for key in keys {
+        for id in keys {
+            let (col_name, att_name, value) = &all_attributes[id];
             table.add_row(Row::new(vec![
-                TableCell::new(key),
-                TableCell::new(all_attributes[key].clone()),
+                TableCell::new(att_name),
+                TableCell::new(col_name),
+                TableCell::new(value),
             ]));
         }
 

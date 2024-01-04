@@ -57,7 +57,7 @@ impl AppId {
 
 impl Display for AppId {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        writeln!(f, r#"    #[strum(serialize = "{}")]"#, self.ntds_name)?;
+        writeln!(f, r#"    #[strum(serialize = "{}", to_string = "{}")]"#, self.ntds_name, self.id_name)?;
         writeln!(f, r#"    {} = 0x{:x},"#, self.id_name, self.numeric_id)?;
         Ok(())
     }
@@ -70,7 +70,8 @@ fn main() {
     let mut out_file = io::BufWriter::new(fs::File::create(Path::new(&out_dir).join("src").join("ntds").join("attribute_id.rs")).unwrap());
 
     writeln!(out_file, "use strum::{{EnumString, IntoStaticStr}};\n").unwrap();
-    writeln!(out_file, "#[derive(IntoStaticStr, EnumString, Debug, Eq, PartialEq, Hash, Clone)]").unwrap();
+    writeln!(out_file, "use serde::{{Serialize, Deserialize}};\n").unwrap();
+    writeln!(out_file, "#[derive(IntoStaticStr, EnumString, Debug, Eq, PartialEq, Hash, Clone, Copy, Ord, PartialOrd, Serialize, Deserialize)]").unwrap();
     writeln!(out_file, "#[strum(use_phf)]").unwrap();
     writeln!(out_file, "pub enum NtdsAttributeId {{").unwrap();
 

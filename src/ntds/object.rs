@@ -1,13 +1,11 @@
+use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
+use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
+use crate::{OutputOptions, RdnSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 
-use crate::win32_types::{TruncatedWindowsFileTime, WindowsFileTime, TimelineEntry, Rdn};
-use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{OutputOptions, SerializationType, RdnSet};
-
-use super::{DataTable, DataTableRecord, HasObjectType, LinkTable, FromDataTable};
-use std::collections::HashMap;
+use super::{DataTable, DataTableRecord, FromDataTable, HasObjectType, LinkTable};
 use std::marker::PhantomData;
 
 #[derive(Getters, Serialize, Deserialize)]
@@ -50,12 +48,8 @@ where
     password_last_set: Option<WindowsFileTime>,
     bad_pwd_time: Option<WindowsFileTime>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    all_attributes: Option<HashMap<String, String>>,
-
     #[serde(skip)]
-    _marker: PhantomData<O>
+    _marker: PhantomData<O>,
 }
 
 impl<T, O> FromDataTable for Object<T, O>
@@ -65,7 +59,7 @@ where
 {
     fn new(
         dbrecord: DataTableRecord,
-        options: &OutputOptions,
+        _options: &OutputOptions,
         data_table: &DataTable,
         link_table: &LinkTable,
     ) -> Result<Self, anyhow::Error> {
@@ -74,19 +68,20 @@ where
         let primary_group_id = dbrecord.att_primary_group_id().ok();
         let primary_group = primary_group_id.and_then(|group_id| {
             data_table
-                .data_table().metadata().entries_with_rid(group_id.try_into().unwrap())
+                .data_table()
+                .metadata()
+                .entries_with_rid(group_id.try_into().unwrap())
                 .next() // there should be at most one entry with this rid
-                .map(|e| data_table.data_table().data_table_record_from(*e.record_ptr().esedb_row()).unwrap())
+                .map(|e| {
+                    data_table
+                        .data_table()
+                        .data_table_record_from(*e.record_ptr().esedb_row())
+                        .unwrap()
+                })
                 .map(|group| group.att_object_name2().unwrap())
         });
 
         let member_of = link_table.member_names_of(object_id, data_table).into();
-
-        let all_attributes = if *options.display_all_attributes() {
-            Some(dbrecord.all_attributes())
-        } else {
-            None
-        };
 
         Ok(Self {
             record_time: dbrecord.ds_record_time().ok(),
@@ -112,8 +107,7 @@ where
             comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
             member_of,
-            all_attributes,
-            _marker: PhantomData
+            _marker: PhantomData,
         })
     }
 }
@@ -127,7 +121,7 @@ where
         let object_type = O::object_type();
         let upn = match obj.sam_account_name() {
             Some(n) => Some(n.to_string()),
-            None => obj.rdn().as_ref().map(|n| n.to_string())
+            None => obj.rdn().as_ref().map(|n| n.to_string()),
         };
         if let Some(upn) = upn {
             vec![
