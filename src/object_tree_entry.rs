@@ -5,7 +5,10 @@ use getset::Getters;
 use hashbrown::HashSet;
 use termtree::Tree;
 
-use crate::{cache::{MetaDataCache, RecordPointer, SpecialRecords}, win32_types::Rdn};
+use crate::{
+    cache::{MetaDataCache, RecordPointer, SpecialRecords},
+    win32_types::Rdn,
+};
 
 /// represents an object in the DIT
 #[derive(Getters)]
@@ -34,7 +37,10 @@ impl Hash for ObjectTreeEntry {
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ({})", self.name, self.record_ptr)
+        match self.name().guid() {
+            Some(_) => write!(f, "{} (DELETED; {})", self.name.name(), self.record_ptr),
+            None => write!(f, "{} ({})", self.name.name(), self.record_ptr),
+        }
     }
 }
 
@@ -147,10 +153,7 @@ impl ObjectTreeEntry {
         }
     }
 
-    pub fn find_child_by_name(
-        &self,
-        name: &str,
-    ) -> Option<Rc<ObjectTreeEntry>> {
+    pub fn find_child_by_name(&self, name: &str) -> Option<Rc<ObjectTreeEntry>> {
         self.children()
             .borrow()
             .iter()
