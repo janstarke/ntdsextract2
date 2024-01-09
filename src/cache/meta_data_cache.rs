@@ -5,10 +5,10 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::value::FromValue;
-use crate::win32_types::{Sid, Rdn};
+use crate::win32_types::{Rdn, Sid};
 use crate::{ntds::NtdsAttributeId, EsedbInfo};
 
-use super::{EsedbRowId, RecordId, RecordPointer, Value};
+use super::{EsedbRowId, RecordId, RecordPointer};
 
 #[derive(Getters)]
 #[getset(get = "pub")]
@@ -37,14 +37,14 @@ pub struct MetaDataCache {
 impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
     type Error = anyhow::Error;
     fn try_from(info: &EsedbInfo<'_>) -> Result<Self, Self::Error> {
-        let record_id_column = **info.mapping().index(NtdsAttributeId::DsRecordId).id();
-        let parent_column = **info.mapping().index(NtdsAttributeId::DsParentRecordId).id();
-        let rdn_column = **info.mapping().index(NtdsAttributeId::AttRdn).id();
-        let object_category_column = **info
+        let record_id_column = *info.mapping().index(NtdsAttributeId::DsRecordId).id();
+        let parent_column = *info.mapping().index(NtdsAttributeId::DsParentRecordId).id();
+        let rdn_column = *info.mapping().index(NtdsAttributeId::AttRdn).id();
+        let object_category_column = *info
             .mapping()
             .index(NtdsAttributeId::AttObjectCategory)
             .id();
-        let sid_column = **info.mapping().index(NtdsAttributeId::AttObjectSid).id();
+        let sid_column = *info.mapping().index(NtdsAttributeId::AttObjectSid).id();
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
@@ -55,48 +55,42 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
             "Creating cache for record IDs".to_string(),
             count.try_into()?,
         )?;
+
         for esedb_row_id in 0..count {
             let record = info.data_table().record(esedb_row_id)?;
-            let parent = match RecordId::from_value_opt(&Value::from(record.value(parent_column)?))?
-            {
-                Some(v) => v,
-                None => continue,
-            };
-            let record_id =
-                match RecordId::from_value_opt(&Value::from(record.value(record_id_column)?))? {
-                    Some(v) => v,
-                    None => continue,
-                };
-            let rdn = match Rdn::from_value_opt(&Value::from(record.value(rdn_column)?))? {
-                Some(v) => v,
-                None => continue,
-            };
-            let object_category =
-                RecordId::from_value_opt(&Value::from(record.value(object_category_column)?))?;
-            let sid = Sid::from_value_opt(&Value::from(record.value(sid_column)?))?;
 
-            let record_ptr = RecordPointer::new(record_id, esedb_row_id.into());
+            if let Some(parent) = RecordId::from_record_opt(&record, parent_column)? {
+                if let Some(record_id) = RecordId::from_record_opt(&record, record_id_column)? {
+                    if let Some(rdn) = Rdn::from_record_opt(&record, rdn_column)? {
+                        let object_category =
+                            RecordId::from_record_opt(&record, object_category_column)?;
+                        let sid = Sid::from_record_opt(&record, sid_column)?;
 
-            records.push(DataEntryCore {
-                record_ptr,
-                parent,
-                //cn,
-                rdn,
-                object_category,
-                sid,
-            });
+                        let record_ptr = RecordPointer::new(record_id, esedb_row_id.into());
 
-            record_rows.insert(
-                record_id,
-                RecordPointer::new(record_id, esedb_row_id.into()),
-            );
+                        records.push(DataEntryCore {
+                            record_ptr,
+                            parent,
+                            //cn,
+                            rdn,
+                            object_category,
+                            sid,
+                        });
 
-            if parent.inner() != 0 {
-                children_of.entry(parent).or_default().insert(record_ptr);
-            } else if root.is_some() {
-                panic!("more than one root object found");
-            } else {
-                root = Some(record_ptr);
+                        record_rows.insert(
+                            record_id,
+                            RecordPointer::new(record_id, esedb_row_id.into()),
+                        );
+
+                        if parent.inner() != 0 {
+                            children_of.entry(parent).or_default().insert(record_ptr);
+                        } else if root.is_some() {
+                            panic!("more than one root object found");
+                        } else {
+                            root = Some(record_ptr);
+                        }
+                    }
+                }
             }
 
             bar.inc(1);
@@ -146,7 +140,7 @@ impl MetaDataCache {
         self.children_ptr_of(parent)
             .map(|ptr| &self[ptr.esedb_row()])
     }
-    
+
     pub fn children_ptr_of(&self, parent: &RecordPointer) -> impl Iterator<Item = &RecordPointer> {
         self.children_of
             .get(parent.ds_record_id())

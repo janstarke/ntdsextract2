@@ -1,4 +1,4 @@
-use crate::cache::Value;
+use crate::cache::{Value, ColumnIndex};
 use crate::ntds::{Result, Error};
 
 pub trait FromValue {
@@ -14,4 +14,10 @@ pub trait FromValue {
     fn from_value_opt(value: &Value) -> Result<Option<Self>>
     where
         Self: Sized;
+    
+    fn from_record_opt(record: &libesedb::Record, record_id: ColumnIndex) -> anyhow::Result<Option<Self>>
+    where
+        Self: Sized {
+            Ok(Self::from_value_opt(&Value::from(record.value(*record_id)?))?)
+        }
 }
