@@ -14,12 +14,12 @@ use crate::value::FromValue;
 #[getset(get = "pub")]
 pub struct Rdn {
     name: String,
-    guid: Option<String>,
+    deleted_from_container: Option<String>,
 }
 
 impl Display for Rdn {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.guid {
+        match &self.deleted_from_container {
             Some(_guid) => write!(f, "{} (DELETED)", self.name),
             None => self.name.fmt(f),
         }
@@ -45,7 +45,7 @@ impl FromValue for Rdn {
                         }
                     }
                 };
-                Ok(Some(Self { name, guid }))
+                Ok(Some(Self { name, deleted_from_container: guid }))
             }
             Value::Null(()) => Ok(None),
             _ => Err(ntds::Error::InvalidValueDetected(value.to_string())),
@@ -63,12 +63,12 @@ impl TryFrom<&str> for Rdn {
                 if guid.is_empty() {
                     Ok(Rdn {
                         name: name.to_owned(),
-                        guid: None,
+                        deleted_from_container: None,
                     })
                 } else {
                     Ok(Rdn {
                         name: name.to_owned(),
-                        guid: Some(guid.to_owned()),
+                        deleted_from_container: Some(guid.to_owned()),
                     })
                 }
             }
@@ -89,7 +89,7 @@ impl Serialize for Rdn {
     where
         S: Serializer,
     {
-        if let Some(guid) = &self.guid {
+        if let Some(guid) = &self.deleted_from_container {
             serializer.serialize_str(&format!("{} -- DEL:{guid}", self.name))
         } else {
             serializer.serialize_str(&self.name)

@@ -37,7 +37,7 @@ impl Hash for ObjectTreeEntry {
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.name().guid() {
+        match self.name().deleted_from_container() {
             Some(_) => write!(f, "{} (DELETED; {})", self.name.name(), self.record_ptr),
             None => write!(f, "{} ({})", self.name.name(), self.record_ptr),
         }
