@@ -14,7 +14,8 @@ use crate::value::FromValue;
 #[getset(get = "pub")]
 pub struct Rdn {
     name: String,
-    deleted_from_container: Option<String>,
+    deleted_from_container: Option<String>, //TODO: should by a UUID
+    conflicting_objects: Vec<String>,       //TODO: should be UUIDs
 }
 
 impl Display for Rdn {
@@ -35,17 +36,27 @@ impl FromValue for Rdn {
             Value::Text(s) | Value::LargeText(s) => {
                 let mut lines = s.lines();
                 let name = lines.next().unwrap().to_string();
-                let guid = match lines.next() {
-                    None => None,
-                    Some(part) => {
-                        if let Some(stripped) = part.strip_prefix("DEL:") {
-                            Some(stripped.to_string())
-                        } else {
+                let mut deleted_from_container = None;
+                let mut conflicting_objects = Vec::new();
+
+                for line in lines {
+                    if let Some(guid) = line.strip_prefix("DEL:") {
+                        if deleted_from_container.is_some() {
                             return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                         }
+                        deleted_from_container = Some(guid.to_string());
+                    } else if let Some(guid) = line.strip_prefix("CFN:") {
+                        conflicting_objects.push(guid.to_string());
+                    } else {
+                        return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                     }
-                };
-                Ok(Some(Self { name, deleted_from_container: guid }))
+                }
+
+                Ok(Some(Self {
+                    name,
+                    deleted_from_container,
+                    conflicting_objects,
+                }))
             }
             Value::Null(()) => Ok(None),
             _ => Err(ntds::Error::InvalidValueDetected(value.to_string())),
@@ -59,16 +70,18 @@ impl TryFrom<&str> for Rdn {
     fn try_from(v: &str) -> Result<Self, Self::Error> {
         match regex_captures!(r#"^(?P<name>.*)( -- DEL:(?P<guid>\d+))?$"#, v) {
             None => bail!("invalid object name: '{v}'"),
-            Some((_, name, _, guid)) => {
-                if guid.is_empty() {
+            Some((_, name, _, deleted_from_container)) => {
+                if deleted_from_container.is_empty() {
                     Ok(Rdn {
                         name: name.to_owned(),
                         deleted_from_container: None,
+                        conflicting_objects: Vec::new()
                     })
                 } else {
                     Ok(Rdn {
                         name: name.to_owned(),
-                        deleted_from_container: Some(guid.to_owned()),
+                        deleted_from_container: Some(deleted_from_container.to_owned()),
+                        conflicting_objects: Vec::new()
                     })
                 }
             }
