@@ -45,7 +45,7 @@ impl FromValue for Rdn {
                             return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                         }
                         deleted_from_container = Some(guid.to_string());
-                    } else if let Some(guid) = line.strip_prefix("CFN:") {
+                    } else if let Some(guid) = line.strip_prefix("CNF:") {
                         conflicting_objects.push(guid.to_string());
                     } else {
                         return Err(ntds::Error::InvalidValueDetected(value.to_string()));
