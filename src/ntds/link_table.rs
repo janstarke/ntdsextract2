@@ -7,7 +7,6 @@ use crate::ntds::link_table_builder::LinkTableBuilder;
 use crate::win32_types::Rdn;
 
 use super::DataTable;
-use crate::cache::FindRecord;
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS link_table is being wrapped
@@ -33,20 +32,12 @@ impl LinkTable {
         self.backward_map.get(dnt)
     }
 
-    pub fn member_names_of(
-        &self,
-        object_id: RecordId,
-        data_table: &DataTable<'_, '_>,
-    ) -> Vec<Rdn> {
+    pub fn member_names_of(&self, object_id: RecordId, data_table: &DataTable<'_, '_>) -> Vec<Rdn> {
         let member_of = if let Some(children) = self.member_of(&object_id) {
             children
                 .iter()
-                .filter_map(|child_id| data_table.data_table().find_record(child_id).ok())
-                .map(|record| {
-                    record
-                        .att_object_name2()
-                        .expect("error while reading object name")
-                })
+                .map(|child_id| &data_table.data_table().metadata()[child_id])
+                .map(|record| record.rdn().clone())
                 .collect()
         } else {
             vec![]

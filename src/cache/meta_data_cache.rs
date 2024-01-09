@@ -120,15 +120,6 @@ impl Index<&EsedbRowId> for MetaDataCache {
     }
 }
 
-impl Index<&RecordId> for MetaDataCache {
-    type Output = DataEntryCore;
-
-    fn index(&self, index: &RecordId) -> &Self::Output {
-        let ptr = self.record_rows[index];
-        &self.records[ptr.esedb_row().inner() as usize]
-    }
-}
-
 impl Index<&RecordPointer> for MetaDataCache {
     type Output = DataEntryCore;
 
@@ -187,7 +178,14 @@ impl MetaDataCache {
         self[row].record_ptr()
     }
 
-    pub fn ptr_from_id(&self, id: &RecordId) -> &RecordPointer {
-        &self.record_rows[id]
+    pub fn ptr_from_id(&self, id: &RecordId) -> Option<&RecordPointer> {
+        self.record_rows.get(id)
+    }
+
+    pub fn record(&self, index: &RecordId) -> Option<&DataEntryCore> {
+        match self.record_rows.get(index) {
+            Some(ptr) => self.records.get(ptr.esedb_row().inner() as usize),
+            None => None
+        }
     }
 }

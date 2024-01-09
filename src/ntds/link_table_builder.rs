@@ -46,24 +46,36 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
             })
             .unwrap_or(false)
         }) {
-            if let Ok(forward_link) = record.with_value(*link_dnt_id, |v| {
+            if let Ok(Some(forward_link)) = record.with_value(*link_dnt_id, |v| {
                 RecordId::from_value(v.unwrap())
                     .map_err(|e| anyhow!(e))
-                    .map(|id| *metadata.ptr_from_id(&id))
+                    .map(|id| {
+                        metadata.ptr_from_id(&id).or_else(|| {
+                            log::warn!("I expected to find an entry for forward link {id}; but there was none. I'll ignore that entry.");
+                            None
+                        })
+                    })
             }) {
-                if let Ok(backward_link) = record.with_value(*backlink_dnt_id, |v| {
+                if let Ok(Some(backward_link)) = record.with_value(*backlink_dnt_id, |v| {
                     RecordId::from_value(v.unwrap())
                         .map_err(|e| anyhow!(e))
-                        .map(|id| *metadata.ptr_from_id(&id))
+                        .map(|id| {
+                            metadata.ptr_from_id(&id).or_else(|| {
+                                log::warn!(
+                                    "I expected to find an entry for backward link {id}; but there was none. I'll ignore that entry."
+                                );
+                                None
+                            })
+                        })
                 }) {
                     forward_map
                         .entry(*forward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
-                        .insert(backward_link);
+                        .insert(backward_link.clone());
                     backward_map
                         .entry(*backward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
-                        .insert(forward_link);
+                        .insert(forward_link.clone());
                 }
             }
         }

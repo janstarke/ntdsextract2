@@ -4,7 +4,7 @@ use getset::Getters;
 use std::rc::Rc;
 
 use crate::{
-    cache::{self, ColumnsOfTable, EsedbRowId, MetaDataCache, RecordId},
+    cache::{self, ColumnsOfTable, EsedbRowId, MetaDataCache},
     ntds::DataTableRecord,
     object_tree_entry::ObjectTreeEntry,
     EsedbInfo, RecordHasParent, RecordPredicate,
@@ -130,39 +130,5 @@ impl<'info, 'db> DataTable<'info, 'db> {
     pub fn path_to_str(&self, path: &[Rc<ObjectTreeEntry>]) -> String {
         let v: Vec<_> = path.iter().map(|e| e.name().to_string()).collect();
         v.join(",")
-    }
-}
-
-pub trait FindRecord<'info, 'db, T>
-where
-    'info: 'db,
-{
-    fn find_record(&'db self, id: &T) -> std::io::Result<DataTableRecord<'info, 'db>>;
-}
-
-impl<'info, 'db> FindRecord<'info, 'db, EsedbRowId> for DataTable<'info, 'db>
-where
-    'info: 'db,
-{
-    fn find_record(&'db self, id: &EsedbRowId) -> std::io::Result<DataTableRecord<'info, 'db>> {
-        self.data_table_record_from(*id)
-    }
-}
-
-impl<'info, 'db> FindRecord<'info, 'db, RecordId> for DataTable<'info, 'db>
-where
-    'info: 'db,
-{
-    fn find_record(&'db self, id: &RecordId) -> std::io::Result<DataTableRecord<'info, 'db>> {
-        self.find_record(self.metadata.ptr_from_id(id).esedb_row())
-    }
-}
-
-impl<'info, 'db> FindRecord<'info, 'db, RecordPointer> for DataTable<'info, 'db>
-where
-    'info: 'db,
-{
-    fn find_record(&'db self, id: &RecordPointer) -> std::io::Result<DataTableRecord<'info, 'db>> {
-        self.data_table_record_from(*id.esedb_row())
     }
 }

@@ -1,8 +1,7 @@
-use anyhow::anyhow;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
-use crate::cache::{FindRecord, RecordPointer, SpecialRecords};
+use crate::cache::{RecordPointer, SpecialRecords};
 use crate::ntds;
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
@@ -13,7 +12,7 @@ use crate::object_tree_entry::ObjectTreeEntry;
 use crate::output::Writer;
 use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
-use crate::{cache, EntryId, OutputFormat, OutputOptions, RecordHasRid};
+use crate::{cache, EntryId, OutputFormat, OutputOptions};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
@@ -142,14 +141,17 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
     pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
         let record = match entry_id {
-            EntryId::Id(id) => self.data_table.find_record(&id).ok(),
-            EntryId::Rid(rid) => self.data_table.find_p(RecordHasRid(rid)),
+            EntryId::Id(id) => self.data_table.metadata().record(&id),
+            EntryId::Rid(rid) => self.data_table.metadata().entries_with_rid(rid).next(),
         };
 
         match record {
             None => println!("no matching object found"),
             Some(entry) => {
-                let mut table = term_table::Table::from(&entry);
+                let record = self
+                    .data_table()
+                    .data_table_record_from(*entry.record_ptr().esedb_row())?;
+                let mut table = term_table::Table::from(&record);
 
                 if let Some(size) = termsize::get() {
                     let attrib_size = 20;
@@ -315,8 +317,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .collect();
 
         records
-            .map(|ptr| self.data_table().find_record(ptr))
-            .map(|r| r.map_err(|e| anyhow!(e)))
+            .map(|ptr| &self.data_table().metadata()[ptr])
+            .map(|e| {
+                self.data_table()
+                    .data_table_record_from(*e.record_ptr().esedb_row())
+            })
             .try_for_each(|r| {
                 let record = r?;
                 let lines = if let Some(object_type) = record.att_object_type_id_opt()? {
@@ -333,7 +338,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 } else {
                     Vec::<Bodyfile3Line>::try_from(record)?
                 };
-                
+
                 for line in lines.into_iter() {
                     println!("{line}");
                 }
