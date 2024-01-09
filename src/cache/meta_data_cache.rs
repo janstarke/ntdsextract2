@@ -68,6 +68,19 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
 
                         let record_ptr = RecordPointer::new(record_id, esedb_row_id.into());
 
+                        if parent.inner() != 0 {
+                            children_of.entry(parent).or_default().insert(record_ptr);
+                        } else if root.is_some() {
+                            panic!("object without parent: '{rdn}' at '{record_ptr}");
+                        } else {
+                            // check if this really is the root entry
+                            if rdn.name() == "$ROOT_OBJECT$" {
+                                root = Some(record_ptr);
+                            } else {
+                                log::warn!("object without parent: '{rdn}' at '{record_ptr}");
+                            }
+                        }
+
                         records.push(DataEntryCore {
                             record_ptr,
                             parent,
@@ -82,13 +95,6 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             RecordPointer::new(record_id, esedb_row_id.into()),
                         );
 
-                        if parent.inner() != 0 {
-                            children_of.entry(parent).or_default().insert(record_ptr);
-                        } else if root.is_some() {
-                            panic!("more than one root object found");
-                        } else {
-                            root = Some(record_ptr);
-                        }
                     }
                 }
             }
