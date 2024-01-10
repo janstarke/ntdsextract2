@@ -352,6 +352,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         link_table: &LinkTable,
         include_deleted: bool,
     ) -> anyhow::Result<()> {
+        
         let types = if *options.show_all_objects() {
             self.schema
                 .all_type_entries()
@@ -365,7 +366,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .map(|e| *e.ds_record_id())
                 .collect()
         };
-
         self.show_timeline_for_records(
             options,
             link_table,
@@ -374,7 +374,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .entries_of_types(types)
                 .map(|e| e.record_ptr()),
         )?;
-
+ 
         if include_deleted {
             let records = self
                 .data_table()

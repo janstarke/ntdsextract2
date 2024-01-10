@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use getset::Getters;
 
 use std::rc::Rc;
@@ -10,7 +9,7 @@ use crate::{
     EsedbInfo, RecordHasParent, RecordPredicate,
 };
 
-use super::{RecordPointer, SpecialRecords};
+use super::RecordPointer;
 
 #[derive(Getters)]
 pub struct DataTable<'info, 'db>
@@ -107,24 +106,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
         P: RecordPredicate<'info, 'db>,
     {
         self.iter().find(move |r| predicate.matches(r))
-    }
-
-    pub fn get_special_records(&self, root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
-        log::info!("obtaining special record ids");
-
-        // search downward until we find a `Configuration` entry
-        let configuration_path = ObjectTreeEntry::find_first_in_tree(&root, "Configuration")
-            .ok_or(anyhow!("db has no `Configuration` entry"))?;
-
-        let schema_subpath = configuration_path[0]
-            .find_child_by_name("Schema")
-            .ok_or(anyhow!("db has no `Schema` entry"))?;
-
-        let deleted_objects_subpath = configuration_path[0]
-            .find_child_by_name("Deleted Objects")
-            .ok_or(anyhow!("db has no `Deleted Objects` entry"))?;
-
-        Ok(SpecialRecords::new(schema_subpath, deleted_objects_subpath))
     }
 
     pub fn path_to_str(&self, path: &[Rc<ObjectTreeEntry>]) -> String {

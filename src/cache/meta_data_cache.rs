@@ -45,11 +45,13 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
             .index(NtdsAttributeId::AttObjectCategory)
             .id();
         let sid_column = *info.mapping().index(NtdsAttributeId::AttObjectSid).id();
+        //let 
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
         let mut children_of: HashMap<RecordId, HashSet<RecordPointer>> = HashMap::new();
         let mut root = None;
+        //let mut root_dse = None;
         let count = info.data_table().count_records()?;
         let bar = crate::create_progressbar(
             "Creating cache for record IDs".to_string(),

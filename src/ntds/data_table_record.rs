@@ -140,7 +140,8 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
                                 column.name().to_string(),
                                 column
                                     .attribute_name()
-                                    .as_ref().cloned()
+                                    .as_ref()
+                                    .cloned()
                                     .unwrap_or(AttributeName::from(column.name().to_string())),
                                 AttributeValue::from(x.to_string()),
                             ),
@@ -203,23 +204,30 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj.att_sam_account_name().or(obj.att_object_name().map(|s| s.to_string()));
+        let my_name = obj
+            .att_sam_account_name()
+            .or(obj.att_object_name().map(|s| s.to_string()));
+        let object_type = if obj.att_is_deleted_opt()?.unwrap_or(false) {
+            "deleted object"
+        } else {
+            "object"
+        };
         if let Ok(upn) = &my_name {
             Ok(vec![
                 obj.ds_record_time()
-                    .map(|ts| ts.cr_entry(upn, "record creation time", "object")),
+                    .map(|ts| ts.cr_entry(upn, "record creation time", object_type)),
                 obj.att_when_created()
-                    .map(|ts| ts.cr_entry(upn, "object created", "object")),
+                    .map(|ts| ts.cr_entry(upn, "object created", object_type)),
                 obj.att_when_changed()
-                    .map(|ts| ts.cr_entry(upn, "object changed", "object")),
+                    .map(|ts| ts.cr_entry(upn, "object changed", object_type)),
                 obj.att_last_logon()
-                    .map(|ts| ts.c_entry(upn, "last logon on this DC", "object")),
+                    .map(|ts| ts.c_entry(upn, "last logon on this DC", object_type)),
                 obj.att_last_logon_time_stamp()
-                    .map(|ts| ts.c_entry(upn, "last logon on any DC", "object")),
+                    .map(|ts| ts.c_entry(upn, "last logon on any DC", object_type)),
                 obj.att_bad_pwd_time()
-                    .map(|ts| ts.c_entry(upn, "bad pwd time", "object")),
+                    .map(|ts| ts.c_entry(upn, "bad pwd time", object_type)),
                 obj.att_password_last_set()
-                    .map(|ts| ts.c_entry(upn, "password last set", "object")),
+                    .map(|ts| ts.c_entry(upn, "password last set", object_type)),
             ]
             .into_iter()
             .flatten()

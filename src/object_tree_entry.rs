@@ -1,14 +1,23 @@
 use anyhow::anyhow;
-use std::{cell::RefCell, fmt::Display, hash::Hash, rc::Rc};
+use std::{cell::RefCell, collections::HashSet, fmt::Display, hash::Hash, rc::Rc};
 
 use getset::Getters;
-use hashbrown::HashSet;
+use lazy_static::lazy_static;
 use termtree::Tree;
 
 use crate::{
     cache::{MetaDataCache, RecordPointer, SpecialRecords},
     win32_types::Rdn,
 };
+lazy_static! {
+    static ref DOMAINROOT_CHILDREN: HashSet<String> = HashSet::from_iter(vec![
+        "Deleted Objects".to_string(),
+        "Configuration".to_string(),
+        "Builtin".to_string(),
+        //"DomainDnsZones".to_string(),
+        "NTDS Quotas".to_string()
+    ].into_iter());
+}
 
 /// represents an object in the DIT
 #[derive(Getters)]
@@ -121,36 +130,48 @@ impl ObjectTreeEntry {
     pub fn get_special_records(root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
         log::info!("obtaining special record ids");
 
-        // search downward until we find a `Configuration` entry
-        let configuration_path = ObjectTreeEntry::find_first_in_tree(&root, "Configuration")
+        let domain_root =
+            ObjectTreeEntry::find_domain_root(&root).ok_or(anyhow!("db has no domain root"))?;
+
+        log::info!("found domain root '{}'", domain_root[0].name());
+
+        let configuration = domain_root[0]
+            .find_child_by_name("Configuration")
             .ok_or(anyhow!("db has no `Configuration` entry"))?;
 
-        let schema_subpath = configuration_path[0]
+        let schema_subpath = configuration
             .find_child_by_name("Schema")
             .ok_or(anyhow!("db has no `Schema` entry"))?;
 
-        let deleted_objects_subpath = configuration_path[0]
+        let deleted_objects = domain_root[0]
             .find_child_by_name("Deleted Objects")
             .ok_or(anyhow!("db has no `Deleted Objects` entry"))?;
 
-        Ok(SpecialRecords::new(schema_subpath, deleted_objects_subpath))
+        Ok(SpecialRecords::new(schema_subpath, deleted_objects))
     }
 
-    pub fn find_first_in_tree(
-        root: &Rc<ObjectTreeEntry>,
-        name: &str,
-    ) -> Option<Vec<Rc<ObjectTreeEntry>>> {
-        if root.name().name() == name {
-            Some(vec![Rc::clone(root)])
+    /// returns the path to the domain root object, where the first entry in the list is the domain root object,
+    /// and the last object is the root of the tree
+    pub fn find_domain_root(root: &Rc<ObjectTreeEntry>) -> Option<Vec<Rc<ObjectTreeEntry>>> {
+        let my_children: HashSet<_> = root
+            .children()
+            .borrow()
+            .iter()
+            .map(|o| o.name().to_string())
+            .collect();
+
+        if my_children.is_superset(&DOMAINROOT_CHILDREN) {
+            return Some(vec![Rc::clone(root)]);
         } else {
             for child in root.children().borrow().iter() {
-                if let Some(mut path) = Self::find_first_in_tree(child, name) {
+                if let Some(mut path) = Self::find_domain_root(child) {
                     path.push(Rc::clone(root));
                     return Some(path);
                 }
             }
-            None
         }
+
+        None
     }
 
     pub fn find_child_by_name(&self, name: &str) -> Option<Rc<ObjectTreeEntry>> {

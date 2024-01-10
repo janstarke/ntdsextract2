@@ -12,7 +12,10 @@ pub struct SpecialRecords {
 }
 
 impl SpecialRecords {
-    pub fn new(schema: Rc<ObjectTreeEntry>, deleted_objects: Rc<ObjectTreeEntry>) -> Self {
+    pub fn new(
+        schema: Rc<ObjectTreeEntry>,
+        deleted_objects: Rc<ObjectTreeEntry>,
+    ) -> Self {
         Self {
             schema,
             deleted_objects,
