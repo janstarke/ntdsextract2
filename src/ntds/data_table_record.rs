@@ -204,13 +204,13 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj
-            .att_sam_account_name()
-            .or(obj.att_object_name().map(|s| s.to_string()));
+        let my_name = obj.att_sam_account_name().or(obj
+            .att_object_name()
+            .map(|s| s.name().to_string()));
         let object_type = if obj.att_is_deleted_opt()?.unwrap_or(false) {
-            "deleted object"
+            "Deleted Object"
         } else {
-            "object"
+            "Object"
         };
         if let Ok(upn) = &my_name {
             Ok(vec![
