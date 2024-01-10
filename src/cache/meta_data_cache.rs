@@ -94,9 +94,23 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             record_id,
                             RecordPointer::new(record_id, esedb_row_id.into()),
                         );
-
+                    } else {
+                        log::warn!(
+                            "ignoring entry in row {esedb_row_id}: attribute {} (RDN) has no value",
+                            Into::<&str>::into(NtdsAttributeId::AttRdn)
+                        )
                     }
+                } else {
+                    log::warn!(
+                        "ignoring entry in row {esedb_row_id}: attribute {} (RecordID) has no value",
+                        Into::<&str>::into(NtdsAttributeId::DsRecordId)
+                    )
                 }
+            } else {
+                log::warn!(
+                    "ignoring entry in row {esedb_row_id}: attribute {} (ParentRecordId) has no value",
+                    Into::<&str>::into(NtdsAttributeId::DsParentRecordId)
+                )
             }
 
             bar.inc(1);
@@ -185,7 +199,7 @@ impl MetaDataCache {
     pub fn record(&self, index: &RecordId) -> Option<&DataEntryCore> {
         match self.record_rows.get(index) {
             Some(ptr) => self.records.get(ptr.esedb_row().inner() as usize),
-            None => None
+            None => None,
         }
     }
 }
