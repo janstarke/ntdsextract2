@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
+use std::ops::Index;
 
 use anyhow::{anyhow, ensure, Result};
 
 use crate::cache::{self, MetaDataCache, RecordId, RecordPointer, Value, WithValue};
 use crate::value::FromValue;
 
-use super::LinkTable;
+use super::{LinkTable, NtdsAttributeId};
 
 pub(crate) struct LinkTableBuilder<'info, 'db> {
     link_table: cache::LinkTable<'info, 'db>,
@@ -124,11 +125,26 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         Ok((member_link_id, member_of_link_id))
     }
 
-    fn find_link_id(&self, attribute_name: &String) -> Result<u32> {
-        self.data_table
-            .children_of(self.schema_record_id)
-            .find(|r| r.att_object_name2().expect("missing object_name2").name() == attribute_name)
-            .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"))
-            .att_link_id()
+    fn find_link_id(&self, attribute_name: &String) -> anyhow::Result<u32> {
+        let entry = self
+            .data_table
+            .metadata()
+            .children_of(&self.schema_record_id)
+            .find(|r| r.rdn().name() == attribute_name)
+            .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"));
+
+        let link_id_column = *self
+            .data_table
+            .esedbinfo()
+            .mapping()
+            .index(NtdsAttributeId::AttLinkId)
+            .id();
+
+        let record = self
+            .data_table
+            .table()
+            .record(entry.record_ptr().esedb_row().inner())?;
+        Ok(u32::from_record_opt(&record, link_id_column)?
+            .expect(&format!("missing link-id attribute in {attribute_name}")))
     }
 }

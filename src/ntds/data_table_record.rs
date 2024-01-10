@@ -1,4 +1,4 @@
-use crate::cache::{self, EsedbRowId, RecordId};
+use crate::cache::{self, RecordId, RecordPointer};
 use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
@@ -9,15 +9,19 @@ use crate::win32_types::{
 use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
+use getset::Getters;
 use std::collections::HashMap;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
 use super::{AttributeName, AttributeValue};
 
+#[derive(Getters)]
 pub struct DataTableRecord<'info, 'db> {
     inner: cache::Record<'info, 'db>,
-    _row: EsedbRowId,
+
+    #[getset(get = "pub")]
+    ptr: RecordPointer,
 }
 
 macro_rules! record_attribute {
@@ -41,8 +45,8 @@ macro_rules! record_attribute {
 }
 
 impl<'info, 'db> DataTableRecord<'info, 'db> {
-    pub fn new(inner: cache::Record<'info, 'db>, row: EsedbRowId) -> Self {
-        Self { inner, _row: row }
+    pub fn new(inner: cache::Record<'info, 'db>, ptr: RecordPointer) -> Self {
+        Self { inner, ptr }
     }
 
     fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T>
@@ -204,30 +208,45 @@ impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
     type Error = anyhow::Error;
 
     fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj.att_sam_account_name().or(obj
-            .att_object_name()
-            .map(|s| s.name().to_string()));
+        let my_name = obj
+            .att_sam_account_name()
+            .or(obj.att_object_name().map(|s| s.name().to_string()));
         let object_type = if obj.att_is_deleted_opt()?.unwrap_or(false) {
             "Deleted Object"
         } else {
             "Object"
         };
+        let inode = obj.ptr.ds_record_id().to_string();
         if let Ok(upn) = &my_name {
             Ok(vec![
-                obj.ds_record_time()
-                    .map(|ts| ts.cr_entry(upn, "record creation time", object_type)),
-                obj.att_when_created()
-                    .map(|ts| ts.cr_entry(upn, "object created", object_type)),
-                obj.att_when_changed()
-                    .map(|ts| ts.cr_entry(upn, "object changed", object_type)),
-                obj.att_last_logon()
-                    .map(|ts| ts.c_entry(upn, "last logon on this DC", object_type)),
-                obj.att_last_logon_time_stamp()
-                    .map(|ts| ts.c_entry(upn, "last logon on any DC", object_type)),
-                obj.att_bad_pwd_time()
-                    .map(|ts| ts.c_entry(upn, "bad pwd time", object_type)),
-                obj.att_password_last_set()
-                    .map(|ts| ts.c_entry(upn, "password last set", object_type)),
+                obj.ds_record_time().map(|ts| {
+                    ts.cr_entry(upn, "record creation time", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_when_created().map(|ts| {
+                    ts.cr_entry(upn, "object created", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_when_changed().map(|ts| {
+                    ts.cr_entry(upn, "object changed", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_last_logon().map(|ts| {
+                    ts.c_entry(upn, "last logon on this DC", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_last_logon_time_stamp().map(|ts| {
+                    ts.c_entry(upn, "last logon on any DC", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_bad_pwd_time().map(|ts| {
+                    ts.c_entry(upn, "bad pwd time", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.att_password_last_set().map(|ts| {
+                    ts.c_entry(upn, "password last set", object_type)
+                        .with_inode(&inode)
+                }),
             ]
             .into_iter()
             .flatten()

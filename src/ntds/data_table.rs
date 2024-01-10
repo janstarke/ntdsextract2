@@ -74,15 +74,23 @@ impl<'info, 'db> DataTable<'info, 'db> {
             return Err(anyhow::anyhow!(Error::SchemaRecordHasNoChildren));
         }
         */
-        for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.att_object_name2()?.to_string();
+        for dbrecord in self
+            .data_table
+            .metadata()
+            .children_of(&self.schema_record_id)
+        {
+            let object_name2 = dbrecord.rdn().to_string();
 
             log::trace!("found a new type definition: '{}'", object_name2);
 
             if let Ok(object_type) = &object_name2[..].try_into() {
                 if types.remove(object_type) {
                     log::debug!("found requested type definition for '{object_name2}'");
-                    type_records.insert(ObjectType::try_from(&object_name2[..])?, dbrecord);
+                    let data_record = self
+                        .data_table()
+                        .data_table_record_from(*dbrecord.record_ptr())
+                        .unwrap();
+                    type_records.insert(ObjectType::try_from(&object_name2[..])?, data_record);
                 }
             }
 
@@ -117,8 +125,12 @@ impl<'info, 'db> DataTable<'info, 'db> {
         T: SerializationType,
     {
         let mut type_names = HashSet::new();
-        for dbrecord in self.data_table.children_of(self.schema_record_id) {
-            let object_name2 = dbrecord.att_object_name2()?.to_string();
+        for dbrecord in self
+            .data_table()
+            .metadata()
+            .children_of(&self.schema_record_id)
+        {
+            let object_name2 = dbrecord.rdn().to_string();
 
             type_names.insert(object_name2);
 
@@ -127,9 +139,10 @@ impl<'info, 'db> DataTable<'info, 'db> {
             }
         }
         let names = self
-            .data_table
-            .children_of(self.schema_record_id)
-            .map(|dbrecord| dbrecord.att_object_name2().unwrap().to_string());
+            .data_table()
+            .metadata()
+            .children_of(&self.schema_record_id)
+            .map(|dbrecord| dbrecord.rdn().to_string());
         options.format().unwrap().write_typenames(names)
     }
 
@@ -150,7 +163,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             Some(entry) => {
                 let record = self
                     .data_table()
-                    .data_table_record_from(*entry.record_ptr().esedb_row())?;
+                    .data_table_record_from(*entry.record_ptr())?;
                 let mut table = term_table::Table::from(&record);
 
                 if let Some(size) = termsize::get() {
@@ -257,10 +270,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .data_table()
             .metadata()
             .entries_of_type(&type_record_id)
-            .map(|e| {
-                self.data_table()
-                    .data_table_record_from(*e.record_ptr().esedb_row())
-            })
+            .map(|e| self.data_table().data_table_record_from(*e.record_ptr()))
         {
             let record = O::new(record?, options, self, &self.link_table)?;
             match options.format().unwrap() {
@@ -318,10 +328,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
 
         records
             .map(|ptr| &self.data_table().metadata()[ptr])
-            .map(|e| {
-                self.data_table()
-                    .data_table_record_from(*e.record_ptr().esedb_row())
-            })
+            .map(|e| self.data_table().data_table_record_from(*e.record_ptr()))
             .try_for_each(|r| {
                 let record = r?;
                 let lines = if let Some(object_type) = record.att_object_type_id_opt()? {
@@ -378,12 +385,14 @@ impl<'info, 'db> DataTable<'info, 'db> {
             let deleted_objects_records: HashSet<_> = HashSet::from_iter(
                 self.data_table()
                     .metadata()
-                    .children_ptr_of(self.special_records().deleted_objects().record_ptr()));
+                    .children_ptr_of(self.special_records().deleted_objects().record_ptr()),
+            );
 
             let records_with_deleted_from_container_guid: HashSet<_> = HashSet::from_iter(
                 self.data_table()
                     .metadata()
-                    .entries_with_deleted_from_container_guid());
+                    .entries_with_deleted_from_container_guid(),
+            );
             let records = deleted_objects_records.union(&records_with_deleted_from_container_guid);
 
             self.show_timeline_for_records(options, link_table, records.map(|r| *r))

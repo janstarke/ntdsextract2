@@ -3,27 +3,27 @@ use getset::Getters;
 use std::rc::Rc;
 
 use crate::{
-    cache::{self, ColumnsOfTable, EsedbRowId, MetaDataCache},
+    cache::{self, ColumnsOfTable, MetaDataCache},
     ntds::DataTableRecord,
     object_tree_entry::ObjectTreeEntry,
-    EsedbInfo, RecordHasParent, RecordPredicate,
+    EsedbInfo,
 };
 
 use super::RecordPointer;
 
 #[derive(Getters)]
+#[getset(get = "pub")]
 pub struct DataTable<'info, 'db>
 where
     'info: 'db,
 {
-    _table_id: &'static str,
-    _table: &'info libesedb::Table<'db>,
-    esedbinfo: &'info EsedbInfo<'db>,
+    table_id: &'static str,
 
-    #[getset(get = "pub")]
+    table: &'info libesedb::Table<'db>,
+
+    esedbinfo: &'info EsedbInfo<'db>,
     metadata: MetaDataCache,
 
-    #[getset(get = "pub")]
     number_of_records: i32,
 
     // this is needed for `::all_atributes`
@@ -41,8 +41,8 @@ where
         metadata: MetaDataCache,
     ) -> std::io::Result<Self> {
         Ok(Self {
-            _table: table,
-            _table_id: table_id,
+            table,
+            table_id,
             esedbinfo,
             metadata,
             number_of_records: table.count_records()?,
@@ -53,61 +53,27 @@ where
 
 impl<'info, 'db> DataTable<'info, 'db> {
     pub fn iter(&'db self) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
-        (0..self.number_of_records).map(|row| self.data_table_record_from(row.into()).unwrap())
+        self.metadata
+            .iter()
+            .map(|e| self.data_table_record_from(*e.record_ptr()))
+            .filter_map(Result::ok)
     }
 
     pub fn data_table_record_from(
         &self,
-        row: EsedbRowId,
+        ptr: RecordPointer,
     ) -> std::io::Result<DataTableRecord<'info, 'db>> {
         Ok(DataTableRecord::new(
             cache::Record::try_from(
-                self._table.record(row.inner())?,
-                self._table_id,
-                row,
+                self.table.record(ptr.esedb_row().inner())?,
+                self.table_id,
+                *ptr.esedb_row(),
                 self.esedbinfo,
                 Rc::clone(&self.columns),
             )?,
-            row,
+            ptr,
         ))
     }
-
-    pub(crate) fn children_of(
-        &'db self,
-        parent_id: RecordPointer,
-    ) -> impl Iterator<Item = DataTableRecord<'info, 'db>> {
-        let my_filter = RecordHasParent(*parent_id.ds_record_id());
-        self.iter().filter(move |r| my_filter.matches(r))
-    }
-
-    pub fn filter<C>(&'db self, predicate: C) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
-    where
-        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
-    {
-        self.iter().filter(move |r| predicate(r))
-    }
-
-    pub fn find<C>(&'db self, predicate: C) -> Option<DataTableRecord<'info, 'db>>
-    where
-        C: Fn(&DataTableRecord<'info, 'db>) -> bool,
-    {
-        self.iter().find(move |r| predicate(r))
-    }
-
-    pub fn filter_p<P>(&'db self, predicate: P) -> impl Iterator<Item = DataTableRecord<'info, 'db>>
-    where
-        P: RecordPredicate<'info, 'db>,
-    {
-        self.iter().filter(move |r| predicate.matches(r))
-    }
-
-    pub fn find_p<P>(&'db self, predicate: P) -> Option<DataTableRecord<'info, 'db>>
-    where
-        P: RecordPredicate<'info, 'db>,
-    {
-        self.iter().find(move |r| predicate.matches(r))
-    }
-
     pub fn path_to_str(&self, path: &[Rc<ObjectTreeEntry>]) -> String {
         let v: Vec<_> = path.iter().map(|e| e.name().to_string()).collect();
         v.join(",")

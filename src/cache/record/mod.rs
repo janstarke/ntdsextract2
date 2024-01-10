@@ -21,7 +21,7 @@ use super::{EsedbRowId, ColumnsOfTable};
 #[getset(get = "pub")]
 pub struct Record<'info, 'db> {
     table_id: &'static str,
-    record_id: EsedbRowId,
+    row_id: EsedbRowId,
 
     #[getset(skip)]
     values: RefCell<HashMap<ColumnIndex, Option<Value>>>,
@@ -38,14 +38,14 @@ impl Eq for Record<'_, '_> {}
 
 impl PartialEq<Self> for Record<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
-        self.record_id == other.record_id && self.table_id == other.table_id
+        self.row_id == other.row_id && self.table_id == other.table_id
     }
 }
 
 impl Hash for Record<'_, '_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.table_id.hash(state);
-        self.record_id.hash(state);
+        self.row_id.hash(state);
     }
 }
 
@@ -86,7 +86,7 @@ impl<'info, 'db> Record<'info, 'db> {
     pub fn try_from(
         record: libesedb::Record<'db>,
         table_id: &'static str,
-        record_id: EsedbRowId,
+        row_id: EsedbRowId,
         esedbinfo: &'info EsedbInfo<'db>,
         columns: Rc<ColumnsOfTable>,
     ) -> std::io::Result<Self> {
@@ -96,7 +96,7 @@ impl<'info, 'db> Record<'info, 'db> {
             record,
             esedbinfo,
             table_id,
-            record_id,
+            row_id,
             columns,
         })
     }

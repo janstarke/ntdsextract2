@@ -1,3 +1,4 @@
+use crate::cache::RecordPointer;
 use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
 use crate::{OutputOptions, RdnSet, SerializationType};
@@ -50,6 +51,9 @@ where
 
     #[serde(skip)]
     _marker: PhantomData<O>,
+
+    #[serde(skip)]
+    ptr: RecordPointer,
 }
 
 impl<T, O> FromDataTable for Object<T, O>
@@ -75,7 +79,7 @@ where
                 .map(|e| {
                     data_table
                         .data_table()
-                        .data_table_record_from(*e.record_ptr().esedb_row())
+                        .data_table_record_from(*e.record_ptr())
                         .unwrap()
                 })
                 .map(|group| group.att_object_name2().unwrap())
@@ -108,6 +112,7 @@ where
             //aduser_objects: dbrecord.att_u()?,
             member_of,
             _marker: PhantomData,
+            ptr: *dbrecord.ptr(),
         })
     }
 }
@@ -127,29 +132,38 @@ where
                 .map(|n| n.name().to_string())
                 .or(Some("UNNAMED_OBJECT".to_string())),
         };
+        let inode = obj.ptr().ds_record_id().to_string();
+
         if let Some(upn) = upn {
             vec![
-                obj.record_time()
-                    .as_ref()
-                    .map(|ts| ts.cr_entry(&upn, "record creation time", object_type)),
-                obj.when_created()
-                    .as_ref()
-                    .map(|ts| ts.cr_entry(&upn, "object created", object_type)),
-                obj.when_changed()
-                    .as_ref()
-                    .map(|ts| ts.c_entry(&upn, "object changed", object_type)),
-                obj.last_logon()
-                    .as_ref()
-                    .map(|ts| ts.a_entry(&upn, "last logon on this DC", object_type)),
-                obj.last_logon_time_stamp()
-                    .as_ref()
-                    .map(|ts| ts.c_entry(&upn, "last logon on any DC", object_type)),
-                obj.bad_pwd_time()
-                    .as_ref()
-                    .map(|ts| ts.c_entry(&upn, "bad pwd time", object_type)),
-                obj.password_last_set()
-                    .as_ref()
-                    .map(|ts| ts.m_entry(&upn, "password last set", object_type)),
+                obj.record_time().as_ref().map(|ts| {
+                    ts.cr_entry(&upn, "record creation time", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.when_created().as_ref().map(|ts| {
+                    ts.cr_entry(&upn, "object created", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.when_changed().as_ref().map(|ts| {
+                    ts.c_entry(&upn, "object changed", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.last_logon().as_ref().map(|ts| {
+                    ts.a_entry(&upn, "last logon on this DC", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.last_logon_time_stamp().as_ref().map(|ts| {
+                    ts.c_entry(&upn, "last logon on any DC", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.bad_pwd_time().as_ref().map(|ts| {
+                    ts.c_entry(&upn, "bad pwd time", object_type)
+                        .with_inode(&inode)
+                }),
+                obj.password_last_set().as_ref().map(|ts| {
+                    ts.m_entry(&upn, "password last set", object_type)
+                        .with_inode(&inode)
+                }),
             ]
             .into_iter()
             .flatten()

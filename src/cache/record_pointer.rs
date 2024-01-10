@@ -5,7 +5,7 @@ use getset::Getters;
 
 use super::{EsedbRowId, RecordId};
 
-#[derive(Getters, Debug, Clone, Copy)]
+#[derive(Getters, Debug, Clone, Copy, Default)]
 #[getset(get = "pub", set = "pub")]
 pub struct RecordPointer {
     ds_record_id: RecordId,

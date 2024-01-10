@@ -4,7 +4,7 @@ use crate::value::FromValue;
 
 use super::RecordPointer;
 
-#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, Debug, Default)]
 pub struct RecordId(i32);
 
 impl From<i32> for RecordId {
