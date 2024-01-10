@@ -121,7 +121,11 @@ where
         let object_type = O::object_type();
         let upn = match obj.sam_account_name() {
             Some(n) => Some(n.to_string()),
-            None => obj.rdn().as_ref().map(|n| n.to_string()),
+            None => obj
+                .rdn()
+                .as_ref()
+                .map(|n| n.name().to_string())
+                .or(Some("UNNAMED_OBJECT".to_string())),
         };
         if let Some(upn) = upn {
             vec![

@@ -45,7 +45,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
             .index(NtdsAttributeId::AttObjectCategory)
             .id();
         let sid_column = *info.mapping().index(NtdsAttributeId::AttObjectSid).id();
-        //let 
+        //let
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
@@ -188,6 +188,15 @@ impl MetaDataCache {
                 Some(oc) => ot.contains(oc),
                 _ => false,
             })
+    }
+
+    pub fn entries_with_deleted_from_container_guid(
+        &self,
+    ) -> impl Iterator<Item = &RecordPointer> {
+        self.records
+            .iter()
+            .filter(|r| r.rdn().deleted_from_container().is_some())
+            .map(|d| &d.record_ptr)
     }
 
     pub fn ptr_from_row(&self, row: &EsedbRowId) -> &RecordPointer {

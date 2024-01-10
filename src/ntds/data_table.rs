@@ -352,7 +352,6 @@ impl<'info, 'db> DataTable<'info, 'db> {
         link_table: &LinkTable,
         include_deleted: bool,
     ) -> anyhow::Result<()> {
-        
         let types = if *options.show_all_objects() {
             self.schema
                 .all_type_entries()
@@ -374,13 +373,20 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .entries_of_types(types)
                 .map(|e| e.record_ptr()),
         )?;
- 
+
         if include_deleted {
-            let records = self
-                .data_table()
-                .metadata()
-                .children_ptr_of(self.special_records().deleted_objects().record_ptr());
-            self.show_timeline_for_records(options, link_table, records)
+            let deleted_objects_records: HashSet<_> = HashSet::from_iter(
+                self.data_table()
+                    .metadata()
+                    .children_ptr_of(self.special_records().deleted_objects().record_ptr()));
+
+            let records_with_deleted_from_container_guid: HashSet<_> = HashSet::from_iter(
+                self.data_table()
+                    .metadata()
+                    .entries_with_deleted_from_container_guid());
+            let records = deleted_objects_records.union(&records_with_deleted_from_container_guid);
+
+            self.show_timeline_for_records(options, link_table, records.map(|r| *r))
                 .unwrap();
         }
 
