@@ -23,7 +23,6 @@ pub struct DataEntryCore {
     rdn: Rdn,
     sid: Option<Sid>,
     rdn_typ_col: Option<i32>,
-    
 
     relative_distinguished_name: Option<Rdn>,
 
@@ -68,12 +67,6 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
             .id();
         let sid_column = *info.mapping().index(NtdsAttributeId::AttObjectSid).id();
         let guid_column = *info.mapping().index(NtdsAttributeId::AttObjectGuid).id();
-        /*let rdn_att_id = *info
-            .mapping()
-            .info_by_name("RDNtyp_col")
-            .expect("missing column 'RDNtyp_col'")
-            .id();
-        */
         let rdn_att_id = *info.mapping().index(NtdsAttributeId::AttRdnAttId).id();
         let attribute_id_column = *info.mapping().index(NtdsAttributeId::AttAttributeId).id();
         let ldap_display_name_column = *info
@@ -333,7 +326,7 @@ impl MetaDataCache {
                 None => Some(rdn),
             }
             .map(|dn| {
-                //let _ = entry.distinguished_name.replace(Some(dn.to_string()));
+                //let _ = entry.distinguished_name.replace(Some(dn.clone()));
                 dn
             })
         }

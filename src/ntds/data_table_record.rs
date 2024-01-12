@@ -118,6 +118,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_creator_sid, AttMsDsCreatorSid, Sid);
     record_attribute!(att_admin_count, AttAdminCount, i32);
     record_attribute!(att_is_deleted, AttIsDeleted, bool);
+    record_attribute!(att_last_known_parent, AttLastKnownParent, RecordId);
 
     pub fn mapping(&self) -> &ColumnInfoMapping {
         self.inner.esedbinfo().mapping()
@@ -173,11 +174,8 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
         };
 
         let object_type_caption =
-            if let Some(guid) = self.att_object_name2()?.deleted_from_container() {
-                metadata
-                    .ptr_from_guid(guid)
-                    .map(|entry| metadata.record(entry.ds_record_id()))
-                    .flatten()
+            if let Some(last_known_parent) = self.att_last_known_parent_opt()? {
+                metadata.record(&last_known_parent)
                     .map(|entry| metadata.dn(entry))
                     .flatten()
                     .map(|e| format!("{object_type_name}, deleted from {e}"))
