@@ -24,6 +24,7 @@ lazy_static! {
 #[getset(get = "pub")]
 pub struct ObjectTreeEntry {
     name: Rdn,
+    relative_distinguished_name: String,
     record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
@@ -46,10 +47,16 @@ impl Hash for ObjectTreeEntry {
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.name().deleted_from_container() {
-            Some(_) => write!(f, "{} (DELETED; {})", self.name.name(), self.record_ptr),
-            None => write!(f, "{} ({})", self.name.name(), self.record_ptr),
-        }
+        let is_deleted = self.name().deleted_from_container().is_some();
+        let display_name = self.relative_distinguished_name();
+
+        let flags = if is_deleted {
+            "DELETED; "
+        } else {
+            ""
+        };
+
+        write!(f, "{display_name} ({flags}{})", self.record_ptr)
     }
 }
 
@@ -83,29 +90,7 @@ impl ObjectTreeEntry {
             tree
         }
     }
-    /*
-        pub(crate) fn parent(&self) -> Option<Rc<ObjectTreeEntry>> {
-            self.parent.as_ref().and_then(|p| p.upgrade())
-        }
-    */
-    /*
-        pub (crate) fn get_by_path(&self, mut path: Vec<&str>) -> Option<Rc<ObjectTreeEntry>> {
-            if let Some(next_folder) = path.pop() {
-                match self.children.borrow().iter().find(|c| c.name == next_folder) {
-                    None => None,
-                    Some(child) => {
-                        if path.len() == 0 {
-                            Some(Rc::clone(child))
-                        } else {
-                            Self::get_by_path(&self, path)
-                        }
-                    }
-                }
-            } else {
-                None
-            }
-        }
-    */
+
     fn populate_object_tree(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
         Self::create_tree_node(metadata.root(), metadata)
@@ -115,13 +100,16 @@ impl ObjectTreeEntry {
         record_ptr: &RecordPointer,
         metadata: &MetaDataCache,
     ) -> Rc<ObjectTreeEntry> {
-        let name = metadata[record_ptr].rdn().to_owned();
+        let entry = &metadata[record_ptr];
+        let name = entry.rdn().to_owned();
+        let relative_distinguished_name = metadata.rdn(entry);
         let children = metadata
             .children_of(record_ptr)
             .map(|c| Self::create_tree_node(c.record_ptr(), metadata))
             .collect();
         Rc::new(ObjectTreeEntry {
             name,
+            relative_distinguished_name,
             record_ptr: *record_ptr,
             children: RefCell::new(children),
         })

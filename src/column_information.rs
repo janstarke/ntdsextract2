@@ -2,6 +2,7 @@
 
 use crate::cache::ColumnIndex;
 
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub struct ColumnInformation {
     id: ColumnIndex,
     // name: String,

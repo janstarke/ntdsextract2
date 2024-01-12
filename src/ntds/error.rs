@@ -29,7 +29,10 @@ pub enum Error {
     SchemaRecordHasNoChildren,
 
     #[error("IO Error: {why}")]
-    IoError{why: std::io::Error}
+    IoError{why: std::io::Error},
+
+    #[error("Invalid UUID: {why}")]
+    UuidError{why: uuid::Error}
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -37,5 +40,12 @@ pub type Result<T> = core::result::Result<T, Error>;
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::IoError { why: value }
+    }
+}
+
+
+impl From<uuid::Error> for Error {
+    fn from(value: uuid::Error) -> Self {
+        Self::UuidError { why: value }
     }
 }

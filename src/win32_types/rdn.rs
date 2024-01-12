@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 use anyhow::bail;
 use getset::Getters;
@@ -10,12 +11,14 @@ use crate::cache::Value;
 use crate::ntds;
 use crate::value::FromValue;
 
+use super::Guid;
+
 #[derive(Getters, Eq, PartialEq, Clone, Hash)]
 #[getset(get = "pub")]
 pub struct Rdn {
     name: String,
-    deleted_from_container: Option<String>, //TODO: should by a UUID
-    conflicting_objects: Vec<String>,       //TODO: should be UUIDs
+    deleted_from_container: Option<Guid>, //TODO: should by a UUID
+    conflicting_objects: Vec<Guid>,       //TODO: should be UUIDs
 }
 
 impl Display for Rdn {
@@ -44,9 +47,9 @@ impl FromValue for Rdn {
                         if deleted_from_container.is_some() {
                             return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                         }
-                        deleted_from_container = Some(guid.to_string());
+                        deleted_from_container = Some(Guid::from_str(guid)?);
                     } else if let Some(guid) = line.strip_prefix("CNF:") {
-                        conflicting_objects.push(guid.to_string());
+                        conflicting_objects.push(Guid::from_str(guid)?);
                     } else {
                         return Err(ntds::Error::InvalidValueDetected(value.to_string()));
                     }
@@ -75,13 +78,13 @@ impl TryFrom<&str> for Rdn {
                     Ok(Rdn {
                         name: name.to_owned(),
                         deleted_from_container: None,
-                        conflicting_objects: Vec::new()
+                        conflicting_objects: Vec::new(),
                     })
                 } else {
                     Ok(Rdn {
                         name: name.to_owned(),
-                        deleted_from_container: Some(deleted_from_container.to_owned()),
-                        conflicting_objects: Vec::new()
+                        deleted_from_container: Some(Guid::from_str(deleted_from_container)?),
+                        conflicting_objects: Vec::new(),
                     })
                 }
             }
