@@ -634,7 +634,7 @@ checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
 
 [[package]]
 name = "ntdsextract2"
-version = "1.0.0-alpha"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
