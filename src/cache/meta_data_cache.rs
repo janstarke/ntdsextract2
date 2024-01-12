@@ -333,7 +333,7 @@ impl MetaDataCache {
                 None => Some(rdn),
             }
             .map(|dn| {
-                let _ = entry.distinguished_name.replace(Some(dn.to_string()));
+                //let _ = entry.distinguished_name.replace(Some(dn.to_string()));
                 dn
             })
         }

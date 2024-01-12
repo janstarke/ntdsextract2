@@ -340,10 +340,10 @@ impl<'info, 'db> DataTable<'info, 'db> {
                             link_table,
                         )?
                     } else {
-                        Vec::<Bodyfile3Line>::try_from(record)?
+                        record.to_bodyfile(self.data_table().metadata())?
                     }
                 } else {
-                    Vec::<Bodyfile3Line>::try_from(record)?
+                    record.to_bodyfile(self.data_table().metadata())?
                 };
 
                 for line in lines.into_iter() {

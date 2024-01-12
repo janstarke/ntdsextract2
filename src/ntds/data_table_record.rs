@@ -1,4 +1,4 @@
-use crate::cache::{self, RecordId, RecordPointer};
+use crate::cache::{self, MetaDataCache, RecordId, RecordPointer};
 use crate::cache::{ColumnIndex, Value, WithValue};
 use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
@@ -157,6 +157,76 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
             .flatten()
             .collect()
     }
+
+    pub fn to_bodyfile(&self, metadata: &MetaDataCache) -> anyhow::Result<Vec<Bodyfile3Line>> {
+        let my_name = self
+            .att_sam_account_name()
+            .or(self.att_object_name().map(|s| s.name().to_string()));
+
+        let object_type_name = if let Some(type_id) = self.att_object_type_id_opt()? {
+            metadata
+                .record(&type_id)
+                .map(|entry| entry.rdn().name().to_string())
+                .unwrap_or("Object".to_string())
+        } else {
+            "Object".to_string()
+        };
+
+        let object_type_caption =
+            if let Some(guid) = self.att_object_name2()?.deleted_from_container() {
+                metadata
+                    .ptr_from_guid(guid)
+                    .map(|entry| metadata.record(entry.ds_record_id()))
+                    .flatten()
+                    .map(|entry| metadata.dn(entry))
+                    .flatten()
+                    .map(|e| format!("{object_type_name}, deleted from {e}"))
+                    .unwrap_or(format!("deleted {object_type_name}"))
+            } else if self.att_is_deleted_opt()?.unwrap_or(false) {
+                format!("deleted {object_type_name}")
+            } else {
+                object_type_name
+            };
+
+        let inode = self.ptr.ds_record_id().to_string();
+        if let Ok(upn) = &my_name {
+            Ok(vec![
+                self.ds_record_time().map(|ts| {
+                    ts.cr_entry(upn, "record creation time", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_when_created().map(|ts| {
+                    ts.cr_entry(upn, "object created", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_when_changed().map(|ts| {
+                    ts.cr_entry(upn, "object changed", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_last_logon().map(|ts| {
+                    ts.c_entry(upn, "last logon on this DC", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_last_logon_time_stamp().map(|ts| {
+                    ts.c_entry(upn, "last logon on any DC", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_bad_pwd_time().map(|ts| {
+                    ts.c_entry(upn, "bad pwd time", &object_type_caption)
+                        .with_inode(&inode)
+                }),
+                self.att_password_last_set().map(|ts| {
+                    ts.c_entry(upn, "password last set", object_type_caption)
+                        .with_inode(&inode)
+                }),
+            ]
+            .into_iter()
+            .flatten()
+            .collect())
+        } else {
+            Ok(Vec::new())
+        }
+    }
 }
 
 impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
@@ -201,58 +271,5 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
         }
 
         table
-    }
-}
-
-impl<'info, 'db> TryFrom<DataTableRecord<'info, 'db>> for Vec<Bodyfile3Line> {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: DataTableRecord) -> core::result::Result<Self, Self::Error> {
-        let my_name = obj
-            .att_sam_account_name()
-            .or(obj.att_object_name().map(|s| s.name().to_string()));
-        let object_type = if obj.att_is_deleted_opt()?.unwrap_or(false) {
-            "Deleted Object"
-        } else {
-            "Object"
-        };
-        let inode = obj.ptr.ds_record_id().to_string();
-        if let Ok(upn) = &my_name {
-            Ok(vec![
-                obj.ds_record_time().map(|ts| {
-                    ts.cr_entry(upn, "record creation time", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_when_created().map(|ts| {
-                    ts.cr_entry(upn, "object created", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_when_changed().map(|ts| {
-                    ts.cr_entry(upn, "object changed", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_last_logon().map(|ts| {
-                    ts.c_entry(upn, "last logon on this DC", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_last_logon_time_stamp().map(|ts| {
-                    ts.c_entry(upn, "last logon on any DC", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_bad_pwd_time().map(|ts| {
-                    ts.c_entry(upn, "bad pwd time", object_type)
-                        .with_inode(&inode)
-                }),
-                obj.att_password_last_set().map(|ts| {
-                    ts.c_entry(upn, "password last set", object_type)
-                        .with_inode(&inode)
-                }),
-            ]
-            .into_iter()
-            .flatten()
-            .collect())
-        } else {
-            Ok(Vec::new())
-        }
     }
 }
