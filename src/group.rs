@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
+use crate::column_info_mapping::{DbRecord, FromDbRecord};
 use crate::{
-    data_table_ext::DataTableExt,
+    skip_all_attributes,
     win32_types::{
         SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
     },
-    DbRecord, FromDbRecord, skip_all_attributes,
 };
-use crate::{serde_flat_serialization, serialization::*};
+use crate::{serde_flat_serialization, serialization::*, CDatabase};
 use anyhow::{bail, Result};
 
 #[derive(Serialize)]
@@ -33,7 +33,7 @@ pub(crate) struct Group {
 
     #[serde(serialize_with = "serialize_object_list")]
     member_of: Vec<String>,
-    
+
     comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
@@ -65,13 +65,15 @@ pub(crate) struct Group {
 }
 
 impl FromDbRecord for Group {
-    fn from(dbrecord: &DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, database: &CDatabase) -> Result<Self> {
+        let data_table = database.data_table();
+
         let mapping = data_table.mapping();
         let object_id = match dbrecord.ds_record_id(mapping)? {
             Some(id) => id,
             None => bail!("object has no record id"),
         };
-        let members = if let Some(children) = data_table.link_table().members(&object_id) {
+        let members = if let Some(children) = database.link_table().members(&object_id) {
             children
                 .iter()
                 .filter_map(|child_id| {
@@ -90,7 +92,7 @@ impl FromDbRecord for Group {
             vec![]
         };
 
-        let member_of = if let Some(children) = data_table.link_table().member_of(&object_id) {
+        let member_of = if let Some(children) = database.link_table().member_of(&object_id) {
             children
                 .iter()
                 .filter_map(|child_id| {

@@ -8,10 +8,9 @@
 
 # Added by cargo
 
-/target
+target
 **/*.csv
 **/*.json
 **/*.bodyfile
 
-tests/*
 .idea

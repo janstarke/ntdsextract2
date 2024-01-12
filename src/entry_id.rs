@@ -1,4 +1,6 @@
-pub (crate) enum EntryId {
-    Id(i32),
+use crate::cache::RecordId;
+
+pub enum EntryId {
+    Id(RecordId),
     Rid(u32),
 }

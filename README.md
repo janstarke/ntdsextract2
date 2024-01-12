@@ -14,7 +14,7 @@ This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by 
 # Installation
 
 ```bash
-cargo install --git https://github.com/janstarke/ntdsextract2.git
+cargo install ntdsextract2
 ```
 
 # Usage
