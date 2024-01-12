@@ -19,7 +19,9 @@ pub enum Value {
     U32(u32),
     I64(i64),
     Guid(Box<Vec<u8>>),
-    U16(u16)
+    U16(u16),
+    Long,
+    Multi
 }
 
 impl Eq for Value {
@@ -47,6 +49,8 @@ impl From<libesedb::Value> for Value {
             libesedb::Value::I64(v) => Self::I64(v),
             libesedb::Value::Guid(v) => Self::Guid(Box::new(Vec::from(&v[..]))),
             libesedb::Value::U16(v) => Self::U16(v),
+            libesedb::Value::Long => Self::Long,
+            libesedb::Value::Multi => Self::Multi,
         }
     }
 }
@@ -72,6 +76,8 @@ impl Display for Value {
             Value::I64(v) => write!(f, "I64({v})"),
             Value::Guid(v) => write!(f, "Guid({v:?})"),
             Value::U16(v) => write!(f, "U16({v})"),
+            Value::Long => write!(f, "Long"),
+            Value::Multi => write!(f, "Multi"),
         }
     }
 }
