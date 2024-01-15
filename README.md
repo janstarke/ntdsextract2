@@ -4,6 +4,8 @@
 
 # ntdsextract2
 
+<img align="right" width="64px" src="https://github.com/janstarke/ntdsextract2/blob/main/doc/images/ntdsextract2.jpeg">
+
 This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by @csababarta.
 
 ## Why do you write a tool that's already there and working?
