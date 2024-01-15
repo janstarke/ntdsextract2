@@ -4,7 +4,7 @@
 
 # ntdsextract2
 
-<img align="right" width="64px" src="https://github.com/janstarke/ntdsextract2/blob/b6448f8efea6dee6fe649b128861392f25277e44/doc/images/ntdsextract2.jpeg">
+<img align="right" width="128px" src="https://github.com/janstarke/ntdsextract2/blob/b6448f8efea6dee6fe649b128861392f25277e44/doc/images/ntdsextract2.jpeg">
 
 This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by @csababarta.
 
