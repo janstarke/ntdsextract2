@@ -176,8 +176,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
         let object_type_caption =
             if let Some(last_known_parent) = self.att_last_known_parent_opt()? {
                 metadata.record(&last_known_parent)
-                    .map(|entry| metadata.dn(entry))
-                    .flatten()
+                    .and_then(|entry| metadata.dn(entry))
                     .map(|e| format!("{object_type_name}, deleted from {e}"))
                     .unwrap_or(format!("deleted {object_type_name}"))
             } else if self.att_is_deleted_opt()?.unwrap_or(false) {

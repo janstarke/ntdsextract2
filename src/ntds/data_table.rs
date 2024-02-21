@@ -395,7 +395,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             );
             let records = deleted_objects_records.union(&records_with_deleted_from_container_guid);
 
-            self.show_timeline_for_records(options, link_table, records.map(|r| *r))
+            self.show_timeline_for_records(options, link_table, records.copied())
                 .unwrap();
         }
 

@@ -103,6 +103,10 @@ impl ObjectTreeEntry {
         let entry = &metadata[record_ptr];
         let name = entry.rdn().to_owned();
         let relative_distinguished_name = metadata.rdn(entry);
+
+        // [`ObjectTreeEntry`] uses interior mutability, but its hash()-Implementation
+        // don't use the mutable parts, so this is not a problem
+        #[allow(clippy::mutable_key_type)]
         let children = metadata
             .children_of(record_ptr)
             .map(|c| Self::create_tree_node(c.record_ptr(), metadata))

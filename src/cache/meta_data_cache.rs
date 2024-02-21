@@ -105,10 +105,10 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             if let Some(ldap_display_name) =
                                 String::from_record_opt(&record, ldap_display_name_column)?
                             {
-                                if attributes.contains_key(&attribute_id) {
-                                    bail!("unambigious attribute id: {attribute_id} in {record_id}")
+                                if let std::collections::hash_map::Entry::Vacant(e) = attributes.entry(attribute_id) {
+                                    e.insert(ldap_display_name);
                                 } else {
-                                    attributes.insert(attribute_id, ldap_display_name);
+                                    bail!("unambigious attribute id: {attribute_id} in {record_id}")
                                 }
                             }
                         }
@@ -291,7 +291,7 @@ impl MetaDataCache {
         if let Some(type_entry_id) = entry.object_category() {
             if let Some(type_entry) = self.record(type_entry_id) {
                 if let Some(rdn_att_id) = type_entry.rdn_typ_col() {
-                    if let Some(ldap_display_name) = self.attributes.get(&rdn_att_id) {
+                    if let Some(ldap_display_name) = self.attributes.get(rdn_att_id) {
                         return format!("{ldap_display_name}={}", entry.rdn().name());
                     } else {
                         log::warn!("no record entry found for attribute id {rdn_att_id}");
@@ -308,7 +308,7 @@ impl MetaDataCache {
             log::warn!("no object category for {entry}");
         }
 
-        return format!("cn={}", entry.cn().as_ref().unwrap_or(&entry.rdn()).name());
+        format!("cn={}", entry.cn().as_ref().unwrap_or(entry.rdn()).name())
     }
 
     pub fn dn(&self, entry: &DataEntryCore) -> Option<String> {
@@ -325,10 +325,6 @@ impl MetaDataCache {
                 Some(parent_dn) => Some(format!("{rdn},{parent_dn}")),
                 None => Some(rdn),
             }
-            .map(|dn| {
-                //let _ = entry.distinguished_name.replace(Some(dn.clone()));
-                dn
-            })
         }
     }
 }

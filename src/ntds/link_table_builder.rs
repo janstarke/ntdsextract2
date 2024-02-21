@@ -72,11 +72,11 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
                     forward_map
                         .entry(*forward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
-                        .insert(backward_link.clone());
+                        .insert(*backward_link);
                     backward_map
                         .entry(*backward_link.ds_record_id())
                         .or_insert_with(HashSet::new)
-                        .insert(forward_link.clone());
+                        .insert(*forward_link);
                 }
             }
         }
@@ -145,6 +145,6 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
             .table()
             .record(entry.record_ptr().esedb_row().inner())?;
         Ok(u32::from_record_opt(&record, link_id_column)?
-            .expect(&format!("missing link-id attribute in {attribute_name}")))
+            .unwrap_or_else(|| panic!("missing link-id attribute in {attribute_name}")))
     }
 }
