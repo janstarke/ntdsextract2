@@ -9,13 +9,26 @@ use serde::{Deserialize, Serialize};
 use super::{DataTable, DataTableRecord, FromDataTable, HasObjectType, LinkTable};
 use std::marker::PhantomData;
 
+pub trait SpecificObjectAttributes: for<'de> Deserialize<'de> + Serialize {
+    fn from<'r>(record: &'r DataTableRecord) -> Self;
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct NoSpecificAttributes;
+impl SpecificObjectAttributes for NoSpecificAttributes {
+    fn from<'r>(_record: &'r DataTableRecord) -> Self {
+        Self
+    }
+}
+
 #[derive(Getters, Serialize, Deserialize)]
 #[getset(get = "pub")]
 #[serde(bound = "T: SerializationType")]
-pub struct Object<T, O>
+pub struct Object<T, O, A>
 where
     O: HasObjectType,
     T: SerializationType,
+    A: SpecificObjectAttributes,
 {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
@@ -49,6 +62,8 @@ where
     password_last_set: Option<WindowsFileTime>,
     bad_pwd_time: Option<WindowsFileTime>,
 
+    specific_attributes: A,
+
     #[serde(skip)]
     _marker: PhantomData<O>,
 
@@ -56,10 +71,11 @@ where
     ptr: RecordPointer,
 }
 
-impl<T, O> FromDataTable for Object<T, O>
+impl<T, O, A> FromDataTable for Object<T, O, A>
 where
     O: HasObjectType,
     T: SerializationType,
+    A: SpecificObjectAttributes
 {
     fn new(
         dbrecord: DataTableRecord,
@@ -86,6 +102,7 @@ where
         });
 
         let member_of = link_table.member_names_of(object_id, data_table).into();
+        let specific_attributes = A::from(&dbrecord);
 
         Ok(Self {
             record_time: dbrecord.ds_record_time().ok(),
@@ -111,18 +128,20 @@ where
             comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
             member_of,
+            specific_attributes,
             _marker: PhantomData,
             ptr: *dbrecord.ptr(),
         })
     }
 }
 
-impl<T, O> From<Object<T, O>> for Vec<Bodyfile3Line>
+impl<T, O, A> From<Object<T, O, A>> for Vec<Bodyfile3Line>
 where
     O: HasObjectType,
     T: SerializationType,
+    A: SpecificObjectAttributes
 {
-    fn from(obj: Object<T, O>) -> Self {
+    fn from(obj: Object<T, O, A>) -> Self {
         let object_type = O::object_type();
         let upn = match obj.sam_account_name() {
             Some(n) => Some(n.to_string()),

@@ -23,7 +23,10 @@ pub use schema::*;
 pub use attribute_name::*;
 pub use attribute_value::*;
 
+mod object_computer;
+mod object_group;
+mod object_person;
 
-pub type Person<T> = Object<T, types::Person>;
-pub type Group<T> = Object<T, types::Group>;
-pub type Computer<T> = Object<T, types::Computer>;
+pub use object_computer::*;
+pub use object_group::*;
+pub use object_person::*;
