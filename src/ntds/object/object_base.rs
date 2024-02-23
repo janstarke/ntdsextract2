@@ -4,24 +4,15 @@ use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
 use crate::{OutputOptions, RdnSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
+use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use super::{DataTable, DataTableRecord, FromDataTable, HasObjectType, LinkTable};
+use crate::ntds::{DataTable, DataTableRecord, FromDataTable, HasObjectType, LinkTable};
 use std::marker::PhantomData;
 
-pub trait SpecificObjectAttributes: for<'de> Deserialize<'de> + Serialize {
-    fn from<'r>(record: &'r DataTableRecord) -> Self;
-}
+use super::{HasSerializableFields, SpecificObjectAttributes};
 
-#[derive(Serialize, Deserialize)]
-pub struct NoSpecificAttributes;
-impl SpecificObjectAttributes for NoSpecificAttributes {
-    fn from<'r>(_record: &'r DataTableRecord) -> Self {
-        Self
-    }
-}
-
-#[derive(Getters, Serialize, Deserialize)]
+#[derive(Getters, Deserialize)]
 #[getset(get = "pub")]
 #[serde(bound = "T: SerializationType")]
 pub struct Object<T, O, A>
@@ -62,6 +53,7 @@ where
     password_last_set: Option<WindowsFileTime>,
     bad_pwd_time: Option<WindowsFileTime>,
 
+    //#[serde(flatten)]
     specific_attributes: A,
 
     #[serde(skip)]
@@ -71,11 +63,87 @@ where
     ptr: RecordPointer,
 }
 
+impl<T, O, A> HasSerializableFields for Object<T, O, A> 
+where
+    O: HasObjectType,
+    T: SerializationType,
+    A: SpecificObjectAttributes,
+{
+    fn fields() -> &'static Vec<&'static str> {
+        lazy_static::lazy_static!{
+            static ref FIELDS: Vec<&'static str> = vec![
+                "sid",
+                "user_principal_name",
+                "rdn",
+                "sam_account_name",
+                "sam_account_type",
+                "user_account_control",
+                "logon_count",
+                "bad_pwd_count",
+                "admin_count",
+                "is_deleted",
+                "primary_group_id",
+                "primary_group",
+                "member_of",
+                "comment",
+                "record_time",
+                "when_created",
+                "when_changed",
+                "last_logon",
+                "last_logon_time_stamp",
+                "account_expires",
+                "password_last_set",
+                "bad_pwd_time"
+            ];
+        }
+        &FIELDS
+    }
+}
+
+impl<T, O, A> Serialize for Object<T, O, A>
+where
+    O: HasObjectType,
+    T: SerializationType,
+    A: SpecificObjectAttributes,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("Object", Self::field_count() + A::field_count())?;
+        s.serialize_field("sid", self.sid())?;
+        s.serialize_field("user_principal_name", self.user_principal_name())?;
+        s.serialize_field("rdn", self.rdn())?;
+        s.serialize_field("sam_account_name", self.sam_account_name())?;
+        s.serialize_field("sam_account_type", self.sam_account_type())?;
+        s.serialize_field("user_account_control", self.user_account_control())?;
+        s.serialize_field("logon_count", self.logon_count())?;
+        s.serialize_field("bad_pwd_count", self.bad_pwd_count())?;
+        s.serialize_field("admin_count", self.admin_count())?;
+        s.serialize_field("is_deleted", self.is_deleted())?;
+        s.serialize_field("primary_group_id", self.primary_group_id())?;
+        s.serialize_field("primary_group", self.primary_group())?;
+        s.serialize_field("member_of", self.member_of())?;
+        s.serialize_field("comment", self.comment())?;
+        s.serialize_field("record_time", self.record_time())?;
+        s.serialize_field("when_created", self.when_created())?;
+        s.serialize_field("when_changed", self.when_changed())?;
+        s.serialize_field("last_logon", self.last_logon())?;
+        s.serialize_field("last_logon_time_stamp", self.last_logon_time_stamp())?;
+        s.serialize_field("account_expires", self.account_expires())?;
+        s.serialize_field("password_last_set", self.password_last_set())?;
+        s.serialize_field("bad_pwd_time", self.bad_pwd_time())?;
+
+        self.specific_attributes().serialize_to::<S>(&mut s)?;
+        s.end()
+    }
+}
+
 impl<T, O, A> FromDataTable for Object<T, O, A>
 where
     O: HasObjectType,
     T: SerializationType,
-    A: SpecificObjectAttributes
+    A: SpecificObjectAttributes,
 {
     fn new(
         dbrecord: DataTableRecord,
@@ -102,7 +170,7 @@ where
         });
 
         let member_of = link_table.member_names_of(object_id, data_table).into();
-        let specific_attributes = A::from(&dbrecord);
+        let specific_attributes = A::from(&dbrecord)?;
 
         Ok(Self {
             record_time: dbrecord.ds_record_time().ok(),
@@ -139,7 +207,7 @@ impl<T, O, A> From<Object<T, O, A>> for Vec<Bodyfile3Line>
 where
     O: HasObjectType,
     T: SerializationType,
-    A: SpecificObjectAttributes
+    A: SpecificObjectAttributes,
 {
     fn from(obj: Object<T, O, A>) -> Self {
         let object_type = O::object_type();
