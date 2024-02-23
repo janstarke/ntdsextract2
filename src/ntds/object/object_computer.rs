@@ -9,13 +9,13 @@ use super::SpecificObjectAttributes;
 
 #[derive(Deserialize, Serialize)]
 pub struct SpecificComputerAttributes {
-    created_sid: Option<Sid>,
+    creator_sid: Option<Sid>,
 }
 
 impl HasSerializableFields for SpecificComputerAttributes {
     fn fields() -> &'static Vec<&'static str> {
         lazy_static! {
-            static ref COMPUTER_HEADER: Vec<&'static str> = vec!["created_sid"];
+            static ref COMPUTER_HEADER: Vec<&'static str> = vec!["creator_sid"];
         }
         &COMPUTER_HEADER
     }
@@ -23,15 +23,15 @@ impl HasSerializableFields for SpecificComputerAttributes {
 
 impl SpecificObjectAttributes for SpecificComputerAttributes {
     fn from(record: &crate::ntds::DataTableRecord) -> anyhow::Result<Self> {
-        let created_sid = record.att_creator_sid_opt()?;
-        Ok(Self { created_sid })
+        let creator_sid = record.att_creator_sid_opt()?;
+        Ok(Self { creator_sid })
     }
 
     fn serialize_to<S>(&self, s: &mut S::SerializeStruct) -> Result<(), S::Error>
     where
         S: serde::Serializer,
     {
-        s.serialize_field("created_sid", &self.created_sid)?;
+        s.serialize_field("creator_sid", &self.creator_sid)?;
         Ok(())
     }
 }
