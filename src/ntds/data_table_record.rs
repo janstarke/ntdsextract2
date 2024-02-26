@@ -10,6 +10,7 @@ use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use getset::Getters;
+use serde::ser::SerializeStruct;
 use serde::Serialize;
 use std::collections::HashMap;
 use term_table::row::Row;
@@ -284,6 +285,12 @@ impl<'info, 'db> Serialize for DataTableRecord<'info, 'db> {
     where
         S: serde::Serializer,
     {
-        self.all_attributes().serialize(serializer)
+        let all_attributes = self.all_attributes();
+        let mut ser = serializer.serialize_struct("record", all_attributes.len())?;
+        for (id, att) in all_attributes {
+            let key: &'static str = id.into();
+            ser.serialize_field(key, att.value())?;
+        }
+        ser.end()
     }
 }
