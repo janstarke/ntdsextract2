@@ -1,7 +1,8 @@
 use crate::cache::RecordPointer;
+use crate::cli::OutputOptions;
 use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{OutputOptions, RdnSet, SerializationType};
+use crate::{RdnSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::ser::SerializeStruct;
@@ -142,7 +143,7 @@ where
 impl<T, O, A> FromDataTable for Object<T, O, A>
 where
     O: HasObjectType,
-    T: SerializationType,
+    T: SerializationType,   
     A: SpecificObjectAttributes,
 {
     fn new(

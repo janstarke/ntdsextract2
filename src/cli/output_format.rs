@@ -1,16 +1,18 @@
-use crate::output::{CsvWriter, JsonLinesWriter, JsonWriter, Writer};
+use strum::Display;
 
-#[derive(clap::ValueEnum, Clone, Copy)]
+use crate::cli::output::{CsvWriter, JsonLinesWriter, JsonWriter, Writer};
+
+
+#[derive(clap::ValueEnum, Clone, Copy, Display)]
 pub enum OutputFormat {
+    #[strum(serialize = "csv")]
     Csv,
-    Json,
-    JsonLines,
-}
 
-impl Default for OutputFormat {
-    fn default() -> Self {
-        Self::Csv
-    }
+    #[strum(serialize = "json")]
+    Json,
+
+    #[strum(serialize = "json-lines")]
+    JsonLines,
 }
 
 impl Writer for OutputFormat {

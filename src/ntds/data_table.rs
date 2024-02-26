@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::io::stdout;
 use std::rc::Rc;
 
 use crate::cache::{RecordPointer, SpecialRecords};
+use crate::cli::output::Writer;
+use crate::cli::{EntryFormat, OutputFormat, OutputOptions};
 use crate::ntds;
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
@@ -9,14 +12,14 @@ use crate::ntds::LinkTable;
 use crate::ntds::NtdsAttributeId;
 use crate::ntds::Result;
 use crate::object_tree_entry::ObjectTreeEntry;
-use crate::output::Writer;
 use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
-use crate::{cache, EntryId, OutputFormat, OutputOptions};
+use crate::{cache, EntryId};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
+use serde_json::json;
 
 use super::{Computer, Group, ObjectType, Person, Schema};
 
@@ -152,7 +155,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    pub fn show_entry(&self, entry_id: EntryId) -> Result<()> {
+    pub fn show_entry(&self, entry_id: EntryId, entry_format: EntryFormat) -> Result<()> {
         let record = match entry_id {
             EntryId::Id(id) => self.data_table.metadata().record(&id),
             EntryId::Rid(rid) => self.data_table.metadata().entries_with_rid(rid).next(),
@@ -164,21 +167,42 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 let record = self
                     .data_table()
                     .data_table_record_from(*entry.record_ptr())?;
-                let mut table = term_table::Table::from(&record);
 
-                if let Some(size) = termsize::get() {
-                    let attrib_size = 20;
-                    let value_size = if size.cols > (attrib_size + 2) {
-                        size.cols - (attrib_size + 2)
-                    } else {
-                        0
-                    };
-                    table.set_max_column_widths(vec![
-                        (0, attrib_size.into()),
-                        (1, value_size.into()),
-                    ])
-                }
-                println!("{}", table.render())
+                match entry_format {
+                    EntryFormat::Simple => {
+                        let all_attributes = record.all_attributes();
+                        let header_width = all_attributes.keys().map(|k|{let k: &'static str = k.into(); k.len()}).max().unwrap();
+                        let mut sorted_ids: Vec<_> = all_attributes.keys().map(|id| {
+                            let s: &'static str = id.into(); (id, s)
+                        }).collect();
+                        sorted_ids.sort_by(|lhs, rhs| lhs.1.cmp(rhs.1));
+
+                        for header in sorted_ids {
+                            let value = all_attributes.get(header.0).unwrap();
+                            println!("{: <header_width$}: {}", header.1, value.value());
+                        }
+                    }
+                    EntryFormat::Json => {
+                        let _ = serde_json::to_writer_pretty(stdout(), &json!(record));
+                    }
+                    EntryFormat::Table => {
+                        let mut table = term_table::Table::from(&record);
+
+                        if let Some(size) = termsize::get() {
+                            let attrib_size = 20;
+                            let value_size = if size.cols > (attrib_size + 2) {
+                                size.cols - (attrib_size + 2)
+                            } else {
+                                0
+                            };
+                            table.set_max_column_widths(vec![
+                                (0, attrib_size.into()),
+                                (1, value_size.into()),
+                            ])
+                        }
+                        println!("{}", table.render())
+                    }
+                }                
             }
         }
         Ok(())
@@ -200,14 +224,14 @@ impl<'info, 'db> DataTable<'info, 'db> {
             let matching_columns = record
                 .all_attributes()
                 .iter()
-                .filter(|(_, (_, _, v))| re.is_match(v.value()))
-                .map(|(id, (col_name, att_name, value))| {
+                .filter(|(_, attribute)| re.is_match(attribute.value().value()))
+                .map(|(id, attribute)| {
                     (
                         *id,
                         (
-                            col_name.to_string(),
-                            att_name.to_string(),
-                            value.to_string(),
+                            attribute.column().to_string(),
+                            attribute.attribute().to_string(),
+                            attribute.value().to_string(),
                         ),
                     )
                 })
@@ -233,7 +257,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             csv_wtr.write_record(table_columns.iter().map(|a| {
                 all_attributes
                     .get(a)
-                    .map(|(_col_name, _att_name, value)| value.value())
+                    .map(|attribute| attribute.value().value())
                     .unwrap_or(&empty_string)
                     .replace('\n', "\\n")
                     .replace('\r', "\\r")

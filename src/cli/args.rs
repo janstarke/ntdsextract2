@@ -1,9 +1,11 @@
 use clap::Parser;
+use getset::Getters;
 
 use super::Commands;
 
 
-#[derive(Parser)]
+#[derive(Parser, Getters)]
+#[getset(get="pub")]
 #[clap(name="ntdsextract2", author, version, about, long_about = None)]
 pub struct Args {
     #[clap(subcommand)]

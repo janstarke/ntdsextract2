@@ -1,6 +1,6 @@
 use getset::{Getters, Setters};
 
-use crate::OutputFormat;
+use super::OutputFormat;
 
 #[derive(Getters, Setters, Default)]
 #[getset(get="pub", set="pub")]

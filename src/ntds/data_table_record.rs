@@ -10,11 +10,20 @@ use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
 use concat_idents::concat_idents;
 use getset::Getters;
+use serde::Serialize;
 use std::collections::HashMap;
 use term_table::row::Row;
 use term_table::table_cell::{Alignment, TableCell};
 
 use super::{AttributeName, AttributeValue};
+
+#[derive(Getters, Serialize)]
+#[getset(get = "pub")]
+pub struct EntryAttribute {
+    column: String,
+    attribute: AttributeName,
+    value: AttributeValue,
+}
 
 #[derive(Getters)]
 pub struct DataTableRecord<'info, 'db> {
@@ -123,9 +132,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     pub fn mapping(&self) -> &ColumnInfoMapping {
         self.inner.esedbinfo().mapping()
     }
-    pub fn all_attributes(
-        &self,
-    ) -> HashMap<NtdsAttributeId, (String, AttributeName, AttributeValue)> {
+    pub fn all_attributes(&self) -> HashMap<NtdsAttributeId, EntryAttribute> {
         (0..*self.inner.count())
             .map(ColumnIndex::from)
             .filter_map(|idx| {
@@ -141,15 +148,15 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
                     Ok(v.map(|x| {
                         (
                             column.attribute_id().unwrap(),
-                            (
-                                column.name().to_string(),
-                                column
+                            EntryAttribute {
+                                column: column.name().to_string(),
+                                attribute: column
                                     .attribute_name()
                                     .as_ref()
                                     .cloned()
                                     .unwrap_or(AttributeName::from(column.name().to_string())),
-                                AttributeValue::from(x.to_string()),
-                            ),
+                                value: AttributeValue::from(x.to_string()),
+                            },
                         )
                     }))
                 })
@@ -175,7 +182,8 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
 
         let object_type_caption =
             if let Some(last_known_parent) = self.att_last_known_parent_opt()? {
-                metadata.record(&last_known_parent)
+                metadata
+                    .record(&last_known_parent)
                     .and_then(|entry| metadata.dn(entry))
                     .map(|e| format!("{object_type_name}, deleted from {e}"))
                     .unwrap_or(format!("deleted {object_type_name}"))
@@ -259,14 +267,23 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
         ]));
 
         for id in keys {
-            let (col_name, att_name, value) = &all_attributes[id];
+            let attribute = &all_attributes[id];
             table.add_row(Row::new(vec![
-                TableCell::new(att_name),
-                TableCell::new(col_name),
-                TableCell::new(value),
+                TableCell::new(attribute.attribute()),
+                TableCell::new(attribute.column()),
+                TableCell::new(attribute.value()),
             ]));
         }
 
         table
+    }
+}
+
+impl<'info, 'db> Serialize for DataTableRecord<'info, 'db> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.all_attributes().serialize(serializer)
     }
 }

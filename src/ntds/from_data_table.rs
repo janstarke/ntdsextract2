@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::OutputOptions;
+use crate::cli::OutputOptions;
 
 use super::{DataTable, DataTableRecord, LinkTable};
 

@@ -1,10 +1,7 @@
 use std::rc::Rc;
 
 use crate::{
-    cache::{self, MetaDataCache},
-    ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema},
-    object_tree_entry::ObjectTreeEntry,
-    EntryId, EsedbInfo, OutputOptions, SerializationType,
+    cache::{self, MetaDataCache}, cli::{EntryFormat, OutputOptions}, ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema}, object_tree_entry::ObjectTreeEntry, EntryId, EsedbInfo, SerializationType
 };
 
 pub struct CDatabase<'info, 'db> {
@@ -92,8 +89,8 @@ impl<'info, 'db> CDatabase<'info, 'db> {
         self.data_table.show_timeline(options, &self.link_table, include_deleted)
     }
 
-    pub fn show_entry(&self, entry_id: EntryId) -> crate::ntds::Result<()> {
-        self.data_table.show_entry(entry_id)
+    pub fn show_entry(&self, entry_id: EntryId, entry_format: EntryFormat) -> crate::ntds::Result<()> {
+        self.data_table.show_entry(entry_id, entry_format)
     }
 
     pub fn show_tree(&self, max_depth: u8) -> crate::ntds::Result<()> {

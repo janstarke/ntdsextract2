@@ -4,15 +4,14 @@ use anyhow::Result;
 use clap::Parser;
 use libesedb::EseDb;
 use libntdsextract2::{
-    CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization, OutputOptions,
+    CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization,
 };
+use libntdsextract2::cli::{Args, Commands, OutputOptions};
 use simplelog::{Config, TermLogger};
 
-mod cli;
 mod progress_bar;
 
 use cap::Cap;
-use cli::*;
 use std::alloc;
 
 macro_rules! do_with_serialization {
@@ -33,39 +32,39 @@ fn main() -> Result<()> {
 
     let cli = Args::parse();
     let _ = TermLogger::init(
-        cli.verbose.log_level_filter(),
+        cli.verbose().log_level_filter(),
         Config::default(),
         simplelog::TerminalMode::Stderr,
         simplelog::ColorChoice::Auto,
     );
 
-    let ntds_path = Path::new(&cli.ntds_file);
+    let ntds_path = Path::new(cli.ntds_file());
     if !(ntds_path.exists() && ntds_path.is_file()) {
-        eprintln!("unable to open '{}'", cli.ntds_file);
+        eprintln!("unable to open '{}'", cli.ntds_file());
         std::process::exit(-1);
     }
 
-    let esedb = EseDb::open(&cli.ntds_file)?;
+    let esedb = EseDb::open(cli.ntds_file())?;
     let info = EsedbInfo::try_from(&esedb)?;
     let database = CDatabase::new(&info)?;
 
     let mut options = OutputOptions::default();
-    options.set_display_all_attributes(cli.command.display_all_attributes());
-    options.set_flat_serialization(cli.command.flat_serialization());
-    options.set_format(cli.command.format());
+    options.set_display_all_attributes(cli.command().display_all_attributes());
+    options.set_flat_serialization(cli.command().flat_serialization());
+    options.set_format(cli.command().format());
 
-    match &cli.command {
+    match cli.command() {
         Commands::Group { .. } => {
-            do_with_serialization!(cli.command, database, show_groups, &options)
+            do_with_serialization!(cli.command(), database, show_groups, &options)
         }
         Commands::User { .. } => {
-            do_with_serialization!(cli.command, database, show_users, &options)
+            do_with_serialization!(cli.command(), database, show_users, &options)
         }
         Commands::Computer { .. } => {
-            do_with_serialization!(cli.command, database, show_computers, &options)
+            do_with_serialization!(cli.command(), database, show_computers, &options)
         }
         Commands::Types { .. } => {
-            do_with_serialization!(cli.command, database, show_type_names, &options)
+            do_with_serialization!(cli.command(), database, show_type_names, &options)
         }
         Commands::Timeline {
             all_objects,
@@ -75,13 +74,13 @@ fn main() -> Result<()> {
             database.show_timeline(&options, *include_deleted)
         }
         Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
-        Commands::Entry { entry_id, use_sid } => {
+        Commands::Entry { entry_id, use_sid, entry_format } => {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {
                 EntryId::Id((*entry_id).into())
             };
-            Ok(database.show_entry(id)?)
+            Ok(database.show_entry(id, *entry_format)?)
         }
         Commands::Search { regex, ignore_case } => {
             let regex = if *ignore_case {

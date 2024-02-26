@@ -1,5 +1,6 @@
 use clap::Subcommand;
-use libntdsextract2::OutputFormat;
+
+use super::{EntryFormat, OutputFormat};
 
 #[derive(Subcommand)]
 pub enum Commands {
@@ -71,6 +72,9 @@ pub enum Commands {
         /// e.g. 500 will return the Administrator account
         #[clap(long("sid"))]
         use_sid: bool,
+
+        #[clap(short('F'), long("format"), default_value_t = EntryFormat::Simple)]
+        entry_format: EntryFormat
     },
 
     /// search for entries whose values match to some regular expression
