@@ -16,7 +16,7 @@ impl FromValue for bool {
             Value::U32(val) => Ok(Some(*val == 1)),
             Value::I16(val) => Ok(Some(*val == 1)),
             Value::I32(val) => Ok(Some(*val == 1)),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "bool (one of u8, u16, u32, i16 or i32)")),
         }
     }
 }

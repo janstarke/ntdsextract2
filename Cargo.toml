@@ -1,6 +1,6 @@
 [package]
 name = "ntdsextract2"
-version = "1.2.0"
+version = "1.2.1"
 edition = "2021"
 description = "Display contents of Active Directory database files (ntds.dit)"
 repository = "https://github.com/janstarke/ntdsextract2"
@@ -54,7 +54,7 @@ getset = "0"
 
 cap = "0.1.2"
 indicatif = "0.17"
-uuid = {version="1.6", features=["serde"]}
+uuid = {version="1.6", features=["serde", "v4"]}
 
 [dev-dependencies]
 assert_cmd = "2"

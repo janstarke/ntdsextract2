@@ -18,7 +18,7 @@ impl FromValue for Sid {
                     })?))
             }
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "Sid (binary)")),
         }
     }
 }

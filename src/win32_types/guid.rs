@@ -18,7 +18,10 @@ impl FromValue for Guid {
             Value::Binary(v) | Value::LargeBinary(v) | Value::Guid(v) => {
                 Ok(Some(Self(Uuid::from_slice_le(&v[..])?)))
             }
-            _ => unimplemented!(),
+            v => {
+                log::error!("I don't know how to extract GUIDs from {v}");
+                Ok(None)
+            }
         }
     }
 }
