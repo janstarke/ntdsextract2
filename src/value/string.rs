@@ -14,7 +14,7 @@ impl FromValue for String {
             Value::LargeText(val) => Ok(Some(val.as_ref().to_owned())),
             Value::Binary(val) | Value::LargeBinary(val) => Ok(Some(hex::encode(val.as_ref()))),
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "String (one of (text, largetext or binary)")),
         }
     }
 }

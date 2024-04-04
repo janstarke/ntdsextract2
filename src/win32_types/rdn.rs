@@ -45,13 +45,13 @@ impl FromValue for Rdn {
                 for line in lines {
                     if let Some(guid) = line.strip_prefix("DEL:") {
                         if deleted_from_container.is_some() {
-                            return Err(ntds::Error::InvalidValueDetected(value.to_string()));
+                            return Err(ntds::Error::InvalidValueDetected(value.to_string(), "Rdn (text)"));
                         }
                         deleted_from_container = Some(Guid::from_str(guid)?);
                     } else if let Some(guid) = line.strip_prefix("CNF:") {
                         conflicting_objects.push(Guid::from_str(guid)?);
                     } else {
-                        return Err(ntds::Error::InvalidValueDetected(value.to_string()));
+                        log::warn!("unexpected value in Rdn field: '{line}'");
                     }
                 }
 
@@ -62,7 +62,15 @@ impl FromValue for Rdn {
                 }))
             }
             Value::Null(()) => Ok(None),
-            _ => Err(ntds::Error::InvalidValueDetected(value.to_string())),
+            Value::Long => {
+                log::warn!("no support for LONG columns yet, generating a random value");
+                Ok(Some(Self{
+                    name: uuid::Uuid::new_v4().to_string(),
+                    deleted_from_container: None,
+                    conflicting_objects: Vec::new(),
+                }))
+            }
+            _ => Err(ntds::Error::InvalidValueDetected(value.to_string(), "Rdn (text)")),
         }
     }
 }

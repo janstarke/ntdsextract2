@@ -12,7 +12,7 @@ impl FromValue for i32 {
         match value {
             Value::I32(val) => Ok(Some(*val)),
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "i32")),
         }
     }
 }

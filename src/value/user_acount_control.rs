@@ -14,7 +14,7 @@ impl FromValue for UserAccountControl {
                 u32::from_ne_bytes(val.to_ne_bytes()),
             ))),
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "UserAccountControl (i32)")),
         }
     }
 }

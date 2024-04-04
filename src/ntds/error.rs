@@ -5,8 +5,8 @@ pub enum Error {
     #[error("this value has no data")]
     ValueIsMissing,
 
-    #[error("invalid value detected: '{0:?}'")]
-    InvalidValueDetected(String),
+    #[error("invalid value detected: '{0:?}'; expected type was {1}")]
+    InvalidValueDetected(String, &'static str),
 
     #[error("unable to convert integer '{value:?}' to {intended_type}: {why}")]
     IntegerConversionError {

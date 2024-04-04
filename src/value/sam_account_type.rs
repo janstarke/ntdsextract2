@@ -12,7 +12,7 @@ impl FromValue for SamAccountType {
                 val.to_ne_bytes(),
             ))),
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "SamAccountType (i32)")),
         }
     }
 }

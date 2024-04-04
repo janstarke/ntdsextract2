@@ -24,7 +24,7 @@ impl FromValue for u32 {
                     why,
                 })?)),
             Value::Null(()) => Ok(None),
-            _ => Err(Error::InvalidValueDetected(value.to_string())),
+            _ => Err(Error::InvalidValueDetected(value.to_string(), "u32 (or one of u8, u16, i16 or i32)")),
         }
     }
 }

@@ -34,7 +34,7 @@ macro_rules! impl_timestamp {
                 match value {
                     $crate::cache::Value::Currency(val) => Ok(Some($type::from(*val))),
                     $crate::cache::Value::Null(()) => Ok(None),
-                    _ => Err($crate::ntds::Error::InvalidValueDetected(value.to_string())),
+                    _ => Err($crate::ntds::Error::InvalidValueDetected(value.to_string(), stringify!($type))),
                 }
             }
         }
