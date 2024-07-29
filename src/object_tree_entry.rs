@@ -50,11 +50,7 @@ impl Display for ObjectTreeEntry {
         let is_deleted = self.name().deleted_from_container().is_some();
         let display_name = self.relative_distinguished_name();
 
-        let flags = if is_deleted {
-            "DELETED; "
-        } else {
-            ""
-        };
+        let flags = if is_deleted { "DELETED; " } else { "" };
 
         write!(f, "{display_name} ({flags}{})", self.record_ptr)
     }
@@ -171,6 +167,6 @@ impl ObjectTreeEntry {
             .borrow()
             .iter()
             .find(|e| e.name().name() == name)
-            .map(Rc::clone)
+            .cloned()
     }
 }
