@@ -28,7 +28,13 @@ impl TryFrom<&Table<'_>> for ColumnInfoMapping {
     fn try_from(data_table: &Table) -> Result<Self, Self::Error> {
         let mut mapping = HashMap::new();
         let mut str_mapping = HashMap::new();
-        for index in 0..data_table.count_columns()? {
+        let count = match data_table.count_columns() {
+            Ok(x) => x,
+            Err(_) => {
+                data_table.count_columns()? as i32
+            }
+        };
+        for index in 0..count {
             let column = data_table.column(index)?;
             let col_info = ColumnInformation::new(index);
             if let Ok(column_id) = NtdsAttributeId::try_from(&column.name()?[..]) {

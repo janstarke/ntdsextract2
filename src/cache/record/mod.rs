@@ -90,9 +90,15 @@ impl<'info, 'db> Record<'info, 'db> {
         esedbinfo: &'info EsedbInfo<'db>,
         columns: Rc<ColumnsOfTable>,
     ) -> std::io::Result<Self> {
+        let count: i32 = match record.count_values() {
+            Ok(x) => x,
+            Err(_) => {
+                record.count_values()? as i32
+            }
+        };
         Ok(Self {
             values: Default::default(),
-            count: record.count_values()?,
+            count,
             record,
             esedbinfo,
             table_id,
