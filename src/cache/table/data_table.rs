@@ -40,12 +40,18 @@ where
         esedbinfo: &'info EsedbInfo<'db>,
         metadata: MetaDataCache,
     ) -> std::io::Result<Self> {
+        let count: i32 = match table.count_records() {
+            Ok(x) => x,
+            Err(_) => {
+                table.count_records()? as i32
+            }
+        };
         Ok(Self {
             table,
             table_id,
             esedbinfo,
             metadata,
-            number_of_records: table.count_records()?,
+            number_of_records: count,
             columns: Rc::new(ColumnsOfTable::try_from(table)?),
         })
     }

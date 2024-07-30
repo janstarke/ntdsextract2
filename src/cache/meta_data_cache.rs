@@ -81,7 +81,12 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let mut record_by_guid = HashMap::new();
         let mut root = None;
         //let mut root_dse = None;
-        let count = info.data_table().count_records()?;
+        let count = match info.data_table().count_records() {
+            Ok(x) => x,
+            Err(_) => {
+                info.data_table().count_records()? as i32
+            }
+        };
         let bar = crate::create_progressbar(
             "Creating cache for record IDs".to_string(),
             count.try_into()?,
@@ -96,7 +101,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                         let cn = Rdn::from_record_opt(&record, cn_column)?;
                         let object_category =
                             RecordId::from_record_opt(&record, object_category_column)?;
-                        let sid = Sid::from_record_opt(&record, sid_column)?;
+                        let sid = Sid::from_record_opt(&record, sid_column).unwrap_or(None);
                         let guid = Guid::from_record_opt(&record, guid_column)?;
 
                         if let Some(attribute_id) =
