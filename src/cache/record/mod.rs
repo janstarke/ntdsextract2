@@ -12,6 +12,7 @@ use std::rc::Rc;
 use getset::Getters;
 
 use crate::cache::{ColumnIndex, Value};
+use crate::esedb_mitigation::libesedb_count;
 use crate::ntds::NtdsAttributeId;
 use crate::EsedbInfo;
 
@@ -90,15 +91,9 @@ impl<'info, 'db> Record<'info, 'db> {
         esedbinfo: &'info EsedbInfo<'db>,
         columns: Rc<ColumnsOfTable>,
     ) -> std::io::Result<Self> {
-        let count: i32 = match record.count_values() {
-            Ok(x) => x,
-            Err(_) => {
-                record.count_values()? as i32
-            }
-        };
         Ok(Self {
             values: Default::default(),
-            count,
+            count: libesedb_count(||record.count_values())?,
             record,
             esedbinfo,
             table_id,

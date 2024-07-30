@@ -1,6 +1,8 @@
 use std::{collections::HashMap, ops::Index};
 
-use crate::{column_information::ColumnInformation, ntds::NtdsAttributeId};
+use crate::{
+    column_information::ColumnInformation, esedb_mitigation::libesedb_count, ntds::NtdsAttributeId,
+};
 use anyhow::Result;
 use libesedb::Table;
 
@@ -28,13 +30,8 @@ impl TryFrom<&Table<'_>> for ColumnInfoMapping {
     fn try_from(data_table: &Table) -> Result<Self, Self::Error> {
         let mut mapping = HashMap::new();
         let mut str_mapping = HashMap::new();
-        let count = match data_table.count_columns() {
-            Ok(x) => x,
-            Err(_) => {
-                data_table.count_columns()? as i32
-            }
-        };
-        for index in 0..count {
+
+        for index in 0..libesedb_count(|| data_table.count_columns())? {
             let column = data_table.column(index)?;
             let col_info = ColumnInformation::new(index);
             if let Ok(column_id) = NtdsAttributeId::try_from(&column.name()?[..]) {

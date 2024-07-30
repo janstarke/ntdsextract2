@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::{
     cache::{self, ColumnsOfTable, MetaDataCache},
+    esedb_mitigation::libesedb_count,
     ntds::DataTableRecord,
     object_tree_entry::ObjectTreeEntry,
     EsedbInfo,
@@ -40,18 +41,12 @@ where
         esedbinfo: &'info EsedbInfo<'db>,
         metadata: MetaDataCache,
     ) -> std::io::Result<Self> {
-        let count: i32 = match table.count_records() {
-            Ok(x) => x,
-            Err(_) => {
-                table.count_records()? as i32
-            }
-        };
         Ok(Self {
             table,
             table_id,
             esedbinfo,
             metadata,
-            number_of_records: count,
+            number_of_records: libesedb_count(|| table.count_records())?,
             columns: Rc::new(ColumnsOfTable::try_from(table)?),
         })
     }

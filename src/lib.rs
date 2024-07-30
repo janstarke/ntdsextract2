@@ -7,6 +7,7 @@ mod serialization;
 mod entry_id;
 mod record_predicate;
 mod esedbinfo;
+mod esedb_mitigation;
 pub mod cli;
 pub mod ntds;
 pub mod value;

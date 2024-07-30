@@ -7,8 +7,9 @@ use anyhow::bail;
 use getset::Getters;
 use lazy_static::lazy_static;
 
+use crate::esedb_mitigation::libesedb_count;
 use crate::value::FromValue;
-use crate::win32_types::{Rdn, Sid, Guid};
+use crate::win32_types::{Guid, Rdn, Sid};
 use crate::{ntds::NtdsAttributeId, EsedbInfo};
 
 use super::{EsedbRowId, RecordId, RecordPointer};
@@ -81,12 +82,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let mut record_by_guid = HashMap::new();
         let mut root = None;
         //let mut root_dse = None;
-        let count = match info.data_table().count_records() {
-            Ok(x) => x,
-            Err(_) => {
-                info.data_table().count_records()? as i32
-            }
-        };
+        let count = libesedb_count(|| info.data_table().count_records())?;
         let bar = crate::create_progressbar(
             "Creating cache for record IDs".to_string(),
             count.try_into()?,
@@ -110,7 +106,9 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             if let Some(ldap_display_name) =
                                 String::from_record_opt(&record, ldap_display_name_column)?
                             {
-                                if let std::collections::hash_map::Entry::Vacant(e) = attributes.entry(attribute_id) {
+                                if let std::collections::hash_map::Entry::Vacant(e) =
+                                    attributes.entry(attribute_id)
+                                {
                                     e.insert(ldap_display_name);
                                 } else {
                                     bail!("unambigious attribute id: {attribute_id} in {record_id}")
@@ -168,7 +166,8 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                         );
 
                         if let Some(guid) = guid {
-                            record_by_guid.insert(guid, RecordPointer::new(record_id, esedb_row_id.into()));
+                            record_by_guid
+                                .insert(guid, RecordPointer::new(record_id, esedb_row_id.into()));
                         }
                     } else {
                         log::warn!(
