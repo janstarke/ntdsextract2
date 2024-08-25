@@ -3,7 +3,7 @@ use strum::Display;
 use crate::cli::output::{CsvWriter, JsonLinesWriter, JsonWriter, Writer};
 
 
-#[derive(clap::ValueEnum, Clone, Copy, Display)]
+#[derive(clap::ValueEnum, Clone, Copy, Display, Eq, PartialEq)]
 pub enum OutputFormat {
     #[strum(serialize = "csv")]
     Csv,

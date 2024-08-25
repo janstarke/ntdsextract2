@@ -290,6 +290,8 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .try_into()?,
         )?;
 
+        let mut records = Vec::new();
+
         for record in self
             .data_table()
             .metadata()
@@ -303,7 +305,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                     csv_wtr.flush()?;
                 }
                 OutputFormat::Json => {
-                    println!("{}", serde_json::to_string_pretty(&record)?);
+                    records.push(record);
                 }
                 OutputFormat::JsonLines => {
                     println!("{}", serde_json::to_string(&record)?);
@@ -311,6 +313,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
             }
             bar.inc(1);
         }
+
+        if options.format().unwrap() == OutputFormat::Json {
+            println!("{}", serde_json::to_string_pretty(&records)?);
+        }
+
         bar.finish_and_clear();
         drop(csv_wtr);
 
