@@ -255,7 +255,7 @@ impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
     }
 }
 
-impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
+impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table {
     fn from(value: &DataTableRecord<'info, 'db>) -> Self {
         let mut table = term_table::Table::new();
         let all_attributes = value.all_attributes();
@@ -263,8 +263,8 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table<'_> {
         keys.sort();
 
         table.add_row(Row::new(vec![
-            TableCell::new_with_alignment("Attribute", 1, Alignment::Center),
-            TableCell::new_with_alignment("Value", 1, Alignment::Center),
+            TableCell::builder("Attribute").alignment(Alignment::Center).build(),
+            TableCell::builder("Value").alignment(Alignment::Center).build(),
         ]));
 
         for id in keys {
