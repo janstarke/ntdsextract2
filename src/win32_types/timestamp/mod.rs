@@ -13,7 +13,7 @@ pub use unix_timestamp::*;
 pub use timeline_entry::*;
 
 lazy_static! {
-    static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_utc(
+    static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_naive_utc_and_offset(
         NaiveDate::from_ymd_opt(1601, 1, 1)
             .unwrap()
             .and_hms_opt(0, 0, 0)

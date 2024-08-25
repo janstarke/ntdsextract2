@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, NaiveDate, NaiveTime, NaiveDateTime};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
 
 use crate::impl_timestamp;
 
@@ -23,7 +23,7 @@ impl From<i64> for DatabaseTime {
             Some(val) => val,
             None => panic!("unable to convert '{bytes:?}' into a database time"),
         };
-        let ts = DateTime::<Utc>::from_utc(NaiveDateTime::new(date, time), Utc);
+        let ts = DateTime::<Utc>::from_naive_utc_and_offset(NaiveDateTime::new(date, time), Utc);
         Self(ts)
     }
 }
