@@ -1,72 +1,112 @@
-use std::{collections::HashMap};
+use std::collections::HashMap;
 
 use bodyfile::Bodyfile3Line;
 use serde::Serialize;
 
-use crate::{DbRecord, FromDbRecord, skip_all_attributes, win32_types::{UserAccountControl, SamAccountType, Sid}, data_table_ext::DataTableExt, esedb_utils::find_by_id};
-use anyhow::{Result, bail};
-use chrono::{Utc, DateTime};
-use crate::serialization::*;
-use crate::serde_flat_serialization;
+use crate::column_info_mapping::{DbRecord, FromDbRecord};
+use crate::{
+    skip_all_attributes,
+    win32_types::{
+        SamAccountType, Sid, TruncatedWindowsFileTime, UserAccountControl, WindowsFileTime,
+    },
+};
+use crate::{serde_flat_serialization, serialization::*, CDatabase};
+use anyhow::{bail, Result};
 
 #[derive(Serialize)]
-pub (crate) struct Group {
-
+pub(crate) struct Group {
     sid: Option<Sid>,
     user_principal_name: Option<String>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
     user_account_control: Option<UserAccountControl>,
 
-    #[serde(skip_serializing_if = "serde_flat_serialization", serialize_with = "serialize_object_list")]
+    #[serde(
+        skip_serializing_if = "serde_flat_serialization",
+        serialize_with = "serialize_object_list"
+    )]
     members: Vec<String>,
     logon_count: Option<i32>,
     bad_pwd_count: Option<i32>,
     primary_group_id: Option<i32>,
-    comment: Option<String>,
     aduser_objects: Option<String>,
 
-    #[serde(serialize_with = "to_ts")]
-    record_time: Option<DateTime<Utc>>,
-    
-    #[serde(serialize_with = "to_ts")]
-    when_created: Option<DateTime<Utc>>,
+    #[serde(serialize_with = "serialize_object_list")]
+    member_of: Vec<String>,
+
+    comment: Option<String>,
 
     #[serde(serialize_with = "to_ts")]
-    when_changed: Option<DateTime<Utc>>,
+    record_time: Option<TruncatedWindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    last_logon: Option<DateTime<Utc>>,
+    when_created: Option<TruncatedWindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    last_logon_time_stamp: Option<DateTime<Utc>>,
+    when_changed: Option<TruncatedWindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    account_expires: Option<DateTime<Utc>>,
-    
-    #[serde(serialize_with = "to_ts")]
-    password_last_set: Option<DateTime<Utc>>,
+    last_logon: Option<WindowsFileTime>,
 
     #[serde(serialize_with = "to_ts")]
-    bad_pwd_time: Option<DateTime<Utc>>,
+    last_logon_time_stamp: Option<WindowsFileTime>,
+
+    #[serde(serialize_with = "to_ts")]
+    account_expires: Option<WindowsFileTime>,
+
+    #[serde(serialize_with = "to_ts")]
+    password_last_set: Option<WindowsFileTime>,
+
+    #[serde(serialize_with = "to_ts")]
+    bad_pwd_time: Option<WindowsFileTime>,
 
     #[serde(skip_serializing_if = "skip_all_attributes")]
     all_attributes: HashMap<String, String>,
 }
 
 impl FromDbRecord for Group {
-    fn from(dbrecord: DbRecord, data_table: &DataTableExt) -> Result<Self> {
+    fn from(dbrecord: &DbRecord, database: &CDatabase) -> Result<Self> {
+        let data_table = database.data_table();
+
         let mapping = data_table.mapping();
         let object_id = match dbrecord.ds_record_id(mapping)? {
             Some(id) => id,
             None => bail!("object has no record id"),
         };
-        let members = if let Some(children) = data_table.link_table().members(&object_id) {
-            children.iter().filter_map(|child_id| {
-                find_by_id(data_table.data_table(), data_table.mapping(), *child_id)
-            })
-            .map(|record| record.ds_object_name2(mapping).expect("error while reading object name").expect("missing object name"))
-            .collect()
+        let members = if let Some(children) = database.link_table().members(&object_id) {
+            children
+                .iter()
+                .filter_map(|child_id| {
+                    data_table
+                        .data_table()
+                        .find_by_id(data_table.mapping(), *child_id)
+                })
+                .map(|record| {
+                    record
+                        .ds_object_name2(mapping)
+                        .expect("error while reading object name")
+                        .expect("missing object name")
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        let member_of = if let Some(children) = database.link_table().member_of(&object_id) {
+            children
+                .iter()
+                .filter_map(|child_id| {
+                    data_table
+                        .data_table()
+                        .find_by_id(data_table.mapping(), *child_id)
+                })
+                .map(|record| {
+                    record
+                        .ds_object_name2(mapping)
+                        .expect("error while reading object name")
+                        .expect("missing object name")
+                })
+                .collect()
         } else {
             vec![]
         };
@@ -92,6 +132,7 @@ impl FromDbRecord for Group {
             comment: dbrecord.ds_att_comment(mapping)?,
             aduser_objects: dbrecord.ds_aduser_objects(mapping)?,
             all_attributes: dbrecord.all_attributes(mapping),
+            member_of,
         })
     }
 }
@@ -99,21 +140,20 @@ impl FromDbRecord for Group {
 impl From<Group> for Vec<Bodyfile3Line> {
     fn from(person: Group) -> Self {
         let mut res = Vec::new();
-        if let Some(upn) =  person.sam_account_name {
-
+        if let Some(upn) = person.sam_account_name {
             if let Some(record_time) = person.record_time {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, record creation time)", upn))
-                        .with_crtime(i64::max(0,record_time.timestamp()))
+                        .with_crtime(i64::max(0, record_time.timestamp())),
                 );
             }
-            
+
             if let Some(when_created) = person.when_created {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, object created)", upn))
-                        .with_crtime(i64::max(0,when_created.timestamp()))
+                        .with_crtime(i64::max(0, when_created.timestamp())),
                 );
             }
 
@@ -121,7 +161,7 @@ impl From<Group> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, object changed)", upn))
-                        .with_crtime(i64::max(0,when_changed.timestamp()))
+                        .with_crtime(i64::max(0, when_changed.timestamp())),
                 );
             }
 
@@ -129,7 +169,7 @@ impl From<Group> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, last logon on this DC)", upn))
-                        .with_ctime(i64::max(0,last_logon.timestamp()))
+                        .with_ctime(i64::max(0, last_logon.timestamp())),
                 );
             }
 
@@ -137,7 +177,7 @@ impl From<Group> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, last logon on any DC)", upn))
-                        .with_ctime(i64::max(0,last_logon_time_stamp.timestamp()))
+                        .with_ctime(i64::max(0, last_logon_time_stamp.timestamp())),
                 );
             }
 
@@ -145,7 +185,7 @@ impl From<Group> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, bad pwd time)", upn))
-                        .with_ctime(i64::max(0,bad_pwd_time.timestamp()))
+                        .with_ctime(i64::max(0, bad_pwd_time.timestamp())),
                 );
             }
 
@@ -153,7 +193,7 @@ impl From<Group> for Vec<Bodyfile3Line> {
                 res.push(
                     Bodyfile3Line::new()
                         .with_owned_name(format!("{} (Person, password last set)", upn))
-                        .with_ctime(i64::max(0,password_last_set.timestamp()))
+                        .with_ctime(i64::max(0, password_last_set.timestamp())),
                 );
             }
         }

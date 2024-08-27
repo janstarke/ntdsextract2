@@ -1,227 +1,94 @@
-use std::{path::Path};
+use std::path::Path;
 
-use clap::{Parser, Subcommand};
-use libesedb::{EseDb};
+use anyhow::Result;
+use clap::Parser;
+use libesedb::EseDb;
+use libntdsextract2::{
+    CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization,
+};
+use libntdsextract2::cli::{Args, Commands, OutputOptions};
 use simplelog::{Config, TermLogger};
-use anyhow::{Result};
 
-use crate::{column_info_mapping::*, data_table_ext::DataTableExt, entry_id::EntryId};
+mod progress_bar;
 
-mod person;
-mod computer;
-mod group;
-mod constants;
-mod column_information;
-mod column_info_mapping;
-mod data_table_ext;
-mod link_table_ext;
-mod win32_types;
-mod esedb_utils;
-mod object_tree_entry;
-mod serialization;
-mod entry_id;
-//mod cached_table;
+use cap::Cap;
+use std::alloc;
 
-/// this needs to be global, 
-/// because it is read by serialization code, which has no state by default
-static mut DISPLAY_ALL_ATTRIBUTES: bool = false;
-static mut FLAT_SERIALIZATION: bool = true;
-
-pub (crate) fn display_all_attributes() -> bool {
-    unsafe {
-        DISPLAY_ALL_ATTRIBUTES
-    }
+macro_rules! do_with_serialization {
+    ($cmd: expr, $db: expr, $function: ident, $options: expr) => {
+        if $cmd.flat_serialization() {
+            $db.$function::<CsvSerialization>($options)
+        } else {
+            $db.$function::<JsonSerialization>($options)
+        }
+    };
 }
 
-pub (crate) fn skip_all_attributes<T>(_t: &T) -> bool {
-    ! display_all_attributes()
-}
-
-fn set_display_all_attributes(val: bool) {
-    unsafe {
-        DISPLAY_ALL_ATTRIBUTES = val
-    }
-}
-
-pub (crate) fn do_flat_serialization() -> bool {
-    unsafe {
-        FLAT_SERIALIZATION
-    }
-}
-
-pub (crate) fn serde_flat_serialization<T>(_t: &T) -> bool {
-    do_flat_serialization()
-}
-
-fn set_do_flat_serialization(val: bool) {
-    unsafe {
-        FLAT_SERIALIZATION = val
-    }
-}
-
-#[derive(clap::ArgEnum, Clone)]
-enum OutputFormat{
-    Csv,
-    Json,
-    JsonLines
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// Display user accounts
-    User {
-        /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
-        format: OutputFormat,
-
-        /// show all non-empty values. This option is ignored when CSV-Output is selected
-        #[clap(short('A'), long("show-all"))]
-        show_all: bool
-    },
-
-    /// Display groups
-    Group {
-        /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
-        format: OutputFormat,
-
-        /// show all non-empty values. This option is ignored when CSV-Output is selected
-        #[clap(short('A'), long("show-all"))]
-        show_all: bool
-    },
-
-    /// display computer accounts
-    Computer {
-        /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
-        format: OutputFormat,
-
-        /// show all non-empty values. This option is ignored when CSV-Output is selected
-        #[clap(short('A'), long("show-all"))]
-        show_all: bool
-    },
-
-    /// create a timeline (in bodyfile format)
-    Timeline {
-        /// show objects of any type (this might be a lot)
-        #[clap(long("all-objects"))]
-        all_objects: bool
-    },
-
-    /// list all defined types
-    Types {
-        /// Output format
-        #[clap(arg_enum, short('F'), long("format"), default_value_t = OutputFormat::Csv)]
-        format: OutputFormat,
-    },
-
-    /// display the directory information tree
-    Tree {
-        /// maximum recursion depth 
-        #[clap(long("max-depth"), default_value_t=4)]
-        max_depth: u8
-    },
-
-    /// display one single entry from the directory information tree
-    Entry {
-        /// id of the entry to show
-        entry_id: i32,
-
-        /// search for SID instead for NTDS.DIT entry id.
-        /// <ENTRY_ID> will be interpreted as RID, wich is the last part of the SID;
-        /// e.g. 500 will return the Administrator account
-        #[clap(long("sid"))]
-        use_sid: bool
-    },
-
-    /// search for entries whose values match to some regular expression
-    Search {
-        /// regular expression to match against
-        regex: String,
-
-        /// case-insensitive search (ignore case)
-        #[clap(short('i'), long("ignore-case"))]
-        ignore_case: bool
-    }
-}
-
-
-#[derive(Parser)]
-#[clap(name="ntdsextract2", author, version, about, long_about = None)]
-struct Args {
-
-    #[clap(subcommand)]
-    pub (crate) command: Commands,
-
-    /// name of the file to analyze
-    pub (crate) ntds_file: String,
-
-    #[clap(flatten)]
-    pub (crate) verbose: clap_verbosity_flag::Verbosity,
-}
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
 fn main() -> Result<()> {
+    ALLOCATOR.set_limit(4096 * 1024 * 1024).unwrap();
+
     let cli = Args::parse();
     let _ = TermLogger::init(
-        cli.verbose.log_level_filter(), 
+        cli.verbose().log_level_filter(),
         Config::default(),
         simplelog::TerminalMode::Stderr,
-        simplelog::ColorChoice::Auto);
+        simplelog::ColorChoice::Auto,
+    );
 
-    let ntds_path = Path::new(&cli.ntds_file);
-    if ! (ntds_path.exists() && ntds_path.is_file()) {
-        eprintln!("unable to open '{}'", cli.ntds_file);
+    let ntds_path = Path::new(cli.ntds_file());
+    if !(ntds_path.exists() && ntds_path.is_file()) {
+        eprintln!("unable to open '{}'", cli.ntds_file());
         std::process::exit(-1);
     }
 
-    let esedb = EseDb::open(&cli.ntds_file)?;
-    log::info!("Db load finished");
+    let esedb = EseDb::open(cli.ntds_file())?;
+    let info = EsedbInfo::try_from(&esedb)?;
+    let database = CDatabase::new(&info)?;
 
-    let raw_data_table = esedb.table_by_name("datatable")?;
-    let raw_link_table = esedb.table_by_name("link_table")?;
-    let data_table = DataTableExt::from(raw_data_table, raw_link_table)?;
+    let mut options = OutputOptions::default();
+    options.set_display_all_attributes(cli.command().display_all_attributes());
+    options.set_flat_serialization(cli.command().flat_serialization());
+    options.set_format(cli.command().format());
 
-    set_display_all_attributes(
-       match &cli.command {
-        Commands::User{format: OutputFormat::Json, show_all} |
-        Commands::User{format: OutputFormat::JsonLines, show_all} |
-        Commands::Computer{format: OutputFormat::Json, show_all} |
-        Commands::Computer{format: OutputFormat::JsonLines, show_all} => *show_all,
-        _ => false,
-       } 
-    );
-
-    set_do_flat_serialization(
-        matches!(&cli.command, 
-            Commands::User{format: OutputFormat::Csv, ..} |
-            Commands::Computer{format: OutputFormat::Csv, ..} |
-            Commands::Group{format: OutputFormat::Csv, ..} |
-            Commands::Timeline { .. })  
-    );
-
-    match &cli.command {
-        Commands::Group { format, .. } => data_table.show_groups(format),
-        Commands::User { format, ..} => data_table.show_users(format),
-        Commands::Computer { format, .. } => data_table.show_computers(format),
-        Commands::Types { format, .. } => data_table.show_type_names(format),
-        Commands::Timeline {all_objects} => data_table.show_timeline(*all_objects),
-        Commands::Tree { max_depth } => data_table.show_tree(*max_depth),
-        Commands::Entry { entry_id , use_sid} => {
+    match cli.command() {
+        Commands::Group { .. } => {
+            do_with_serialization!(cli.command(), database, show_groups, &options)
+        }
+        Commands::User { .. } => {
+            do_with_serialization!(cli.command(), database, show_users, &options)
+        }
+        Commands::Computer { .. } => {
+            do_with_serialization!(cli.command(), database, show_computers, &options)
+        }
+        Commands::Types { .. } => {
+            do_with_serialization!(cli.command(), database, show_type_names, &options)
+        }
+        Commands::Timeline {
+            all_objects,
+            include_deleted,
+        } => {
+            options.set_show_all_objects(*all_objects);
+            database.show_timeline(&options, *include_deleted)
+        }
+        Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
+        Commands::Entry { entry_id, use_sid, entry_format } => {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {
-                EntryId::Id(*entry_id)
+                EntryId::Id((*entry_id).into())
             };
-            data_table.show_entry(id)
+            Ok(database.show_entry(id, *entry_format)?)
         }
-        Commands::Search { regex , ignore_case} => {
+        Commands::Search { regex, ignore_case } => {
             let regex = if *ignore_case {
                 format!("(?i:{regex})")
             } else {
                 regex.to_owned()
             };
-            data_table.search_entries(&regex)
+            database.search_entries(&regex)
         }
     }
 }
-

@@ -1,7 +1,10 @@
 // use libesedb::ColumnVariant;
 
-pub (crate) struct ColumnInformation {
-    id: i32,
+use crate::cache::ColumnIndex;
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub struct ColumnInformation {
+    id: ColumnIndex,
     // name: String,
     // variant: ColumnVariant,
 }
@@ -12,14 +15,14 @@ impl ColumnInformation {
         // variant: ColumnVariant
     ) -> Self {
         Self {
-            id,
+            id: ColumnIndex::from(id),
             // name,
             // variant,
         }
     }
 
-    pub fn id(&self) -> i32 {
-        self.id
+    pub fn id(&self) -> &ColumnIndex {
+        &self.id
     }
 
     // pub fn name(&self) -> &str {

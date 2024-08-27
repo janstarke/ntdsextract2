@@ -4,6 +4,8 @@
 
 # ntdsextract2
 
+<img align="right" width="128px" src="https://github.com/janstarke/ntdsextract2/blob/b3ff84258487d511c6e59ab873b3db0715b4ad82/doc/images/ntdsextract2.jpeg">
+
 This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by @csababarta.
 
 ## Why do you write a tool that's already there and working?
@@ -14,7 +16,7 @@ This aims to be a replacement of <https://github.com/csababarta/ntdsxtract/> by 
 # Installation
 
 ```bash
-cargo install --git https://github.com/janstarke/ntdsextract2.git
+cargo install ntdsextract2
 ```
 
 # Usage

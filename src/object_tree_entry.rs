@@ -1,138 +1,172 @@
-use std::{hash::Hash, rc::Rc, collections::{HashSet, HashMap}, cell::RefCell, fmt::Display};
+use anyhow::anyhow;
+use std::{cell::RefCell, collections::HashSet, fmt::Display, hash::Hash, rc::Rc};
 
-use libesedb::Table;
+use getset::Getters;
+use lazy_static::lazy_static;
 use termtree::Tree;
 
-use crate::{column_info_mapping::ColumnInfoMapping, esedb_utils::iter_records};
-use anyhow::{Result, bail};
+use crate::{
+    cache::{MetaDataCache, RecordPointer, SpecialRecords},
+    win32_types::Rdn,
+};
+lazy_static! {
+    static ref DOMAINROOT_CHILDREN: HashSet<String> = HashSet::from_iter(vec![
+        "Deleted Objects".to_string(),
+        "Configuration".to_string(),
+        "Builtin".to_string(),
+        //"DomainDnsZones".to_string(),
+        "NTDS Quotas".to_string()
+    ].into_iter());
+}
 
-
-pub (crate) struct ObjectTreeEntry {
-    name: String,
-    id: i32,
+/// represents an object in the DIT
+#[derive(Getters)]
+#[getset(get = "pub")]
+pub struct ObjectTreeEntry {
+    name: Rdn,
+    relative_distinguished_name: String,
+    record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
-    children: RefCell<HashSet<Rc<ObjectTreeEntry>>>
+    children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
 }
 
-impl Eq for ObjectTreeEntry {
-}
+impl Eq for ObjectTreeEntry {}
 
 impl PartialEq for ObjectTreeEntry {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && self.id == other.id
+        self.name == other.name && self.record_ptr == other.record_ptr
     }
 }
 
 impl Hash for ObjectTreeEntry {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.name.hash(state);
-        self.id.hash(state);
+        self.record_ptr.hash(state);
     }
 }
 
 impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (id={})", self.name, self.id)
+        let is_deleted = self.name().deleted_from_container().is_some();
+        let display_name = self.relative_distinguished_name();
+
+        let flags = if is_deleted { "DELETED; " } else { "" };
+
+        write!(f, "{display_name} ({flags}{})", self.record_ptr)
     }
 }
 
 impl ObjectTreeEntry {
-
-    pub(crate) fn from<'a>(data_table: &Table<'a>, mapping: &ColumnInfoMapping) -> Result<Rc<ObjectTreeEntry>> {
-        Self::populate_object_tree(data_table, mapping)
+    pub(crate) fn from(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
+        Self::populate_object_tree(metadata)
     }
 
-    pub (crate)fn to_tree(me:&Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
+    pub fn get(&self, rdn: &str) -> Option<Rc<Self>> {
+        log::debug!("searching for {rdn}");
+        for child in self.children.borrow().iter() {
+            log::debug!("  candidate is {}", child.name);
+            if child.name.name() == rdn {
+                return Some(Rc::clone(child));
+            }
+        }
+        None
+    }
+
+    pub(crate) fn to_tree(me: &Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
         let tree = Tree::new(Rc::clone(me));
         if max_depth > 0 {
             let leaves: Vec<Tree<Rc<ObjectTreeEntry>>> = me
-                .children.borrow()
+                .children
+                .borrow()
                 .iter()
-                .map(|c| Self::to_tree(c, max_depth - 1)).collect();
+                .map(|c| Self::to_tree(c, max_depth - 1))
+                .collect();
             tree.with_leaves(leaves)
         } else {
             tree
         }
     }
-/*
-    pub(crate) fn parent(&self) -> Option<Rc<ObjectTreeEntry>> {
-        self.parent.as_ref().and_then(|p| p.upgrade())
+
+    fn populate_object_tree(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
+        log::info!("populating the object tree");
+        Self::create_tree_node(metadata.root(), metadata)
     }
-*/
-/*
-    pub (crate) fn get_by_path(&self, mut path: Vec<&str>) -> Option<Rc<ObjectTreeEntry>> {
-        if let Some(next_folder) = path.pop() {
-            match self.children.borrow().iter().find(|c| c.name == next_folder) {
-                None => None,
-                Some(child) => {
-                    if path.len() == 0 {
-                        Some(Rc::clone(child))
-                    } else {
-                        Self::get_by_path(&self, path)
-                    }
+
+    fn create_tree_node(
+        record_ptr: &RecordPointer,
+        metadata: &MetaDataCache,
+    ) -> Rc<ObjectTreeEntry> {
+        let entry = &metadata[record_ptr];
+        let name = entry.rdn().to_owned();
+        let relative_distinguished_name = metadata.rdn(entry);
+
+        // [`ObjectTreeEntry`] uses interior mutability, but its hash()-Implementation
+        // don't use the mutable parts, so this is not a problem
+        #[allow(clippy::mutable_key_type)]
+        let children = metadata
+            .children_of(record_ptr)
+            .map(|c| Self::create_tree_node(c.record_ptr(), metadata))
+            .collect();
+        Rc::new(ObjectTreeEntry {
+            name,
+            relative_distinguished_name,
+            record_ptr: *record_ptr,
+            children: RefCell::new(children),
+        })
+    }
+
+    pub fn get_special_records(root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
+        log::info!("obtaining special record ids");
+
+        let domain_root =
+            ObjectTreeEntry::find_domain_root(&root).ok_or(anyhow!("db has no domain root"))?;
+
+        log::info!("found domain root '{}'", domain_root[0].name());
+
+        let configuration = domain_root[0]
+            .find_child_by_name("Configuration")
+            .ok_or(anyhow!("db has no `Configuration` entry"))?;
+
+        let schema_subpath = configuration
+            .find_child_by_name("Schema")
+            .ok_or(anyhow!("db has no `Schema` entry"))?;
+
+        let deleted_objects = domain_root[0]
+            .find_child_by_name("Deleted Objects")
+            .ok_or(anyhow!("db has no `Deleted Objects` entry"))?;
+
+        Ok(SpecialRecords::new(schema_subpath, deleted_objects))
+    }
+
+    /// returns the path to the domain root object, where the first entry in the list is the domain root object,
+    /// and the last object is the root of the tree
+    pub fn find_domain_root(root: &Rc<ObjectTreeEntry>) -> Option<Vec<Rc<ObjectTreeEntry>>> {
+        let my_children: HashSet<_> = root
+            .children()
+            .borrow()
+            .iter()
+            .map(|o| o.name().to_string())
+            .collect();
+
+        if my_children.is_superset(&DOMAINROOT_CHILDREN) {
+            return Some(vec![Rc::clone(root)]);
+        } else {
+            for child in root.children().borrow().iter() {
+                if let Some(mut path) = Self::find_domain_root(child) {
+                    path.push(Rc::clone(root));
+                    return Some(path);
                 }
             }
-        } else {
-            None
-        }
-    }
-*/
-    fn populate_object_tree<'a>(data_table: &Table<'a>, mapping: &ColumnInfoMapping) -> Result<Rc<ObjectTreeEntry>> {
-
-        log::info!("populating the object tree");
-
-        let mut downlinks = HashMap::new();
-        let mut uplinks = HashMap::new();
-        let mut names = HashMap::new();
-
-        for record in iter_records(data_table) {
-            let id = match record.ds_record_id(mapping)? {
-                Some(v) => v,
-                None => bail!("missing record id")
-            };
-
-            let parent_id = match record.ds_parent_record_id(mapping)? {
-                Some(v) => v,
-                None => bail!("missing parent record id")
-            };
-
-            let name = match record.ds_object_name2(mapping)? {
-                Some(v) => v,
-                None => bail!("missing name")
-            };
-
-            names.insert(id, name);
-            uplinks.insert(id, parent_id);
-            downlinks.entry(parent_id).or_insert_with(HashSet::new).insert(id);
         }
 
-        log::debug!("found {} entries in the DIT", names.len());
-        log::debug!("ordering those elements in a tree structure now");
-    
-        Self::create_tree_node(0, None, &downlinks, &uplinks, &mut names)
+        None
     }
 
-    fn create_tree_node(object_id: i32, _parent: Option<&Rc<ObjectTreeEntry>>, downlinks: &HashMap<i32, HashSet<i32>>, uplinks: &HashMap<i32, i32>, names: &mut HashMap<i32, String>) -> Result<Rc<ObjectTreeEntry>> {
-        let name = if object_id == 0 {
-            String::new()
-        } else {
-            names.remove(&object_id).unwrap_or_else(|| panic!("missing name for object with id '{object_id}'"))
-        };
-
-        //log::trace!("inserting new object '{}'", name);
-
-        let my_object = Rc::new(ObjectTreeEntry {
-            name,
-            id: object_id,
-            //parent: parent.and_then(|p| Some(Rc::downgrade(p))),
-            children: RefCell::new(HashSet::new()),
-        });
-
-        for (child_id, _) in uplinks.iter().filter(|(_, parent)| **parent == object_id) {
-            let child = Self::create_tree_node(
-                *child_id, Some(&my_object), downlinks, uplinks, names)?;
-            my_object.children.borrow_mut().insert(child);
-        }
-        Ok(my_object)
+    pub fn find_child_by_name(&self, name: &str) -> Option<Rc<ObjectTreeEntry>> {
+        self.children()
+            .borrow()
+            .iter()
+            .find(|e| e.name().name() == name)
+            .cloned()
     }
 }
