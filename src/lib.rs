@@ -1,5 +1,6 @@
 mod c_database;
 mod win32_types;
+mod object_tree;
 mod object_tree_entry;
 mod column_info_mapping;
 mod column_information;

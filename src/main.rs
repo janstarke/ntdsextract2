@@ -3,10 +3,8 @@ use std::path::Path;
 use anyhow::Result;
 use clap::Parser;
 use libesedb::EseDb;
-use libntdsextract2::{
-    CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization,
-};
 use libntdsextract2::cli::{Args, Commands, OutputOptions};
+use libntdsextract2::{CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization};
 use simplelog::{Config, TermLogger};
 
 mod progress_bar;
@@ -52,6 +50,7 @@ fn main() -> Result<()> {
     options.set_display_all_attributes(cli.command().display_all_attributes());
     options.set_flat_serialization(cli.command().flat_serialization());
     options.set_format(cli.command().format());
+    options.set_include_dn(cli.command().include_dn());
 
     match cli.command() {
         Commands::Group { .. } => {
@@ -74,7 +73,11 @@ fn main() -> Result<()> {
             database.show_timeline(&options, *include_deleted)
         }
         Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
-        Commands::Entry { entry_id, use_sid, entry_format } => {
+        Commands::Entry {
+            entry_id,
+            use_sid,
+            entry_format,
+        } => {
             let id = if *use_sid {
                 EntryId::Rid((*entry_id).try_into().unwrap())
             } else {

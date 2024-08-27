@@ -10,5 +10,6 @@ pub trait FromDataTable: Sized + Serialize {
         options: &OutputOptions,
         data_table: &DataTable,
         link_table: &LinkTable,
+        distinguished_name: Option<String>
     ) -> Result<Self, anyhow::Error>;
 }

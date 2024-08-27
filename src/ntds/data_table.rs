@@ -11,7 +11,7 @@ use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
 use crate::ntds::NtdsAttributeId;
 use crate::ntds::Result;
-use crate::object_tree_entry::ObjectTreeEntry;
+use crate::object_tree::ObjectTree;
 use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId};
@@ -31,7 +31,7 @@ pub struct DataTable<'info, 'db> {
     data_table: cache::DataTable<'info, 'db>,
     //database: Option<Weak<CDatabase<'r>>>,
     schema_record_id: RecordPointer,
-    object_tree: Rc<ObjectTreeEntry>,
+    object_tree: Rc<ObjectTree>,
     link_table: Rc<LinkTable>,
     schema: Schema,
     special_records: SpecialRecords,
@@ -41,7 +41,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
     /// create a new datatable wrapper
     pub fn new(
         data_table: cache::DataTable<'info, 'db>,
-        object_tree: Rc<ObjectTreeEntry>,
+        object_tree: Rc<ObjectTree>,
         schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
         schema: Schema,
@@ -150,7 +150,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
     }
 
     pub fn show_tree(&self, max_depth: u8) -> Result<()> {
-        let tree = ObjectTreeEntry::to_tree(&self.object_tree, max_depth);
+        let tree = self.object_tree.to_termtree(max_depth);
         println!("{}", tree);
         Ok(())
     }
@@ -171,10 +171,21 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 match entry_format {
                     EntryFormat::Simple => {
                         let all_attributes = record.all_attributes();
-                        let header_width = all_attributes.keys().map(|k|{let k: &'static str = k.into(); k.len()}).max().unwrap();
-                        let mut sorted_ids: Vec<_> = all_attributes.keys().map(|id| {
-                            let s: &'static str = id.into(); (id, s)
-                        }).collect();
+                        let header_width = all_attributes
+                            .keys()
+                            .map(|k| {
+                                let k: &'static str = k.into();
+                                k.len()
+                            })
+                            .max()
+                            .unwrap();
+                        let mut sorted_ids: Vec<_> = all_attributes
+                            .keys()
+                            .map(|id| {
+                                let s: &'static str = id.into();
+                                (id, s)
+                            })
+                            .collect();
                         sorted_ids.sort_by(|lhs, rhs| lhs.1.cmp(rhs.1));
 
                         for header in sorted_ids {
@@ -202,7 +213,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                         }
                         println!("{}", table.render())
                     }
-                }                
+                }
             }
         }
         Ok(())
@@ -298,7 +309,14 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .entries_of_type(&type_record_id)
             .map(|e| self.data_table().data_table_record_from(*e.record_ptr()))
         {
-            let record = O::new(record?, options, self, &self.link_table)?;
+            let record = record?;
+            let dn = if *options.include_dn() {
+                self.object_tree().dn_of(record.ptr())
+            } else {
+                None
+            };
+
+            let record = O::new(record, options, self, &self.link_table, dn)?;
             match options.format().unwrap() {
                 OutputFormat::Csv => {
                     csv_wtr.serialize(record)?;
@@ -330,16 +348,29 @@ impl<'info, 'db> DataTable<'info, 'db> {
         record_type: &ObjectType,
         options: &OutputOptions,
         link_table: &LinkTable,
+        distinguished_name: Option<String>,
     ) -> anyhow::Result<Vec<Bodyfile3Line>> {
         Ok(match record_type {
             ObjectType::Person => Vec::<Bodyfile3Line>::from(Person::<CsvSerialization>::new(
-                record, options, self, link_table,
+                record,
+                options,
+                self,
+                link_table,
+                distinguished_name,
             )?),
             ObjectType::Group => Vec::<Bodyfile3Line>::from(Group::<CsvSerialization>::new(
-                record, options, self, link_table,
+                record,
+                options,
+                self,
+                link_table,
+                distinguished_name,
             )?),
             ObjectType::Computer => Vec::<Bodyfile3Line>::from(Computer::<CsvSerialization>::new(
-                record, options, self, link_table,
+                record,
+                options,
+                self,
+                link_table,
+                distinguished_name,
             )?),
         })
     }
@@ -369,6 +400,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                             record_type,
                             options,
                             link_table,
+                            None,
                         )?
                     } else {
                         record.to_bodyfile(self.data_table().metadata())?

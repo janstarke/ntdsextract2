@@ -1,7 +1,11 @@
 use std::rc::Rc;
 
 use crate::{
-    cache::{self, MetaDataCache}, cli::{EntryFormat, OutputOptions}, ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema}, object_tree_entry::ObjectTreeEntry, EntryId, EsedbInfo, SerializationType
+    cache::{self, MetaDataCache},
+    cli::{EntryFormat, OutputOptions},
+    ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema},
+    object_tree::ObjectTree,
+    EntryId, EsedbInfo, SerializationType,
 };
 
 pub struct CDatabase<'info, 'db> {
@@ -14,9 +18,9 @@ impl<'info, 'db> CDatabase<'info, 'db> {
     pub fn new(esedbinfo: &'info EsedbInfo<'db>) -> anyhow::Result<Self> {
         let metadata_cache = MetaDataCache::try_from(esedbinfo)?;
 
-        let object_tree = ObjectTreeEntry::from(&metadata_cache);
+        let object_tree = Rc::new(ObjectTree::new(&metadata_cache));
 
-        let special_records = ObjectTreeEntry::get_special_records(Rc::clone(&object_tree))?;
+        let special_records = object_tree.get_special_records()?;
         let schema_record_id = special_records.schema().record_ptr();
         log::debug!("found the schema record id is '{}'", schema_record_id);
 
@@ -85,11 +89,20 @@ impl<'info, 'db> CDatabase<'info, 'db> {
         self.data_table.show_type_names::<T>(options)
     }
 
-    pub fn show_timeline(&self, options: &OutputOptions, include_deleted: bool) -> anyhow::Result<()> {
-        self.data_table.show_timeline(options, &self.link_table, include_deleted)
+    pub fn show_timeline(
+        &self,
+        options: &OutputOptions,
+        include_deleted: bool,
+    ) -> anyhow::Result<()> {
+        self.data_table
+            .show_timeline(options, &self.link_table, include_deleted)
     }
 
-    pub fn show_entry(&self, entry_id: EntryId, entry_format: EntryFormat) -> crate::ntds::Result<()> {
+    pub fn show_entry(
+        &self,
+        entry_id: EntryId,
+        entry_format: EntryFormat,
+    ) -> crate::ntds::Result<()> {
         self.data_table.show_entry(entry_id, entry_format)
     }
 

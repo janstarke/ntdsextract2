@@ -22,6 +22,8 @@ where
     T: SerializationType,
     A: SpecificObjectAttributes,
 {
+    distinguished_name: Option<String>,
+
     sid: Option<Sid>,
     user_principal_name: Option<String>,
     rdn: Option<Rdn>,
@@ -112,7 +114,13 @@ where
         S: serde::Serializer,
     {
         let mut s = serializer.serialize_struct("Object", Self::field_count() + A::field_count())?;
+
         s.serialize_field("sid", self.sid())?;
+        
+        if let Some(dn) = &self.distinguished_name {
+            s.serialize_field("distinguished_name", dn)?;
+        }
+
         s.serialize_field("user_principal_name", self.user_principal_name())?;
         s.serialize_field("rdn", self.rdn())?;
         s.serialize_field("sam_account_name", self.sam_account_name())?;
@@ -151,6 +159,7 @@ where
         _options: &OutputOptions,
         data_table: &DataTable,
         link_table: &LinkTable,
+        distinguished_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
@@ -174,6 +183,7 @@ where
         let specific_attributes = A::from(&dbrecord)?;
 
         Ok(Self {
+            distinguished_name,
             record_time: dbrecord.ds_record_time().ok(),
             when_created: dbrecord.att_when_created().ok(),
             when_changed: dbrecord.att_when_changed().ok(),
