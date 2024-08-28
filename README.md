@@ -165,3 +165,86 @@ OPTIONS:
     -q, --quiet              Less output per occurrence
     -v, --verbose            More output per occurrence
 ```
+
+
+## Configuring the global timestamp format
+
+Per default, `ntdsextract2` uses an RFC3339-compliant data format. If you want to, you can change the data format
+being used by setting the `DFIR_DATE` environment variable. Let's look at an example:
+
+```shell
+$ ntdsextract2 tests/data/ntds_plain.dit user -F json-lines |jq 'select (.rdn == "Administrator")'
+```
+
+```json
+{
+  "sid": "S-1-5-21-1467604378-2733498025-3532005688-500",
+  "user_principal_name": null,
+  "rdn": "Administrator",
+  "sam_account_name": "Administrator",
+  "sam_account_type": "SAM_USER_OBJECT",
+  "user_account_control": "ADS_UF_NORMAL_ACCOUNT | ADS_UF_DONT_EXPIRE_PASSWD",
+  "logon_count": 4,
+  "bad_pwd_count": 0,
+  "admin_count": null,
+  "is_deleted": false,
+  "primary_group_id": 513,
+  "primary_group": "Domänen-Benutzer",
+  "member_of": [
+    "Richtlinien-Ersteller-Besitzer",
+    "Schema-Admins",
+    "Administratoren",
+    "Organisations-Admins",
+    "Domänen-Admins"
+  ],
+  "comment": null,
+  "record_time": "2023-11-15T06:33:44+0000",
+  "when_created": "2023-11-15T06:33:44+0000",
+  "when_changed": "2023-11-15T06:41:50+0000",
+  "last_logon": "2023-11-15T06:41:50+0000",
+  "last_logon_time_stamp": "2023-11-15T06:41:50+0000",
+  "account_expires": "+30828-09-14T02:48:05+0000",
+  "password_last_set": "2023-11-15T05:40:32+0000",
+  "bad_pwd_time": "1601-01-01T00:00:00+0000"
+}
+```
+
+
+```shell
+$ DFIR_DATE="%F %T (%Z)" ntdsextract2 tests/data/ntds_plain.dit user -F json-lines |jq 'select (.rdn == "Administrator")'
+```
+
+```json
+{
+  "sid": "S-1-5-21-1467604378-2733498025-3532005688-500",
+  "user_principal_name": null,
+  "rdn": "Administrator",
+  "sam_account_name": "Administrator",
+  "sam_account_type": "SAM_USER_OBJECT",
+  "user_account_control": "ADS_UF_NORMAL_ACCOUNT | ADS_UF_DONT_EXPIRE_PASSWD",
+  "logon_count": 4,
+  "bad_pwd_count": 0,
+  "admin_count": null,
+  "is_deleted": false,
+  "primary_group_id": 513,
+  "primary_group": "Domänen-Benutzer",
+  "member_of": [
+    "Administratoren",
+    "Schema-Admins",
+    "Domänen-Admins",
+    "Organisations-Admins",
+    "Richtlinien-Ersteller-Besitzer"
+  ],
+  "comment": null,
+  "record_time": "2023-11-15 06:33:44 (UTC)",
+  "when_created": "2023-11-15 06:33:44 (UTC)",
+  "when_changed": "2023-11-15 06:41:50 (UTC)",
+  "last_logon": "2023-11-15 06:41:50 (UTC)",
+  "last_logon_time_stamp": "2023-11-15 06:41:50 (UTC)",
+  "account_expires": "+30828-09-14 02:48:05 (UTC)",
+  "password_last_set": "2023-11-15 05:40:32 (UTC)",
+  "bad_pwd_time": "1601-01-01 00:00:00 (UTC)"
+}
+```
+
+See the difference?
