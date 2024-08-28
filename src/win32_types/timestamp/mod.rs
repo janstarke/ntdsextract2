@@ -22,7 +22,7 @@ lazy_static! {
     );
 }
 
-static DATE_FORMAT: &str = "%d-%m-%YT%H:%M:%S%z";
+static DATE_FORMAT: &str = "%Y-%m-%dT%H:%M:%S%z";
 
 #[macro_export]
 macro_rules! impl_timestamp {
