@@ -2,7 +2,7 @@ use crate::cache::RecordPointer;
 use crate::cli::OutputOptions;
 use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{RdnSet, SerializationType};
+use crate::{FormattedValue, RdnSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::ser::SerializeStruct;
@@ -22,7 +22,7 @@ where
     T: SerializationType,
     A: SpecificObjectAttributes,
 {
-    distinguished_name: Option<String>,
+    distinguished_name: FormattedValue<String>,
 
     sid: Option<Sid>,
     user_principal_name: Option<String>,
@@ -66,14 +66,14 @@ where
     ptr: RecordPointer,
 }
 
-impl<T, O, A> HasSerializableFields for Object<T, O, A> 
+impl<T, O, A> HasSerializableFields for Object<T, O, A>
 where
     O: HasObjectType,
     T: SerializationType,
     A: SpecificObjectAttributes,
 {
     fn fields() -> &'static Vec<&'static str> {
-        lazy_static::lazy_static!{
+        lazy_static::lazy_static! {
             static ref FIELDS: Vec<&'static str> = vec![
                 "sid",
                 "user_principal_name",
@@ -113,12 +113,15 @@ where
     where
         S: serde::Serializer,
     {
-        let mut s = serializer.serialize_struct("Object", Self::field_count() + A::field_count())?;
+        let mut s =
+            serializer.serialize_struct("Object", Self::field_count() + A::field_count())?;
 
         s.serialize_field("sid", self.sid())?;
-        
-        if let Some(dn) = &self.distinguished_name {
-            s.serialize_field("distinguished_name", dn)?;
+
+        match &self.distinguished_name {
+            FormattedValue::NoValue => s.serialize_field("distinguished_name", &None::<String>)?,
+            FormattedValue::Hide => (),
+            FormattedValue::Value(dn) => s.serialize_field("distinguished_name", dn)?,
         }
 
         s.serialize_field("user_principal_name", self.user_principal_name())?;
@@ -151,7 +154,7 @@ where
 impl<T, O, A> FromDataTable for Object<T, O, A>
 where
     O: HasObjectType,
-    T: SerializationType,   
+    T: SerializationType,
     A: SpecificObjectAttributes,
 {
     fn new(
@@ -159,7 +162,7 @@ where
         _options: &OutputOptions,
         data_table: &DataTable,
         link_table: &LinkTable,
-        distinguished_name: Option<String>,
+        distinguished_name: FormattedValue<String>,
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 

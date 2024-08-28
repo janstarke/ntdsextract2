@@ -97,6 +97,7 @@ impl ObjectTreeEntry {
             Some(parent) => match parent.upgrade() {
                 Some(parent) => {
                     if parent.parent.is_none() {
+                        log::debug!("hiding the $ROOT_OBJECT$ item");
                         relative_distinguished_name.clone()
                     } else {
                         format!(
@@ -105,9 +106,15 @@ impl ObjectTreeEntry {
                         )
                     }
                 }
-                None => relative_distinguished_name.clone(),
+                None => {
+                    panic!("unable to upgrade weak link to parent object; there \
+                    seems to be an inconsistency in the object tree");
+                }
             },
-            None => relative_distinguished_name.clone(),
+            None => {
+                log::debug!("found the object tree root");
+                relative_distinguished_name.clone()
+            }
         };
 
         let me = Rc::new(ObjectTreeEntry {

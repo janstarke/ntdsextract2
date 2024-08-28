@@ -5,7 +5,6 @@ use std::rc::Rc;
 use crate::cache::{RecordPointer, SpecialRecords};
 use crate::cli::output::Writer;
 use crate::cli::{EntryFormat, OutputFormat, OutputOptions};
-use crate::ntds;
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
@@ -15,6 +14,7 @@ use crate::object_tree::ObjectTree;
 use crate::progress_bar::create_progressbar;
 use crate::serialization::{CsvSerialization, SerializationType};
 use crate::{cache, EntryId};
+use crate::{ntds, FormattedValue};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use maplit::hashset;
@@ -311,9 +311,12 @@ impl<'info, 'db> DataTable<'info, 'db> {
         {
             let record = record?;
             let dn = if *options.include_dn() {
-                self.object_tree().dn_of(record.ptr())
+                match self.object_tree().dn_of(record.ptr()) {
+                    Some(dn) => FormattedValue::Value(dn),
+                    None => FormattedValue::NoValue,
+                }
             } else {
-                None
+                FormattedValue::Hide
             };
 
             let record = O::new(record, options, self, &self.link_table, dn)?;
@@ -348,7 +351,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         record_type: &ObjectType,
         options: &OutputOptions,
         link_table: &LinkTable,
-        distinguished_name: Option<String>,
+        distinguished_name: FormattedValue<String>,
     ) -> anyhow::Result<Vec<Bodyfile3Line>> {
         Ok(match record_type {
             ObjectType::Person => Vec::<Bodyfile3Line>::from(Person::<CsvSerialization>::new(
@@ -400,7 +403,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                             record_type,
                             options,
                             link_table,
-                            None,
+                            FormattedValue::Hide,
                         )?
                     } else {
                         record.to_bodyfile(self.data_table().metadata())?
