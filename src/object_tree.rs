@@ -64,9 +64,13 @@ impl ObjectTree {
         }
     }
 
-    pub fn dn_of(&self, record_ptr: &RecordPointer) -> Option<String> {
+    pub fn dn_of(&self, ptr: &RecordPointer) -> String {
         self.record_index
-            .get(record_ptr)
-            .and_then(|r| r.upgrade().map(|r| r.distinguished_name().clone()))
+            .get(ptr)
+            .unwrap_or_else(|| panic!("invalid record pointer: {ptr}"))
+            .upgrade()
+            .unwrap_or_else(|| panic!("record pointer {ptr} points to already deleted object"))
+            .distinguished_name()
+            .clone()
     }
 }

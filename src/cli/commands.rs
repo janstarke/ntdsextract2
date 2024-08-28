@@ -148,6 +148,11 @@ impl Commands {
                 show_all: _,
                 include_dn,
             }
+            | Commands::Group {
+                format: _,
+                show_all: _,
+                include_dn,
+            } => *include_dn,
             | Commands::Computer {
                 format: _,
                 show_all: _,
