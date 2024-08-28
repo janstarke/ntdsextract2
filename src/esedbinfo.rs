@@ -1,13 +1,14 @@
 use libesedb::{EseDb, Table};
+use std::ops::Index;
 
-use crate::ColumnInfoMapping;
+use crate::{ntds::NtdsAttributeId, ColumnInfoMapping, ColumnInformation};
 
 //#[derive(Getters)]
 //#[getset(get="pub")]
 pub struct EsedbInfo<'db> {
     data_table: Table<'db>,
     link_table: Table<'db>,
-    mapping: ColumnInfoMapping
+    mapping: ColumnInfoMapping,
 }
 
 impl<'db> TryFrom<&'db EseDb> for EsedbInfo<'db> {
@@ -18,20 +19,37 @@ impl<'db> TryFrom<&'db EseDb> for EsedbInfo<'db> {
         let link_table = esedb.table_by_name("link_table")?;
         let mapping = ColumnInfoMapping::try_from(&data_table)?;
 
-        Ok(Self { data_table, link_table, mapping })
+        Ok(Self {
+            data_table,
+            link_table,
+            mapping,
+        })
     }
 }
 
 impl<'db> EsedbInfo<'db> {
-    pub fn mapping<'info> (&'info self) -> &'info ColumnInfoMapping where 'info: 'db {
+    pub fn mapping<'info>(&'info self) -> &'info ColumnInfoMapping
+    where
+        'info: 'db,
+    {
         &self.mapping
     }
 
-    pub fn data_table<'info>(&'info self) -> &Table<'db> where 'info: 'db {
+    pub fn data_table<'info>(&'info self) -> &Table<'db>
+    where
+        'info: 'db,
+    {
         &self.data_table
     }
 
-    pub fn link_table<'info>(&'info self) -> &Table<'db> where 'info: 'db {
+    pub fn link_table<'info>(&'info self) -> &Table<'db>
+    where
+        'info: 'db,
+    {
         &self.link_table
+    }
+
+    pub fn column(&self, att_id: NtdsAttributeId) -> &ColumnInformation {
+        self.mapping().index(att_id)
     }
 }

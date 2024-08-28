@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::ops::Index;
 
 use anyhow::{anyhow, ensure, Result};
 
@@ -133,12 +132,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
             .find(|r| r.rdn().name() == attribute_name)
             .unwrap_or_else(|| panic!("found no record by that name: '{attribute_name}'"));
 
-        let link_id_column = *self
-            .data_table
-            .esedbinfo()
-            .mapping()
-            .index(NtdsAttributeId::AttLinkId)
-            .id();
+        let link_id_column = NtdsAttributeId::AttLinkId.id(self.data_table.esedbinfo());
 
         let record = self
             .data_table

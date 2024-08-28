@@ -1,8 +1,9 @@
 use std::fmt::Display;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum FormattedValue<T: Display> {
     NoValue,
     Hide,

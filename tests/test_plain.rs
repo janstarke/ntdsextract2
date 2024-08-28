@@ -12,7 +12,7 @@ fn test_plain() {
     let dstfile = get_test_data("ntds_plain.dit");
 
     let mut cmd = Command::cargo_bin("ntdsextract2").unwrap();
-    let result = cmd.arg(dstfile).arg("user").ok();
+    let result = cmd.arg(dstfile).arg("user").arg("-D").ok();
 
     match &result {
         Ok(out) => {
