@@ -1,11 +1,11 @@
 use std::{
+    collections::HashMap,
     io::{BufReader, Cursor},
-    path::PathBuf, collections::HashMap,
+    path::PathBuf,
 };
 
 use assert_cmd::Command;
 use libntdsextract2::{ntds::Person, CsvSerialization};
-
 
 #[test]
 fn test_plain() {
@@ -19,17 +19,17 @@ fn test_plain() {
             let mut users = HashMap::new();
             let reader = BufReader::new(Cursor::new(&out.stdout));
             let mut rdr = csv::Reader::from_reader(reader);
-            
+
             for result in rdr.deserialize() {
                 let record: Person<CsvSerialization> = result.unwrap();
                 users.insert(record.sam_account_name().as_ref().unwrap().clone(), record);
             }
 
             assert!(users.contains_key("Administrator"));
-            assert!(! users.contains_key("InvalidUser"));
+            assert!(!users.contains_key("InvalidUser"));
 
             let admin = users.get("Administrator").unwrap();
-            assert!(! admin.is_deleted())
+            assert!(!admin.is_deleted())
         }
         Err(why) => {
             println!("{why}");
