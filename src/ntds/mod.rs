@@ -10,6 +10,7 @@ mod object;
 mod schema;
 mod attribute_name;
 mod attribute_value;
+mod attribute_id_impl;
 
 pub use data_table::*;
 pub use link_table::*;

@@ -58,22 +58,16 @@ pub struct MetaDataCache {
 impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
     type Error = anyhow::Error;
     fn try_from(info: &EsedbInfo<'_>) -> Result<Self, Self::Error> {
-        let record_id_column = *info.mapping().index(NtdsAttributeId::DsRecordId).id();
-        let parent_column = *info.mapping().index(NtdsAttributeId::DsParentRecordId).id();
-        let rdn_column = *info.mapping().index(NtdsAttributeId::AttRdn).id();
-        let cn_column = *info.mapping().index(NtdsAttributeId::AttCommonName).id();
-        let object_category_column = *info
-            .mapping()
-            .index(NtdsAttributeId::AttObjectCategory)
-            .id();
-        let sid_column = *info.mapping().index(NtdsAttributeId::AttObjectSid).id();
-        let guid_column = *info.mapping().index(NtdsAttributeId::AttObjectGuid).id();
-        let rdn_att_id = *info.mapping().index(NtdsAttributeId::AttRdnAttId).id();
-        let attribute_id_column = *info.mapping().index(NtdsAttributeId::AttAttributeId).id();
-        let ldap_display_name_column = *info
-            .mapping()
-            .index(NtdsAttributeId::AttLdapDisplayName)
-            .id();
+        let record_id_column = NtdsAttributeId::DsRecordId.id(info);
+        let parent_column = NtdsAttributeId::DsParentRecordId.id(info);
+        let rdn_column = NtdsAttributeId::AttRdn.id(info);
+        let cn_column = NtdsAttributeId::AttCommonName.id(info);
+        let object_category_column = NtdsAttributeId::AttObjectCategory.id(info);
+        let sid_column = NtdsAttributeId::AttObjectSid.id(info);
+        let guid_column = NtdsAttributeId::AttObjectGuid.id(info);
+        let rdn_att_id = NtdsAttributeId::AttRdnAttId.id(info);
+        let attribute_id_column = NtdsAttributeId::AttAttributeId.id(info);
+        let ldap_display_name_column = NtdsAttributeId::AttLdapDisplayName.id(info);
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
@@ -124,14 +118,14 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                                     Some(id) => *id.id(),
                                     None => {
                                         log::error!("invalid column name: '{column_name}', using 'cn' instead");
-                                        cn_column
+                                        *cn_column
                                     }
                                 }
                             }
-                            None => cn_column,
+                            None => *cn_column,
                         };
                         let relative_distinguished_name =
-                            Rdn::from_record_opt(&record, rdn_val_col)?;
+                            Rdn::from_record_opt(&record, &rdn_val_col)?;
 
                         let record_ptr = RecordPointer::new(record_id, esedb_row_id.into());
 
@@ -298,18 +292,18 @@ impl MetaDataCache {
                     if let Some(ldap_display_name) = self.attributes.get(rdn_att_id) {
                         return format!("{ldap_display_name}={}", entry.rdn().name());
                     } else {
-                        log::warn!("no record entry found for attribute id {rdn_att_id}");
+                        log::warn!("no record entry found for attribute id {rdn_att_id}; using 'cn' as rdn attribute");
                     }
                 } else {
                     log::warn!(
-                        "no attribute id found for {entry} (object category is {type_entry})"
+                        "no attribute id found for {entry} (object category is {type_entry}); using 'cn' as rdn attribute"
                     );
                 }
             } else {
-                log::warn!("invalid object category for {entry}: {type_entry_id}");
+                log::warn!("invalid object category for {entry}: {type_entry_id}; using 'cn' as rdn attribute");
             }
         } else {
-            log::warn!("no object category for {entry}");
+            log::warn!("no object category for {entry}; using 'cn' as rdn attribute");
         }
 
         format!("cn={}", entry.cn().as_ref().unwrap_or(entry.rdn()).name())

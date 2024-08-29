@@ -13,6 +13,15 @@ pub enum Commands {
         /// show all non-empty values. This option is ignored when CSV-Output is selected
         #[clap(short('A'), long("show-all"))]
         show_all: bool,
+
+        /// include the distinguished name (DN) in the output.
+        ///
+        /// Note that this
+        /// property is not an attribute of the AD entry iself; instead it is
+        /// constructed from the relative DN (RDN) of the entry and
+        /// all of its parents. That's why this property is normally not shown.
+        #[clap(short('D'), long("include-dn"))]
+        include_dn: bool,
     },
 
     /// Display groups
@@ -24,6 +33,15 @@ pub enum Commands {
         /// show all non-empty values. This option is ignored when CSV-Output is selected
         #[clap(short('A'), long("show-all"))]
         show_all: bool,
+
+        /// include the distinguished name (DN) in the output.
+        ///
+        /// Note that this
+        /// property is not an attribute of the AD entry iself; instead it is
+        /// constructed from the relative DN (RDN) of the entry and
+        /// all of its parents. That's why this property is normally not shown.
+        #[clap(short('D'), long("include-dn"))]
+        include_dn: bool,
     },
 
     /// display computer accounts
@@ -35,6 +53,15 @@ pub enum Commands {
         /// show all non-empty values. This option is ignored when CSV-Output is selected
         #[clap(short('A'), long("show-all"))]
         show_all: bool,
+
+        /// include the distinguished name (DN) in the output.
+        ///
+        /// Note that this
+        /// property is not an attribute of the AD entry iself; instead it is
+        /// constructed from the relative DN (RDN) of the entry and
+        /// all of its parents. That's why this property is normally not shown.
+        #[clap(short('D'), long("include-dn"))]
+        include_dn: bool,
     },
 
     /// create a timeline (in bodyfile format)
@@ -74,7 +101,7 @@ pub enum Commands {
         use_sid: bool,
 
         #[clap(short('F'), long("format"), default_value_t = EntryFormat::Simple)]
-        entry_format: EntryFormat
+        entry_format: EntryFormat,
     },
 
     /// search for entries whose values match to some regular expression
@@ -94,19 +121,43 @@ impl Commands {
             Commands::User {
                 format: OutputFormat::Json,
                 show_all,
+                include_dn: _,
             }
             | Commands::User {
                 format: OutputFormat::JsonLines,
                 show_all,
+                include_dn: _,
             }
             | Commands::Computer {
                 format: OutputFormat::Json,
                 show_all,
+                include_dn: _,
             }
             | Commands::Computer {
                 format: OutputFormat::JsonLines,
                 show_all,
+                include_dn: _,
             } => *show_all,
+            _ => false,
+        }
+    }
+    pub fn include_dn(&self) -> bool {
+        match self {
+            Commands::User {
+                format: _,
+                show_all: _,
+                include_dn,
+            }
+            | Commands::Group {
+                format: _,
+                show_all: _,
+                include_dn,
+            } => *include_dn,
+            | Commands::Computer {
+                format: _,
+                show_all: _,
+                include_dn,
+            } => *include_dn,
             _ => false,
         }
     }

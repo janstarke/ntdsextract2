@@ -1,9 +1,14 @@
 use anyhow::anyhow;
-use std::{cell::RefCell, collections::HashSet, fmt::Display, hash::Hash, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet},
+    fmt::Display,
+    hash::Hash,
+    rc::{Rc, Weak},
+};
 
 use getset::Getters;
 use lazy_static::lazy_static;
-use termtree::Tree;
 
 use crate::{
     cache::{MetaDataCache, RecordPointer, SpecialRecords},
@@ -25,9 +30,11 @@ lazy_static! {
 pub struct ObjectTreeEntry {
     name: Rdn,
     relative_distinguished_name: String,
+    distinguished_name: String,
     record_ptr: RecordPointer,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
+    parent: Option<Weak<Self>>,
 }
 
 impl Eq for ObjectTreeEntry {}
@@ -57,10 +64,6 @@ impl Display for ObjectTreeEntry {
 }
 
 impl ObjectTreeEntry {
-    pub(crate) fn from(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
-        Self::populate_object_tree(metadata)
-    }
-
     pub fn get(&self, rdn: &str) -> Option<Rc<Self>> {
         log::debug!("searching for {rdn}");
         for child in self.children.borrow().iter() {
@@ -72,47 +75,75 @@ impl ObjectTreeEntry {
         None
     }
 
-    pub(crate) fn to_tree(me: &Rc<ObjectTreeEntry>, max_depth: u8) -> Tree<Rc<ObjectTreeEntry>> {
-        let tree = Tree::new(Rc::clone(me));
-        if max_depth > 0 {
-            let leaves: Vec<Tree<Rc<ObjectTreeEntry>>> = me
-                .children
-                .borrow()
-                .iter()
-                .map(|c| Self::to_tree(c, max_depth - 1))
-                .collect();
-            tree.with_leaves(leaves)
-        } else {
-            tree
-        }
-    }
-
-    fn populate_object_tree(metadata: &MetaDataCache) -> Rc<ObjectTreeEntry> {
+    pub(crate) fn populate_object_tree(
+        metadata: &MetaDataCache,
+        record_index: &mut HashMap<RecordPointer, Weak<Self>>,
+    ) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-        Self::create_tree_node(metadata.root(), metadata)
+        Self::create_tree_node(metadata.root(), metadata, None, record_index)
     }
 
     fn create_tree_node(
         record_ptr: &RecordPointer,
         metadata: &MetaDataCache,
+        parent: Option<Weak<Self>>,
+        record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
         let entry = &metadata[record_ptr];
         let name = entry.rdn().to_owned();
         let relative_distinguished_name = metadata.rdn(entry);
 
+        let distinguished_name = match &parent {
+            Some(parent) => match parent.upgrade() {
+                Some(parent) => {
+                    if parent.parent.is_none() {
+                        log::debug!("hiding the $ROOT_OBJECT$ item");
+                        relative_distinguished_name.clone()
+                    } else {
+                        format!(
+                            "{relative_distinguished_name},{}",
+                            parent.distinguished_name()
+                        )
+                    }
+                }
+                None => {
+                    panic!("unable to upgrade weak link to parent object; there \
+                    seems to be an inconsistency in the object tree");
+                }
+            },
+            None => {
+                log::debug!("found the object tree root");
+                relative_distinguished_name.clone()
+            }
+        };
+
+        let me = Rc::new(ObjectTreeEntry {
+            name,
+            relative_distinguished_name,
+            distinguished_name,
+            record_ptr: *record_ptr,
+            children: RefCell::new(HashSet::new()),
+            parent,
+        });
+
+        record_index.insert(*record_ptr, Rc::downgrade(&me));
+
         // [`ObjectTreeEntry`] uses interior mutability, but its hash()-Implementation
         // don't use the mutable parts, so this is not a problem
         #[allow(clippy::mutable_key_type)]
-        let children = metadata
+        let children: HashSet<_> = metadata
             .children_of(record_ptr)
-            .map(|c| Self::create_tree_node(c.record_ptr(), metadata))
+            .map(|c| {
+                Self::create_tree_node(
+                    c.record_ptr(),
+                    metadata,
+                    Some(Rc::downgrade(&me)),
+                    record_index,
+                )
+            })
             .collect();
-        Rc::new(ObjectTreeEntry {
-            name,
-            relative_distinguished_name,
-            record_ptr: *record_ptr,
-            children: RefCell::new(children),
-        })
+        me.children.replace_with(|_| children);
+        me
     }
 
     pub fn get_special_records(root: Rc<ObjectTreeEntry>) -> anyhow::Result<SpecialRecords> {
