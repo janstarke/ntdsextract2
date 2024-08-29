@@ -2,6 +2,23 @@
 ![Crates.io](https://img.shields.io/crates/l/ntdsextract2)
 ![Crates.io (latest)](https://img.shields.io/crates/dv/ntdsextract2)
 
+- [ntdsextract2](#ntdsextract2)
+  - [Why do you write a tool that's already there and working?](#why-do-you-write-a-tool-thats-already-there-and-working)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Search for entries](#search-for-entries)
+  - [Displaying a single entry](#displaying-a-single-entry)
+  - [Displaying the tree structure of the AD](#displaying-the-tree-structure-of-the-ad)
+  - [Creating a timeline](#creating-a-timeline)
+  - [Enumerating ...](#enumerating-)
+    - [... users](#-users)
+    - [... groups](#-groups)
+    - [... computers](#-computers)
+    - [... types](#-types)
+  - [Configuring the global timestamp format](#configuring-the-global-timestamp-format)
+- [Forensics details](#forensics-details)
+  - [Interpreting timestamps](#interpreting-timestamps)
+
 # ntdsextract2
 
 <img align="right" width="128px" src="https://raw.githubusercontent.com/janstarke/ntdsextract2/main/doc/images/ntdsextract2.jpeg">
@@ -248,3 +265,24 @@ $ DFIR_DATE="%F %T (%Z)" ntdsextract2 tests/data/ntds_plain.dit user -F json-lin
 ```
 
 See the difference?
+
+# Forensics details
+
+## Interpreting timestamps
+
+Active Directory stores its timestamp values mostly as [`JET_coltypCurrency`](https://learn.microsoft.com/en-us/windows/win32/extensible-storage-engine/jet-coltyp), because it is the only supported 64bit fixed integer value. So, in fact, timestamps are stored as signed 64bit values. This leaves enough space to use the [`FILETIME`](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/filetime) structure.
+
+This structure specifies the number of 100 nanoseconds since January 1, 1601. The minimum value is - of course - *`1601-01-01T00:00:00`* with a binary value of `0x0000000000000000`. The maximum value in the most cases is `0x7FFFFFFFFFFFFFFF`, which corresponds to the value *`30828-09-14T02:48:05.4775807`*. However, it is up to each software to interpret those special values.
+
+The following table shows how each of the AD attributes are to be interpreted:
+
+|Attribute| Interpretation of `0x0000000000000000` | Interpretation of `0x7FFFFFFFFFFFFFFF` | 
+|-|----|----|
+`record_time`| nothing specific |nothing specific|
+`when_created`| nothing specific |nothing specific|
+`when_changed`| nothing specific | nothing specific|
+[`last_logon`](https://learn.microsoft.com/en-us/windows/win32/adschema/a-lastlogon)| last logon time is unknown | |
+[`last_logon_time_stamp`](https://learn.microsoft.com/en-us/windows/win32/adschema/a-lastlogontimestamp)| nothing specific but likely related to above | |
+[`account_expires`](https://learn.microsoft.com/en-us/windows/win32/adschema/a-accountexpires)| "If at any point in time an account which was configured with an expiration time is set back to Never Expires, the **accountExpires** attribute is then set to 0." |"When an account is created, the account is initially set to Never Expire. The **accountExpires** attribute is set to the default of *9223372036854775807*, a value which corresponds the maximum value of a 64-bit signed integer." | 
+`password_last_set`| if UAC attr does not contain `UF_DONT_EXPIRE_PASSWD` then user must change password at next logon| |
+[`bad_pwd_time`](https://learn.microsoft.com/en-us/windows/win32/adschema/a-badpasswordtime)| the last time an incorrect password was used is unknown| |
