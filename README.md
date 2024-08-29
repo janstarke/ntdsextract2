@@ -2,6 +2,22 @@
 ![Crates.io](https://img.shields.io/crates/l/ntdsextract2)
 ![Crates.io (latest)](https://img.shields.io/crates/dv/ntdsextract2)
 
+- [ntdsextract2](#ntdsextract2)
+  - [Why do you write a tool that's already there and working?](#why-do-you-write-a-tool-thats-already-there-and-working)
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Search for entries](#search-for-entries)
+  - [Displaying a single entry](#displaying-a-single-entry)
+  - [Displaying the tree structure of the AD](#displaying-the-tree-structure-of-the-ad)
+  - [Creating a timeline](#creating-a-timeline)
+  - [Enumerating ...](#enumerating-)
+    - [... users](#-users)
+    - [... groups](#-groups)
+    - [... computers](#-computers)
+    - [... types](#-types)
+  - [Configuring the global timestamp format](#configuring-the-global-timestamp-format)
+
+
 # ntdsextract2
 
 <img align="right" width="128px" src="https://raw.githubusercontent.com/janstarke/ntdsextract2/main/doc/images/ntdsextract2.jpeg">
