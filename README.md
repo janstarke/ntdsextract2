@@ -163,6 +163,8 @@ Options:
           - sid: show the Security ID (SID)
           - rdn: show the relative distinguished name (RDN) value
           - dn:  show the distinguished name (DN)
+          - sam: show the samAccountName attribute
+
 
   -v, --verbose...
           Increase logging verbosity
@@ -203,6 +205,7 @@ Options:
           - sid: show the Security ID (SID)
           - rdn: show the relative distinguished name (RDN) value
           - dn:  show the distinguished name (DN)
+          - sam: show the samAccountName attribute
 
   -v, --verbose...
           Increase logging verbosity
@@ -243,6 +246,7 @@ Options:
           - sid: show the Security ID (SID)
           - rdn: show the relative distinguished name (RDN) value
           - dn:  show the distinguished name (DN)
+          - sam: show the samAccountName attribute
 
   -v, --verbose...
           Increase logging verbosity
