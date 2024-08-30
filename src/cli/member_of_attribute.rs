@@ -12,5 +12,10 @@ pub enum MemberOfAttribute {
 
     /// show the distinguished name (DN)
     #[strum(serialize = "dn")]
-    Dn
+    Dn,
+
+    /// show the samAccountName attribute
+    #[strum(serialize = "sam")]
+    #[clap(name="sam")]
+    SamAccountName,
 }

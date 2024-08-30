@@ -60,6 +60,7 @@ impl LinkTable {
                         *record.record_ptr(),
                         record.rdn().clone(),
                         record.sid().clone(),
+                        None,
                     )
                 })
                 .collect()

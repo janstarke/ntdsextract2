@@ -3,7 +3,11 @@ use std::{marker::PhantomData, sync::Mutex};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cache::RecordPointer, cli::MemberOfAttribute, object_tree::ObjectTree, win32_types::{Rdn, Sid}, SerializationType
+    cache::RecordPointer,
+    cli::MemberOfAttribute,
+    object_tree::ObjectTree,
+    win32_types::{Rdn, Sid},
+    SerializationType,
 };
 
 static MEMBER_OF_ATTRIBUTE: Mutex<MemberOfAttribute> = Mutex::new(MemberOfAttribute::Rdn);
@@ -16,9 +20,9 @@ pub fn member_of_attribute() -> MemberOfAttribute {
     *MEMBER_OF_ATTRIBUTE.lock().unwrap()
 }
 
-enum PointerOrDn {
+enum PointerOrString {
     Pointer(RecordPointer),
-    Dn(String),
+    String(String),
 
     // this can only be set when deserializing a value
     None,
@@ -27,19 +31,21 @@ enum PointerOrDn {
 pub struct Membership<T: SerializationType> {
     rdn: Rdn,
     sid: Option<Sid>,
-    dn: PointerOrDn,
+    sam_account_name: Option<String>,
+    dn: PointerOrString,
     phantom: PhantomData<T>,
 }
 
-impl<T> From<(RecordPointer, Rdn, Option<Sid>)> for Membership<T>
+impl<T> From<(RecordPointer, Rdn, Option<Sid>, Option<String>)> for Membership<T>
 where
     T: SerializationType,
 {
-    fn from(value: (RecordPointer, Rdn, Option<Sid>)) -> Self {
+    fn from(value: (RecordPointer, Rdn, Option<Sid>, Option<String>)) -> Self {
         Self {
             rdn: value.1,
             sid: value.2,
-            dn: PointerOrDn::Pointer(value.0),
+            dn: PointerOrString::Pointer(value.0),
+            sam_account_name: value.3,
             phantom: PhantomData,
         }
     }
@@ -53,7 +59,8 @@ where
         Self {
             rdn,
             sid: None,
-            dn: PointerOrDn::None,
+            dn: PointerOrString::None,
+            sam_account_name: None,
             phantom: PhantomData,
         }
     }
@@ -64,9 +71,9 @@ pub struct MembershipSet<T: SerializationType>(Vec<Membership<T>>);
 impl<T: SerializationType> MembershipSet<T> {
     pub fn update_dn(&mut self, tree: &ObjectTree) {
         for m in self.0.iter_mut() {
-            if let PointerOrDn::Pointer(ptr) = m.dn {
+            if let PointerOrString::Pointer(ptr) = m.dn {
                 let dn = tree.dn_of(&ptr);
-                m.dn = PointerOrDn::Dn(dn);
+                m.dn = PointerOrString::String(dn);
             }
         }
     }
@@ -92,9 +99,7 @@ where
     {
         match member_of_attribute() {
             MemberOfAttribute::Sid => T::serialize(
-                self.0
-                    .iter()
-                    .map(|m| m.sid.as_ref().map(|s| s.to_string())),
+                self.0.iter().map(|m| m.sid.as_ref().map(|s| s.to_string())),
                 serializer,
             ),
             MemberOfAttribute::Rdn => {
@@ -102,12 +107,16 @@ where
             }
             MemberOfAttribute::Dn => T::serialize(
                 self.0.iter().map(|m| match &m.dn {
-                    PointerOrDn::Pointer(ptr) => Some(ptr.to_string()),
-                    PointerOrDn::Dn(dn) => Some(dn.clone()),
-                    PointerOrDn::None => {
+                    PointerOrString::Pointer(ptr) => Some(ptr.to_string()),
+                    PointerOrString::String(dn) => Some(dn.clone()),
+                    PointerOrString::None => {
                         panic!("it is not expected to serialize a previously deserialized value")
                     }
                 }),
+                serializer,
+            ),
+            MemberOfAttribute::SamAccountName => T::serialize(
+                self.0.iter().map(|m| m.sam_account_name.clone()),
                 serializer,
             ),
         }
@@ -154,15 +163,18 @@ mod tests {
                         RecordPointer::new(1.into(), 1.into()),
                         Rdn::try_from("a").unwrap(),
                         None,
+                        None,
                     )),
                     Membership::<T>::from((
                         RecordPointer::new(2.into(), 2.into()),
                         Rdn::try_from("b").unwrap(),
                         None,
+                        None,
                     )),
                     Membership::<T>::from((
                         RecordPointer::new(3.into(), 3.into()),
                         Rdn::try_from("c").unwrap(),
+                        None,
                         None,
                     )),
                 ]
