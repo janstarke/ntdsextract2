@@ -168,7 +168,7 @@ where
             }
             MemberOfAttribute::Dn => T::serialize_list(
                 self.0.iter().map(|m| match &m.dn {
-                    PointerOrString::Pointer(ptr) => Some(ptr.to_string()),
+                    PointerOrString::Pointer(ptr) => Some(format!("MISSING ENTRY FOR REFERENCE {ptr}")),
                     PointerOrString::String(dn) => Some(dn.clone()),
                     PointerOrString::None => {
                         panic!("it is not expected to serialize a previously deserialized value")
