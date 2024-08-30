@@ -311,7 +311,10 @@ impl<'info, 'db> DataTable<'info, 'db> {
         {
             let record = record?;
             let dn = if *options.include_dn() {
-                FormattedValue::Value(self.object_tree().dn_of(record.ptr()))
+                match self.object_tree().dn_of(record.ptr()) {
+                    Some(dn) => FormattedValue::Value(dn),
+                    None => FormattedValue::NoValue,
+                }
             } else {
                 FormattedValue::Hide
             };

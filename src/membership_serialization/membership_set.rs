@@ -72,8 +72,9 @@ impl<T: SerializationType> MembershipSet<T> {
     pub fn update_dn(&mut self, tree: &ObjectTree) {
         for m in self.0.iter_mut() {
             if let PointerOrString::Pointer(ptr) = m.dn {
-                let dn = tree.dn_of(&ptr);
-                m.dn = PointerOrString::String(dn);
+                if let Some(dn) = tree.dn_of(&ptr) {
+                    m.dn = PointerOrString::String(dn);
+                }
             }
         }
     }

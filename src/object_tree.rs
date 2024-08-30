@@ -64,13 +64,21 @@ impl ObjectTree {
         }
     }
 
-    pub fn dn_of(&self, ptr: &RecordPointer) -> String {
-        self.record_index
-            .get(ptr)
-            .unwrap_or_else(|| panic!("invalid record pointer: {ptr}"))
-            .upgrade()
-            .unwrap_or_else(|| panic!("record pointer {ptr} points to already deleted object"))
-            .distinguished_name()
-            .clone()
+    pub fn dn_of(&self, ptr: &RecordPointer) -> Option<String> {
+        match self.record_index.get(ptr) {
+            Some(record) => Some(
+                record
+                    .upgrade()
+                    .unwrap_or_else(|| {
+                        panic!("record pointer {ptr} points to already deleted object")
+                    })
+                    .distinguished_name()
+                    .clone(),
+            ),
+            None => {
+                log::error!("Missing entry {ptr} in the data_table. This might happen if there is an inconsistency in the link_table. I'll ignore this reference");
+                None
+            }
+        }
     }
 }
