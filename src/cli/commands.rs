@@ -82,7 +82,7 @@ pub enum Commands {
         #[clap(long("all-objects"))]
         all_objects: bool,
 
-        /// include also deleted objects (which don't have a AttObjectCategory attribute)
+        /// include also deleted objects (which don't have an AttObjectCategory attribute)
         #[clap(long("include-deleted"))]
         include_deleted: bool,
     },

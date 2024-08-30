@@ -38,89 +38,98 @@ cargo install ntdsextract2
 
 # Usage
 ```
-USAGE:
-    ntdsextract2 [OPTIONS] <NTDS_FILE> <SUBCOMMAND>
+Usage: ntdsextract2 [OPTIONS] <NTDS_FILE> <COMMAND>
 
-ARGS:
-    <NTDS_FILE>    name of the file to analyze
+Commands:
+  user      Display user accounts
+  group     Display groups
+  computer  display computer accounts
+  timeline  create a timeline (in bodyfile format)
+  types     list all defined types
+  tree      display the directory information tree
+  entry     display one single entry from the directory information tree
+  search    search for entries whose values match to some regular expression
+  help      Print this message or the help of the given subcommand(s)
 
-OPTIONS:
-    -h, --help       Print help information
-    -q, --quiet      Less output per occurrence
-    -v, --verbose    More output per occurrence
-    -V, --version    Print version information
+Arguments:
+  <NTDS_FILE>  name of the file to analyze
 
-SUBCOMMANDS:
-    computer    display computer accounts
-    entry       display one single entry from the directory information tree
-    group       Display groups
-    help        Print this message or the help of the given subcommand(s)
-    search      search for entries whose values match to some regular expression
-    timeline    create a timeline (in bodyfile format)
-    tree        display the directory information tree
-    types       list all defined types
-    user        Display user accounts
-
+Options:
+  -v, --verbose...  Increase logging verbosity
+  -q, --quiet...    Decrease logging verbosity
+  -h, --help        Print help
+  -V, --version     Print version
 ```
 
 ## Search for entries
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> search [OPTIONS] <REGEX>
+Usage: ntdsextract2 <NTDS_FILE> search [OPTIONS] <REGEX>
 
-ARGS:
-    <REGEX>    regular expression to match against
+Arguments:
+  <REGEX>  regular expression to match against
 
-OPTIONS:
-    -h, --help           Print help information
-    -i, --ignore-case    case-insensitive search (ignore case)
-    -q, --quiet          Less output per occurrence
-    -v, --verbose        More output per occurrence
+Options:
+  -i, --ignore-case  case-insensitive search (ignore case)
+  -v, --verbose...   Increase logging verbosity
+  -q, --quiet...     Decrease logging verbosity
+  -h, --help         Print help
 ```
 
 ## Displaying a single entry
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> entry [OPTIONS] <ENTRY_ID>
+Usage: ntdsextract2 <NTDS_FILE> entry [OPTIONS] <ENTRY_ID>
 
-ARGS:
-    <ENTRY_ID>    id of the entry to show
+Arguments:
+  <ENTRY_ID>
+          id of the entry to show
 
-OPTIONS:
-    -h, --help       Print help information
-    -q, --quiet      Less output per occurrence
-        --sid        search for SID instead for NTDS.DIT entry id. <ENTRY_ID> will be interpreted as
-                     RID, wich is the last part of the SID; e.g. 500 will return the Administrator
-                     account
-    -v, --verbose    More output per occurrence
+Options:
+      --sid
+          search for SID instead for NTDS.DIT entry id. <ENTRY_ID> will be interpreted as RID, wich is the last part of the SID; e.g. 500 will return the Administrator account
+
+  -F, --format <ENTRY_FORMAT>
+          [default: simple]
+
+          Possible values:
+          - json:   use JSON format
+          - table:  display a formatted table
+          - simple: use a simple key-values based format
+
+  -v, --verbose...
+          Increase logging verbosity
+
+  -q, --quiet...
+          Decrease logging verbosity
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ## Displaying the tree structure of the AD
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> tree [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> tree [OPTIONS]
 
-OPTIONS:
-    -h, --help                     Print help information
-        --max-depth <MAX_DEPTH>    maximum recursion depth [default: 4]
-    -q, --quiet                    Less output per occurrence
-    -v, --verbose                  More output per occurrence
+Options:
+      --max-depth <MAX_DEPTH>  maximum recursion depth [default: 4]
+  -v, --verbose...             Increase logging verbosity
+  -q, --quiet...               Decrease logging verbosity
+  -h, --help                   Print help
 ```
 
 ## Creating a timeline
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> timeline [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> timeline [OPTIONS]
 
-OPTIONS:
-        --all-objects    show objects of any type (this might be a lot)
-    -h, --help           Print help information
-    -q, --quiet          Less output per occurrence
-    -v, --verbose        More output per occurrence
+Options:
+      --all-objects      show objects of any type (this might be a lot)
+      --include-deleted  include also deleted objects (which don't have an AttObjectCategory attribute)
+  -v, --verbose...       Increase logging verbosity
+  -q, --quiet...         Decrease logging verbosity
+  -h, --help             Print help
 ```
 
 ## Enumerating ...
@@ -128,59 +137,133 @@ OPTIONS:
 ### ... users
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> user [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> user [OPTIONS]
 
-OPTIONS:
-    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
-                             selected
-    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
-    -h, --help               Print help information
-    -q, --quiet              Less output per occurrence
-    -v, --verbose            More output per occurrence
+Options:
+  -F, --format <FORMAT>
+          Output format
+          
+          [default: csv]
+          [possible values: csv, json, json-lines]
+
+  -A, --show-all
+          show all non-empty values. This option is ignored when CSV-Output is selected
+
+  -D, --include-dn
+          include the distinguished name (DN) in the output.
+          
+          Note that this property is not an attribute of the AD entry iself; instead it is constructed from the relative DN (RDN) of the entry and all of its parents. That's why this property is normally not shown.
+
+      --member-of <MEMBER_OF_ATTRIBUTE>
+          specify which attribute shall be used to display group memberships
+          
+          [default: rdn]
+
+          Possible values:
+          - sid: show the Security ID (SID)
+          - rdn: show the relative distinguished name (RDN) value
+          - dn:  show the distinguished name (DN)
+
+  -v, --verbose...
+          Increase logging verbosity
+
+  -q, --quiet...
+          Decrease logging verbosity
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### ... groups
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> group [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> group [OPTIONS]
 
-OPTIONS:
-    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
-                             selected
-    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
-    -h, --help               Print help information
-    -q, --quiet              Less output per occurrence
-    -v, --verbose            More output per occurrence
+Options:
+  -F, --format <FORMAT>
+          Output format
+          
+          [default: csv]
+          [possible values: csv, json, json-lines]
+
+  -A, --show-all
+          show all non-empty values. This option is ignored when CSV-Output is selected
+
+  -D, --include-dn
+          include the distinguished name (DN) in the output.
+          
+          Note that this property is not an attribute of the AD entry iself; instead it is constructed from the relative DN (RDN) of the entry and all of its parents. That's why this property is normally not shown.
+
+      --member-of <MEMBER_OF_ATTRIBUTE>
+          specify which attribute shall be used to display group memberships
+          
+          [default: rdn]
+
+          Possible values:
+          - sid: show the Security ID (SID)
+          - rdn: show the relative distinguished name (RDN) value
+          - dn:  show the distinguished name (DN)
+
+  -v, --verbose...
+          Increase logging verbosity
+
+  -q, --quiet...
+          Decrease logging verbosity
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### ... computers
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> computer [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> computer [OPTIONS]
 
-OPTIONS:
-    -A, --show-all           show all non-empty values. This option is ignored when CSV-Output is
-                             selected
-    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
-    -h, --help               Print help information
-    -q, --quiet              Less output per occurrence
-    -v, --verbose            More output per occurrence
+Options:
+  -F, --format <FORMAT>
+          Output format
+          
+          [default: csv]
+          [possible values: csv, json, json-lines]
+
+  -A, --show-all
+          show all non-empty values. This option is ignored when CSV-Output is selected
+
+  -D, --include-dn
+          include the distinguished name (DN) in the output.
+          
+          Note that this property is not an attribute of the AD entry iself; instead it is constructed from the relative DN (RDN) of the entry and all of its parents. That's why this property is normally not shown.
+
+      --member-of <MEMBER_OF_ATTRIBUTE>
+          specify which attribute shall be used to display group memberships
+          
+          [default: rdn]
+
+          Possible values:
+          - sid: show the Security ID (SID)
+          - rdn: show the relative distinguished name (RDN) value
+          - dn:  show the distinguished name (DN)
+
+  -v, --verbose...
+          Increase logging verbosity
+
+  -q, --quiet...
+          Decrease logging verbosity
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
 
 ### ... types
 
 ```
-USAGE:
-    ntdsextract2 <NTDS_FILE> types [OPTIONS]
+Usage: ntdsextract2 <NTDS_FILE> types [OPTIONS]
 
-OPTIONS:
-    -F, --format <FORMAT>    Output format [default: csv] [possible values: csv, json, json-lines]
-    -h, --help               Print help information
-    -q, --quiet              Less output per occurrence
-    -v, --verbose            More output per occurrence
+Options:
+  -F, --format <FORMAT>  Output format [default: csv] [possible values: csv, json, json-lines]
+  -v, --verbose...       Increase logging verbosity
+  -q, --quiet...         Decrease logging verbosity
+  -h, --help             Print help
 ```
 
 
