@@ -95,8 +95,19 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             RecordId::from_record_opt(&record, object_category_column)?;
                         let sid = Sid::from_record_opt(&record, sid_column).unwrap_or(None);
                         let guid = Guid::from_record_opt(&record, guid_column)?;
-                        let sam_account_name =
-                            String::from_record_opt(&record, sam_account_name_column)?;
+                        let sam_account_name = match String::from_record_opt(
+                            &record,
+                            sam_account_name_column,
+                        ) {
+                            Ok(v) => v,
+                            Err(why) => {
+                                let id: &'static str = NtdsAttributeId::AttSamAccountName.into();
+                                log::error!(
+                                    "error while reading samAccountName from column {id}: {why}"
+                                );
+                                None
+                            }
+                        };
 
                         if let Some(attribute_id) =
                             i32::from_record_opt(&record, attribute_id_column)?
