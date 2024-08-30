@@ -75,7 +75,12 @@ macro_rules! impl_timestamp {
             where
                 S: serde::Serializer,
             {
-                serializer.serialize_str(&self.0.format(&$crate::win32_types::timestamp::TIMESTAMP_FORMAT).to_string())
+                serializer.serialize_str(
+                    &self
+                        .0
+                        .format(&$crate::win32_types::timestamp::TIMESTAMP_FORMAT)
+                        .to_string(),
+                )
             }
         }
 
@@ -86,7 +91,10 @@ macro_rules! impl_timestamp {
             {
                 use serde::de;
                 let buf = String::deserialize(deserializer)?;
-                match DateTime::parse_from_str(&buf[..], &$crate::win32_types::timestamp::TIMESTAMP_FORMAT) {
+                match DateTime::parse_from_str(
+                    &buf[..],
+                    &$crate::win32_types::timestamp::TIMESTAMP_FORMAT,
+                ) {
                     Ok(dt) => Ok(Self(dt.with_timezone(&Utc))),
                     Err(why) => Err(de::Error::custom(format!(
                         "unable to parse timestamp '{buf}': {why}"

@@ -1,6 +1,6 @@
 use clap::Subcommand;
 
-use super::{EntryFormat, OutputFormat};
+use super::{EntryFormat, MemberOfAttribute, OutputFormat};
 
 #[derive(Subcommand)]
 pub enum Commands {
@@ -22,6 +22,10 @@ pub enum Commands {
         /// all of its parents. That's why this property is normally not shown.
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
+
+        /// specify which attribute shall be used to display group memberships
+        #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
+        member_of_attribute: MemberOfAttribute,
     },
 
     /// Display groups
@@ -42,6 +46,10 @@ pub enum Commands {
         /// all of its parents. That's why this property is normally not shown.
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
+
+        /// specify which attribute shall be used to display group memberships
+        #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
+        member_of_attribute: MemberOfAttribute,
     },
 
     /// display computer accounts
@@ -62,6 +70,10 @@ pub enum Commands {
         /// all of its parents. That's why this property is normally not shown.
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
+
+        /// specify which attribute shall be used to display group memberships
+        #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
+        member_of_attribute: MemberOfAttribute,
     },
 
     /// create a timeline (in bodyfile format)
@@ -122,43 +134,75 @@ impl Commands {
                 format: OutputFormat::Json,
                 show_all,
                 include_dn: _,
+                member_of_attribute: _,
             }
             | Commands::User {
                 format: OutputFormat::JsonLines,
                 show_all,
                 include_dn: _,
+                member_of_attribute: _,
             }
             | Commands::Computer {
                 format: OutputFormat::Json,
                 show_all,
                 include_dn: _,
+                member_of_attribute: _,
             }
             | Commands::Computer {
                 format: OutputFormat::JsonLines,
                 show_all,
                 include_dn: _,
+                member_of_attribute: _,
             } => *show_all,
             _ => false,
         }
     }
+
     pub fn include_dn(&self) -> bool {
         match self {
             Commands::User {
                 format: _,
                 show_all: _,
                 include_dn,
+                member_of_attribute: _,
             }
             | Commands::Group {
                 format: _,
                 show_all: _,
                 include_dn,
+                member_of_attribute: _,
             } => *include_dn,
-            | Commands::Computer {
+            Commands::Computer {
                 format: _,
                 show_all: _,
                 include_dn,
+                member_of_attribute: _,
             } => *include_dn,
             _ => false,
+        }
+    }
+
+    pub fn member_of_attribute(&self) -> MemberOfAttribute {
+        match self {
+            Commands::User {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                member_of_attribute,
+            } => *member_of_attribute,
+            Commands::Group {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                member_of_attribute,
+            } => *member_of_attribute,
+            Commands::Computer {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                member_of_attribute,
+            } => *member_of_attribute,
+            _ => MemberOfAttribute::Rdn,
         }
     }
 

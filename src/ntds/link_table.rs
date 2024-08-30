@@ -5,6 +5,7 @@ use crate::cache::RecordPointer;
 use crate::cache::{self, RecordId};
 use crate::ntds::link_table_builder::LinkTableBuilder;
 use crate::win32_types::Rdn;
+use crate::{Membership, MembershipSet, SerializationType};
 
 use super::DataTable;
 
@@ -45,9 +46,26 @@ impl LinkTable {
         member_of
     }
 
-    /*
-    pub(crate) fn members(&self, dnt: &i32) -> Option<&HashSet<i32>> {
-        self.forward_map.get(dnt)
+    pub fn member_refs_of<T: SerializationType>(
+        &self,
+        object_id: RecordId,
+        data_table: &DataTable<'_, '_>,
+    ) -> MembershipSet<T> {
+        let member_of = if let Some(children) = self.member_of(&object_id) {
+            children
+                .iter()
+                .map(|child_id| &data_table.data_table().metadata()[child_id])
+                .map(|record| {
+                    (
+                        *record.record_ptr(),
+                        record.rdn().clone(),
+                        record.sid().clone(),
+                    )
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        MembershipSet::<T>::from(member_of.into_iter().map(Membership::from))
     }
-     */
 }

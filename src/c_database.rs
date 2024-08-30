@@ -73,7 +73,7 @@ impl<'info, 'db> CDatabase<'info, 'db> {
         self.show_typed_objects::<Computer<T>>(options, ObjectType::Computer)
     }
 
-    pub fn show_typed_objects<O: ntds::FromDataTable>(
+    pub fn show_typed_objects<O: ntds::FromDataTable + ntds::IsMemberOf>(
         &self,
         options: &OutputOptions,
         object_type: ObjectType,

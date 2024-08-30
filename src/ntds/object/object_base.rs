@@ -2,13 +2,15 @@ use crate::cache::RecordPointer;
 use crate::cli::OutputOptions;
 use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{FormattedValue, RdnSet, SerializationType};
+use crate::{FormattedValue, MembershipSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
 
-use crate::ntds::{DataTable, DataTableRecord, FromDataTable, HasObjectType, LinkTable};
+use crate::ntds::{
+    DataTable, DataTableRecord, FromDataTable, HasObjectType, IsMemberOf, LinkTable,
+};
 use std::marker::PhantomData;
 
 use super::{HasSerializableFields, SpecificObjectAttributes};
@@ -42,7 +44,7 @@ where
     primary_group: Option<Rdn>,
 
     //aduser_objects: Option<String>,
-    member_of: RdnSet<T>,
+    member_of: MembershipSet<T>,
 
     comment: Option<String>,
 
@@ -182,7 +184,7 @@ where
                 .map(|group| group.att_object_name2().unwrap())
         });
 
-        let member_of = link_table.member_names_of(object_id, data_table).into();
+        let member_refs = link_table.member_refs_of::<T>(object_id, data_table);
         let specific_attributes = A::from(&dbrecord)?;
 
         Ok(Self {
@@ -209,7 +211,7 @@ where
             primary_group,
             comment: dbrecord.att_comment().ok(),
             //aduser_objects: dbrecord.att_u()?,
-            member_of,
+            member_of: member_refs,
             specific_attributes,
             _marker: PhantomData,
             ptr: *dbrecord.ptr(),
@@ -272,5 +274,16 @@ where
         } else {
             Vec::new()
         }
+    }
+}
+
+impl<T, O, A> IsMemberOf for Object<T, O, A>
+where
+    O: HasObjectType,
+    T: SerializationType,
+    A: SpecificObjectAttributes,
+{
+    fn update_membership_dn(&mut self, tree: &crate::object_tree::ObjectTree) {
+        self.member_of.update_dn(tree)
     }
 }
