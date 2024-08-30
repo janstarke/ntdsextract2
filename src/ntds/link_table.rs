@@ -60,7 +60,7 @@ impl LinkTable {
                         *record.record_ptr(),
                         record.rdn().clone(),
                         record.sid().clone(),
-                        None,
+                        record.sam_account_name().clone(),
                     )
                 })
                 .collect()
