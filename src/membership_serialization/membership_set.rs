@@ -111,7 +111,7 @@ where
             MemberOfAttribute::Rdn => T::serialize(Some(self.rdn.to_string()), serializer),
             MemberOfAttribute::Dn => T::serialize(
                 match &self.dn {
-                    PointerOrString::Pointer(ptr) => Some(ptr.to_string()),
+                    PointerOrString::Pointer(_ptr) => None,
                     PointerOrString::String(dn) => Some(dn.clone()),
                     PointerOrString::None => {
                         panic!("it is not expected to serialize a previously deserialized value")
