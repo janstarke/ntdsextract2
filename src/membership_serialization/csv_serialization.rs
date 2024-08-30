@@ -7,7 +7,7 @@ use super::Membership;
 pub struct CsvSerialization;
 
 impl SerializationType for CsvSerialization {
-    fn serialize<S>(
+    fn serialize_list<S>(
         items: impl Iterator<Item = Option<String>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>

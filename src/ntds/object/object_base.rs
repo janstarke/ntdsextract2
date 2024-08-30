@@ -2,7 +2,7 @@ use crate::cache::RecordPointer;
 use crate::cli::OutputOptions;
 use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
-use crate::{FormattedValue, MembershipSet, SerializationType};
+use crate::{FormattedValue, Membership, MembershipSet, SerializationType};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
 use serde::ser::SerializeStruct;
@@ -41,7 +41,7 @@ where
     #[allow(dead_code)]
     primary_group_id: Option<i32>,
 
-    primary_group: Option<Rdn>,
+    primary_group: Option<Membership<T>>,
 
     //aduser_objects: Option<String>,
     member_of: MembershipSet<T>,
@@ -170,7 +170,7 @@ where
 
         let primary_group_id = dbrecord.att_primary_group_id().ok();
         let primary_group = primary_group_id.and_then(|group_id| {
-            data_table
+            match data_table
                 .data_table()
                 .metadata()
                 .entries_with_rid(group_id.try_into().unwrap())
@@ -180,8 +180,25 @@ where
                         .data_table()
                         .data_table_record_from(*e.record_ptr())
                         .unwrap()
-                })
-                .map(|group| group.att_object_name2().unwrap())
+                }) {
+                Some(group) => {
+                    let rdn = group.att_object_name2().unwrap();
+                    let sid = group.att_object_sid_opt().unwrap();
+                    let dn = data_table.object_tree().dn_of(group.ptr());
+                    let sam_account_name = group.att_sam_account_name_opt().unwrap();
+                    if let Some(dn) = dn {
+                        Some(Membership::<T>::from((dn, rdn, sid, sam_account_name)))
+                    } else {
+                        Some(Membership::<T>::from((
+                            *group.ptr(),
+                            rdn,
+                            sid,
+                            sam_account_name,
+                        )))
+                    }
+                }
+                None => None,
+            }
         });
 
         let member_refs = link_table.member_refs_of::<T>(object_id, data_table);

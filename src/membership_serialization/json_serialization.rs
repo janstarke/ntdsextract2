@@ -6,7 +6,7 @@ use super::Membership;
 pub struct JsonSerialization;
 
 impl SerializationType for JsonSerialization {
-    fn serialize<S>(
+    fn serialize_list<S>(
         items: impl Iterator<Item = Option<String>>,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
@@ -55,4 +55,5 @@ impl SerializationType for JsonSerialization {
             serde_json::Value::Object(_) => panic!("unexpected type: object"),
         }
     }
+    
 }

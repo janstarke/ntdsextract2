@@ -51,6 +51,21 @@ where
     }
 }
 
+impl<T> From<(String, Rdn, Option<Sid>, Option<String>)> for Membership<T>
+where
+    T: SerializationType,
+{
+    fn from(value: (String, Rdn, Option<Sid>, Option<String>)) -> Self {
+        Self {
+            rdn: value.1,
+            sid: value.2,
+            dn: PointerOrString::String(value.0),
+            sam_account_name: value.3,
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl<T> From<Rdn> for Membership<T>
 where
     T: SerializationType,
@@ -62,6 +77,51 @@ where
             dn: PointerOrString::None,
             sam_account_name: None,
             phantom: PhantomData,
+        }
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Membership<T>
+where
+    T: SerializationType,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        match Rdn::deserialize(deserializer) {
+            Ok(rdn) => Ok(Self::from(rdn)),
+            Err(why) => Err(why),
+        }
+    }
+}
+
+impl<T> Serialize for Membership<T>
+where
+    T: SerializationType,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match member_of_attribute() {
+            MemberOfAttribute::Sid => {
+                T::serialize(self.sid.as_ref().map(|s| s.to_string()), serializer)
+            }
+            MemberOfAttribute::Rdn => T::serialize(Some(self.rdn.to_string()), serializer),
+            MemberOfAttribute::Dn => T::serialize(
+                match &self.dn {
+                    PointerOrString::Pointer(ptr) => Some(ptr.to_string()),
+                    PointerOrString::String(dn) => Some(dn.clone()),
+                    PointerOrString::None => {
+                        panic!("it is not expected to serialize a previously deserialized value")
+                    }
+                },
+                serializer,
+            ),
+            MemberOfAttribute::SamAccountName => {
+                T::serialize(self.sam_account_name.clone(), serializer)
+            }
         }
     }
 }
@@ -99,14 +159,14 @@ where
         S: serde::Serializer,
     {
         match member_of_attribute() {
-            MemberOfAttribute::Sid => T::serialize(
+            MemberOfAttribute::Sid => T::serialize_list(
                 self.0.iter().map(|m| m.sid.as_ref().map(|s| s.to_string())),
                 serializer,
             ),
             MemberOfAttribute::Rdn => {
-                T::serialize(self.0.iter().map(|m| Some(m.rdn.to_string())), serializer)
+                T::serialize_list(self.0.iter().map(|m| Some(m.rdn.to_string())), serializer)
             }
-            MemberOfAttribute::Dn => T::serialize(
+            MemberOfAttribute::Dn => T::serialize_list(
                 self.0.iter().map(|m| match &m.dn {
                     PointerOrString::Pointer(ptr) => Some(ptr.to_string()),
                     PointerOrString::String(dn) => Some(dn.clone()),
@@ -116,7 +176,7 @@ where
                 }),
                 serializer,
             ),
-            MemberOfAttribute::SamAccountName => T::serialize(
+            MemberOfAttribute::SamAccountName => T::serialize_list(
                 self.0.iter().map(|m| m.sam_account_name.clone()),
                 serializer,
             ),
