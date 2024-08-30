@@ -11,6 +11,7 @@ mod schema;
 mod attribute_name;
 mod attribute_value;
 mod attribute_id_impl;
+mod is_member_of;
 
 pub use data_table::*;
 pub use link_table::*;
@@ -23,3 +24,4 @@ pub use object::*;
 pub use schema::*;
 pub use attribute_name::*;
 pub use attribute_value::*;
+pub use is_member_of::*;

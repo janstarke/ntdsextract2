@@ -1,5 +1,5 @@
-mod rdn_set;
-pub use rdn_set::*;
+mod membership_set;
+pub use membership_set::*;
 
 mod serialization_type;
 pub use serialization_type::*;

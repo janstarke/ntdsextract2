@@ -4,7 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use libesedb::EseDb;
 use libntdsextract2::cli::{Args, Commands, OutputOptions};
-use libntdsextract2::{CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization};
+use libntdsextract2::{use_member_of_attribute, CDatabase, CsvSerialization, EntryId, EsedbInfo, JsonSerialization};
 use simplelog::{Config, TermLogger};
 
 mod progress_bar;
@@ -51,6 +51,8 @@ fn main() -> Result<()> {
     options.set_flat_serialization(cli.command().flat_serialization());
     options.set_format(cli.command().format());
     options.set_include_dn(cli.command().include_dn());
+
+    use_member_of_attribute(cli.command().member_of_attribute());
 
     match cli.command() {
         Commands::Group { .. } => {

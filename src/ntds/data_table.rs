@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::cache::{RecordPointer, SpecialRecords};
 use crate::cli::output::Writer;
-use crate::cli::{EntryFormat, OutputFormat, OutputOptions};
+use crate::cli::{EntryFormat, MemberOfAttribute, OutputFormat, OutputOptions};
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
@@ -12,8 +12,8 @@ use crate::ntds::NtdsAttributeId;
 use crate::ntds::Result;
 use crate::object_tree::ObjectTree;
 use crate::progress_bar::create_progressbar;
-use crate::serialization::{CsvSerialization, SerializationType};
-use crate::{cache, EntryId};
+use crate::membership_serialization::{CsvSerialization, SerializationType};
+use crate::{cache, member_of_attribute, EntryId};
 use crate::{ntds, FormattedValue};
 use bodyfile::Bodyfile3Line;
 use getset::Getters;
@@ -277,7 +277,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         Ok(())
     }
 
-    pub fn show_typed_objects<O: ntds::FromDataTable>(
+    pub fn show_typed_objects<O: ntds::FromDataTable + ntds::IsMemberOf>(
         &self,
         options: &OutputOptions,
         object_type: ObjectType,
@@ -311,12 +311,20 @@ impl<'info, 'db> DataTable<'info, 'db> {
         {
             let record = record?;
             let dn = if *options.include_dn() {
-                FormattedValue::Value(self.object_tree().dn_of(record.ptr()))
+                match self.object_tree().dn_of(record.ptr()) {
+                    Some(dn) => FormattedValue::Value(dn),
+                    None => FormattedValue::NoValue,
+                }
             } else {
                 FormattedValue::Hide
             };
 
-            let record = O::new(record, options, self, &self.link_table, dn)?;
+            let mut record = O::new(record, options, self, &self.link_table, dn)?;
+
+            if member_of_attribute() == MemberOfAttribute::Dn {
+                record.update_membership_dn(self.object_tree());
+            }
+
             match options.format().unwrap() {
                 OutputFormat::Csv => {
                     csv_wtr.serialize(record)?;
