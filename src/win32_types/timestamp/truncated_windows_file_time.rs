@@ -1,17 +1,16 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Utc};
+use libesedb::systemtime_from_filetime;
 
 use crate::impl_timestamp;
-
-use super::BASE_DATETIME;
 
 #[derive(Eq, PartialEq)]
 pub struct TruncatedWindowsFileTime(DateTime<Utc>);
 
 impl_timestamp!(TruncatedWindowsFileTime);
 
-impl From<i64> for TruncatedWindowsFileTime {
-    fn from(value: i64) -> Self {
-        Self(*BASE_DATETIME + Duration::seconds(value))
+impl From<u64> for TruncatedWindowsFileTime {
+    fn from(value: u64) -> Self {
+        Self(systemtime_from_filetime(value*10_000).into())
     }
 }
 impl From<DateTime<Utc>> for TruncatedWindowsFileTime {
