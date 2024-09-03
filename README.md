@@ -357,7 +357,7 @@ See the difference?
 
 ## Interpreting timestamps
 
-Active Directory stores its timestamp values mostly as [`JET_coltypCurrency`](https://learn.microsoft.com/en-us/windows/win32/extensible-storage-engine/jet-coltyp), because it is the only supported 64bit fixed integer value. So, in fact, timestamps are stored as signed 64bit values. This leaves enough space to use the [`FILETIME`](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/filetime) structure.
+Active Directory stores its timestamp values mostly as [`JET_coltypCurrency`](https://learn.microsoft.com/en-us/windows/win32/extensible-storage-engine/jet-coltyp), because it is the only supported 64bit fixed integer value. So, in fact, timestamps are stored as unsigned 64bit values. This leaves enough space to use the [`FILETIME`](https://learn.microsoft.com/en-us/office/client-developer/outlook/mapi/filetime) structure.
 
 This structure specifies the number of 100 nanoseconds since January 1, 1601. The minimum value is - of course - *`1601-01-01T00:00:00`* with a binary value of `0x0000000000000000`. The maximum value in the most cases is `0x7FFFFFFFFFFFFFFF`, which corresponds to the value *`30828-09-14T02:48:05.4775807`*. However, it is up to each software to interpret those special values.
 

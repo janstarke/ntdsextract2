@@ -1,7 +1,6 @@
-use chrono::{format::StrftimeItems, DateTime, FixedOffset, NaiveDate, Utc};
+use chrono::{format::StrftimeItems, DateTime, FixedOffset};
 use lazy_static::lazy_static;
 
-mod database_time;
 mod timeline_entry;
 mod truncated_windows_file_time;
 mod unix_timestamp;
@@ -11,16 +10,6 @@ pub use timeline_entry::*;
 pub use truncated_windows_file_time::TruncatedWindowsFileTime;
 pub use unix_timestamp::*;
 pub use windows_file_time::WindowsFileTime;
-
-lazy_static! {
-    static ref BASE_DATETIME: DateTime<Utc> = DateTime::<Utc>::from_naive_utc_and_offset(
-        NaiveDate::from_ymd_opt(1601, 1, 1)
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap(),
-        Utc
-    );
-}
 
 lazy_static! {
     pub static ref TIMESTAMP_FORMAT: String = {
@@ -60,7 +49,10 @@ macro_rules! impl_timestamp {
                 value: &$crate::cache::Value,
             ) -> Result<Option<Self>, $crate::ntds::Error> {
                 match value {
-                    $crate::cache::Value::Currency(val) => Ok(Some($type::from(*val))),
+                    $crate::cache::Value::Currency(val) => {
+                        let val = *val as u64;
+                        Ok(Some($type::from(val)))
+                    },
                     $crate::cache::Value::Null(()) => Ok(None),
                     _ => Err($crate::ntds::Error::InvalidValueDetected(
                         value.to_string(),
