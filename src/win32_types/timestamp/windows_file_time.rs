@@ -18,3 +18,8 @@ impl From<DateTime<Utc>> for WindowsFileTime {
         Self(value)
     }
 }
+impl From<WindowsFileTime> for DateTime<Utc> {
+    fn from(value: WindowsFileTime) -> Self {
+        value.0
+    }
+}

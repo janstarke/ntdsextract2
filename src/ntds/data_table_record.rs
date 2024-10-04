@@ -1,5 +1,5 @@
 use crate::cache::{self, MetaDataCache, RecordId, RecordPointer};
-use crate::cache::{ColumnIndex, Value, WithValue};
+use crate::cache::{ColumnIndex, WithValue};
 use crate::ntds::{Error, NtdsAttributeId};
 use crate::value::FromValue;
 use crate::win32_types::TimelineEntry;
@@ -8,7 +8,10 @@ use crate::win32_types::{
 };
 use crate::ColumnInfoMapping;
 use bodyfile::Bodyfile3Line;
+use chrono::{DateTime, Utc};
 use concat_idents::concat_idents;
+use flow_record::derive::*;
+use flow_record::prelude::*;
 use getset::Getters;
 use serde::ser::SerializeStruct;
 use serde::Serialize;
@@ -167,20 +170,23 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
             .collect()
     }
 
-    pub fn to_bodyfile(&self, metadata: &MetaDataCache) -> anyhow::Result<Vec<Bodyfile3Line>> {
-        let my_name = self
-            .att_sam_account_name()
-            .or(self.att_object_name().map(|s| s.name().to_string()));
-
-        let object_type_name = if let Some(type_id) = self.att_object_type_id_opt()? {
+    pub fn object_type_name(&self, metadata: &MetaDataCache) -> anyhow::Result<String> {
+        Ok(if let Some(type_id) = self.att_object_type_id_opt()? {
             metadata
                 .record(&type_id)
                 .map(|entry| entry.rdn().name().to_string())
                 .unwrap_or("Object".to_string())
         } else {
             "Object".to_string()
-        };
+        })
+    }
 
+    pub fn to_bodyfile(&self, metadata: &MetaDataCache) -> anyhow::Result<Vec<Bodyfile3Line>> {
+        let my_name = self
+            .att_sam_account_name()
+            .or(self.att_object_name().map(|s| s.name().to_string()));
+
+        let object_type_name = self.object_type_name(metadata)?;
         let object_type_caption =
             if let Some(last_known_parent) = self.att_last_known_parent_opt()? {
                 metadata
@@ -233,13 +239,42 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
             Ok(Vec::new())
         }
     }
+    pub fn to_flow_record(&self, metadata: &MetaDataCache) -> anyhow::Result<NtdsEntry> {
+        let name = self
+            .att_sam_account_name()
+            .or(self.att_object_name().map(|s| s.name().to_string()))?;
+
+        let object_type = self.object_type_name(metadata)?;
+        let deleted_from = self
+            .att_last_known_parent_opt()?
+            .and_then(|last_known_parent| {
+                metadata
+                    .record(&last_known_parent)
+                    .and_then(|entry| metadata.dn(entry))
+            });
+
+        Ok(NtdsEntry {
+            name,
+            object_type,
+            record_id: self.ptr.ds_record_id().inner(),
+            is_deleted: self.att_is_deleted_opt()?.unwrap_or(false),
+            deleted_from,
+            record_time: self.ds_record_time_opt()?.map(|ts| ts.into()),
+            when_created: self.att_when_created_opt()?.map(|ts| ts.into()),
+            when_changed: self.att_when_changed_opt()?.map(|ts| ts.into()),
+            last_logon: self.att_last_logon_opt()?.map(|ts| ts.into()),
+            last_logon_timestamp: self.att_last_logon_time_stamp_opt()?.map(|ts| ts.into()),
+            bad_pwd_time: self.att_bad_pwd_time_opt()?.map(|ts| ts.into()),
+            password_last_set: self.att_password_last_set_opt()?.map(|ts| ts.into()),
+        })
+    }
 }
 
 impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
     fn with_value<T>(
         &self,
         index: NtdsAttributeId,
-        function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
+        function: impl FnMut(Option<&cache::Value>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
         self.inner.with_value(index, function)
     }
@@ -249,7 +284,7 @@ impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
     fn with_value<T>(
         &self,
         index: ColumnIndex,
-        function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
+        function: impl FnMut(Option<&cache::Value>) -> anyhow::Result<T>,
     ) -> anyhow::Result<T> {
         self.inner.with_value(index, function)
     }
@@ -263,8 +298,12 @@ impl<'info, 'db> From<&DataTableRecord<'info, 'db>> for term_table::Table {
         keys.sort();
 
         table.add_row(Row::new(vec![
-            TableCell::builder("Attribute").alignment(Alignment::Center).build(),
-            TableCell::builder("Value").alignment(Alignment::Center).build(),
+            TableCell::builder("Attribute")
+                .alignment(Alignment::Center)
+                .build(),
+            TableCell::builder("Value")
+                .alignment(Alignment::Center)
+                .build(),
         ]));
 
         for id in keys {
@@ -293,4 +332,21 @@ impl<'info, 'db> Serialize for DataTableRecord<'info, 'db> {
         }
         ser.end()
     }
+}
+
+#[derive(FlowRecord)]
+#[flow_record(version = 1, source = "ntdsextract2", classification = "ntds")]
+pub struct NtdsEntry {
+    name: String,
+    object_type: String,
+    record_id: i32,
+    record_time: Option<DateTime<Utc>>,
+    when_created: Option<DateTime<Utc>>,
+    when_changed: Option<DateTime<Utc>>,
+    last_logon: Option<DateTime<Utc>>,
+    last_logon_timestamp: Option<DateTime<Utc>>,
+    bad_pwd_time: Option<DateTime<Utc>>,
+    password_last_set: Option<DateTime<Utc>>,
+    is_deleted: bool,
+    deleted_from: Option<String>,
 }

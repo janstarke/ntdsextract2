@@ -23,7 +23,7 @@ macro_rules! do_with_serialization {
 }
 
 #[global_allocator]
-static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::MAX);
 
 fn main() -> Result<()> {
     ALLOCATOR.set_limit(4096 * 1024 * 1024).unwrap();
@@ -70,9 +70,10 @@ fn main() -> Result<()> {
         Commands::Timeline {
             all_objects,
             include_deleted,
+            format
         } => {
             options.set_show_all_objects(*all_objects);
-            database.show_timeline(&options, *include_deleted)
+            database.show_timeline(&options, *include_deleted, format)
         }
         Commands::Tree { max_depth } => Ok(database.show_tree(*max_depth)?),
         Commands::Entry {

@@ -1,4 +1,5 @@
-use clap::Subcommand;
+use clap::{Subcommand, ValueEnum};
+use strum::Display;
 
 use super::{EntryFormat, MemberOfAttribute, OutputFormat};
 
@@ -85,6 +86,10 @@ pub enum Commands {
         /// include also deleted objects (which don't have an AttObjectCategory attribute)
         #[clap(long("include-deleted"))]
         include_deleted: bool,
+
+        /// output format
+        #[clap(short('F'), long("format"), default_value_t=TimelineFormat::Record)]
+        format: TimelineFormat,
     },
 
     /// list all defined types
@@ -231,4 +236,16 @@ impl Commands {
             _ => None,
         }
     }
+}
+
+#[derive(ValueEnum, Clone, Display)]
+pub enum TimelineFormat {
+
+    /// bodyfile format
+    #[strum(serialize = "bodyfile")]
+    Bodyfile,
+
+    /// flow record format (<https://docs.rs/flow-record>)
+    #[strum(serialize = "record")]
+    Record
 }

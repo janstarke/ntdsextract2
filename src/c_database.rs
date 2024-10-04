@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use crate::{
     cache::{self, MetaDataCache},
-    cli::{EntryFormat, OutputOptions},
+    cli::{EntryFormat, OutputOptions, TimelineFormat},
     ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema},
     object_tree::ObjectTree,
     EntryId, EsedbInfo, SerializationType,
@@ -93,9 +93,10 @@ impl<'info, 'db> CDatabase<'info, 'db> {
         &self,
         options: &OutputOptions,
         include_deleted: bool,
+        format: &TimelineFormat,
     ) -> anyhow::Result<()> {
         self.data_table
-            .show_timeline(options, &self.link_table, include_deleted)
+            .show_timeline(options, &self.link_table, include_deleted, format)
     }
 
     pub fn show_entry(

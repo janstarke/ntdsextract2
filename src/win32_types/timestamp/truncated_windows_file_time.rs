@@ -18,3 +18,8 @@ impl From<DateTime<Utc>> for TruncatedWindowsFileTime {
         Self(value)
     }
 }
+impl From<TruncatedWindowsFileTime> for DateTime<Utc> {
+    fn from(value: TruncatedWindowsFileTime) -> Self {
+        value.0
+    }
+}

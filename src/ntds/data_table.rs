@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
-use std::io::stdout;
+use std::io::{stdout, Write};
 use std::rc::Rc;
 
 use crate::cache::{RecordPointer, SpecialRecords};
 use crate::cli::output::Writer;
-use crate::cli::{EntryFormat, MemberOfAttribute, OutputFormat, OutputOptions};
+use crate::cli::{EntryFormat, MemberOfAttribute, OutputFormat, OutputOptions, TimelineFormat};
+use crate::membership_serialization::{CsvSerialization, SerializationType};
 use crate::ntds::DataTableRecord;
 use crate::ntds::FromDataTable;
 use crate::ntds::LinkTable;
@@ -12,10 +13,10 @@ use crate::ntds::NtdsAttributeId;
 use crate::ntds::Result;
 use crate::object_tree::ObjectTree;
 use crate::progress_bar::create_progressbar;
-use crate::membership_serialization::{CsvSerialization, SerializationType};
 use crate::{cache, member_of_attribute, EntryId};
 use crate::{ntds, FormattedValue};
 use bodyfile::Bodyfile3Line;
+use flow_record::prelude::Serializer;
 use getset::Getters;
 use maplit::hashset;
 use regex::Regex;
@@ -383,12 +384,17 @@ impl<'info, 'db> DataTable<'info, 'db> {
         })
     }
 
-    fn show_timeline_for_records<'a>(
+    fn show_timeline_for_records<'a, W>(
         &self,
         options: &OutputOptions,
+        format: &TimelineFormat,
+        ser: &mut Serializer<W>,
         link_table: &LinkTable,
         records: impl Iterator<Item = &'a RecordPointer>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        W: Write,
+    {
         let known_types: HashMap<_, _> = self
             .schema
             .supported_type_entries()
@@ -401,24 +407,34 @@ impl<'info, 'db> DataTable<'info, 'db> {
             .map(|e| self.data_table().data_table_record_from(*e.record_ptr()))
             .try_for_each(|r| {
                 let record = r?;
-                let lines = if let Some(object_type) = record.att_object_type_id_opt()? {
-                    if let Some(record_type) = known_types.get(&object_type) {
-                        self.timelines_from_supported_type(
-                            record,
-                            record_type,
-                            options,
-                            link_table,
-                            FormattedValue::Hide,
-                        )?
-                    } else {
-                        record.to_bodyfile(self.data_table().metadata())?
-                    }
-                } else {
-                    record.to_bodyfile(self.data_table().metadata())?
-                };
+                match format {
+                    TimelineFormat::Bodyfile => {
+                        let lines = if let Some(object_type) = record.att_object_type_id_opt()? {
+                            if let Some(record_type) = known_types.get(&object_type) {
+                                self.timelines_from_supported_type(
+                                    record,
+                                    record_type,
+                                    options,
+                                    link_table,
+                                    FormattedValue::Hide,
+                                )?
+                            } else {
+                                record.to_bodyfile(self.data_table().metadata())?
+                            }
+                        } else {
+                            record.to_bodyfile(self.data_table().metadata())?
+                        };
 
-                for line in lines.into_iter() {
-                    println!("{line}");
+                        for line in lines.into_iter() {
+                            println!("{line}");
+                        }
+                    }
+                    TimelineFormat::Record => {
+                        match record.to_flow_record(self.data_table().metadata()) {
+                            Ok(r) => ser.serialize(r)?,
+                            Err(why) => log::warn!("{why}"),
+                        }
+                    }
                 }
                 Ok(())
             })
@@ -429,6 +445,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         options: &OutputOptions,
         link_table: &LinkTable,
         include_deleted: bool,
+        format: &TimelineFormat,
     ) -> anyhow::Result<()> {
         let types = if *options.show_all_objects() {
             self.schema
@@ -443,8 +460,13 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 .map(|e| *e.ds_record_id())
                 .collect()
         };
+
+        let mut serializer = Serializer::new(stdout());
+
         self.show_timeline_for_records(
             options,
+            format,
+            &mut serializer,
             link_table,
             self.data_table()
                 .metadata()
@@ -466,8 +488,14 @@ impl<'info, 'db> DataTable<'info, 'db> {
             );
             let records = deleted_objects_records.union(&records_with_deleted_from_container_guid);
 
-            self.show_timeline_for_records(options, link_table, records.copied())
-                .unwrap();
+            self.show_timeline_for_records(
+                options,
+                format,
+                &mut serializer,
+                link_table,
+                records.copied(),
+            )
+            .unwrap();
         }
 
         Ok(())
