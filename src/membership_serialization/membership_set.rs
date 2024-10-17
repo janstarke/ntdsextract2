@@ -249,7 +249,7 @@ mod tests {
         use_member_of_attribute(MemberOfAttribute::Rdn);
 
         let mut wtr = csv::Writer::from_writer(vec![]);
-        wtr.serialize(&test_data::<CsvSerialization>()).unwrap();
+        wtr.serialize(test_data::<CsvSerialization>()).unwrap();
 
         let result = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
 

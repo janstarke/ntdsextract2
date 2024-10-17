@@ -27,7 +27,7 @@ where
 
     number_of_records: i32,
 
-    // this is needed for `::all_atributes`
+    // this is needed for `::all_attributes`
     columns: Rc<ColumnsOfTable>,
 }
 

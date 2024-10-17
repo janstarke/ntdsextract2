@@ -1,6 +1,6 @@
 use crate::cache::RecordPointer;
 use crate::cli::OutputOptions;
-use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
+use crate::win32_types::{Rdn, SecurityDescriptor, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
 use crate::{FormattedValue, Membership, MembershipSet, SerializationType};
 use bodyfile::Bodyfile3Line;
@@ -60,6 +60,8 @@ where
 
     //#[serde(flatten)]
     specific_attributes: A,
+
+    sddl: Option<String>,
 
     #[serde(skip)]
     _marker: PhantomData<O>,
@@ -165,6 +167,7 @@ where
         data_table: &DataTable,
         link_table: &LinkTable,
         distinguished_name: FormattedValue<String>,
+        sd: Option<&SecurityDescriptor>
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
@@ -230,6 +233,7 @@ where
             //aduser_objects: dbrecord.att_u()?,
             member_of: member_refs,
             specific_attributes,
+            sddl: sd.map(|sd| sd.to_string()),
             _marker: PhantomData,
             ptr: *dbrecord.ptr(),
         })

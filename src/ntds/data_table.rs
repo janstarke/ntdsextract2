@@ -323,7 +323,11 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 FormattedValue::Hide
             };
 
-            let mut record = O::new(record, options, self, &self.link_table, dn)?;
+            let sd = record
+                .att_nt_security_descriptor_opt()?
+                .and_then(|sd_id| self.sd_table().descriptor(&sd_id).map(Result::unwrap));
+
+            let mut record = O::new(record, options, self, &self.link_table, dn, sd.as_ref())?;
 
             if member_of_attribute() == MemberOfAttribute::Dn {
                 record.update_membership_dn(self.object_tree());
@@ -369,6 +373,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
+                None
             )?),
             ObjectType::Group => Vec::<Bodyfile3Line>::from(Group::<CsvSerialization>::new(
                 record,
@@ -376,6 +381,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
+                None
             )?),
             ObjectType::Computer => Vec::<Bodyfile3Line>::from(Computer::<CsvSerialization>::new(
                 record,
@@ -383,6 +389,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
+                None
             )?),
         })
     }
