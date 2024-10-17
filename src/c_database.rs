@@ -12,7 +12,7 @@ pub struct CDatabase<'info, 'db> {
     _esedbinfo: &'info EsedbInfo<'db>,
     data_table: DataTable<'info, 'db>,
     link_table: Rc<LinkTable>,
-    sd_table: Rc<SdTable>
+    _sd_table: Rc<SdTable>
 }
 
 impl<'info, 'db> CDatabase<'info, 'db> {
@@ -61,7 +61,7 @@ impl<'info, 'db> CDatabase<'info, 'db> {
             _esedbinfo: esedbinfo,
             link_table,
             data_table,
-            sd_table,
+            _sd_table: sd_table,
         })
     }
 
