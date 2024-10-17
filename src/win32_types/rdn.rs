@@ -62,7 +62,7 @@ impl FromValue for Rdn {
                 }))
             }
             Value::Null(()) => Ok(None),
-            Value::Long => {
+            Value::Long(_) => {
                 log::warn!("no support for LONG columns yet, generating a random value");
                 Ok(Some(Self{
                     name: uuid::Uuid::new_v4().to_string(),

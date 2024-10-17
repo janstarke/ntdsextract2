@@ -7,6 +7,7 @@ use termtree::Tree;
 
 use crate::{
     cache::{MetaDataCache, RecordPointer, SpecialRecords},
+    ntds::SdTable,
     object_tree_entry::ObjectTreeEntry,
 };
 
@@ -16,10 +17,13 @@ pub struct ObjectTree {
 }
 
 impl ObjectTree {
-    pub fn new(metadata: &MetaDataCache) -> Self {
+    pub fn new(metadata: &MetaDataCache, sd_table: Rc<SdTable>) -> Self {
         let mut record_index = HashMap::new();
-        let root = ObjectTreeEntry::populate_object_tree(metadata, &mut record_index);
-        Self { root, record_index }
+        let root = ObjectTreeEntry::populate_object_tree(metadata, &sd_table, &mut record_index);
+        Self {
+            root,
+            record_index,
+        }
     }
 
     pub fn get_special_records(&self) -> anyhow::Result<SpecialRecords> {

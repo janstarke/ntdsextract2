@@ -11,8 +11,7 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::{
-    cache::{MetaDataCache, RecordPointer, SpecialRecords},
-    win32_types::Rdn,
+    cache::{MetaDataCache, RecordPointer, SpecialRecords}, ntds::SdTable, win32_types::{Rdn, SecurityDescriptor}
 };
 lazy_static! {
     static ref DOMAINROOT_CHILDREN: HashSet<String> = HashSet::from_iter(vec![
@@ -32,6 +31,7 @@ pub struct ObjectTreeEntry {
     relative_distinguished_name: String,
     distinguished_name: String,
     record_ptr: RecordPointer,
+    _sddl: Option<Result<SecurityDescriptor, crate::ntds::Error>>,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
     parent: Option<Weak<Self>>,
@@ -56,10 +56,21 @@ impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let is_deleted = self.name().deleted_from_container().is_some();
         let display_name = self.relative_distinguished_name();
-
+        /*
+        let sddl = self
+            .sddl()
+            .as_ref()
+            .map(|sddl| match sddl {
+                Ok(sddl) => format!(";{sddl}"),
+                Err(_why) => format!(";sddl-error: {_why}")
+                }
+            )
+            .unwrap_or_default();
+        */
+        let sddl = "";
         let flags = if is_deleted { "DELETED; " } else { "" };
 
-        write!(f, "{display_name} ({flags}{})", self.record_ptr)
+        write!(f, "{display_name} ({flags}{}{sddl})", self.record_ptr)
     }
 }
 
@@ -77,15 +88,17 @@ impl ObjectTreeEntry {
 
     pub(crate) fn populate_object_tree(
         metadata: &MetaDataCache,
+        sd_table: &SdTable,
         record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-        Self::create_tree_node(metadata.root(), metadata, None, record_index)
+        Self::create_tree_node(metadata.root(), metadata, sd_table, None, record_index)
     }
 
     fn create_tree_node(
         record_ptr: &RecordPointer,
         metadata: &MetaDataCache,
+        sd_table: &SdTable,
         parent: Option<Weak<Self>>,
         record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
@@ -107,8 +120,10 @@ impl ObjectTreeEntry {
                     }
                 }
                 None => {
-                    panic!("unable to upgrade weak link to parent object; there \
-                    seems to be an inconsistency in the object tree");
+                    panic!(
+                        "unable to upgrade weak link to parent object; there \
+                    seems to be an inconsistency in the object tree"
+                    );
                 }
             },
             None => {
@@ -117,6 +132,11 @@ impl ObjectTreeEntry {
             }
         };
 
+        let _sddl = entry
+            .sd_id()
+            .as_ref()
+            .and_then(|sd_id| sd_table.descriptor(sd_id));
+
         let me = Rc::new(ObjectTreeEntry {
             name,
             relative_distinguished_name,
@@ -124,6 +144,7 @@ impl ObjectTreeEntry {
             record_ptr: *record_ptr,
             children: RefCell::new(HashSet::new()),
             parent,
+            _sddl,
         });
 
         record_index.insert(*record_ptr, Rc::downgrade(&me));
@@ -137,6 +158,7 @@ impl ObjectTreeEntry {
                 Self::create_tree_node(
                     c.record_ptr(),
                     metadata,
+                    sd_table,
                     Some(Rc::downgrade(&me)),
                     record_index,
                 )
