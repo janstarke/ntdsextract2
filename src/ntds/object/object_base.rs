@@ -58,10 +58,10 @@ where
     password_last_set: Option<WindowsFileTime>,
     bad_pwd_time: Option<WindowsFileTime>,
 
+    sddl: Option<String>,
     //#[serde(flatten)]
     specific_attributes: A,
 
-    sddl: Option<String>,
 
     #[serde(skip)]
     _marker: PhantomData<O>,
@@ -149,6 +149,7 @@ where
         s.serialize_field("account_expires", self.account_expires())?;
         s.serialize_field("password_last_set", self.password_last_set())?;
         s.serialize_field("bad_pwd_time", self.bad_pwd_time())?;
+        s.serialize_field("sddl", self.sddl())?;
 
         self.specific_attributes().serialize_to::<S>(&mut s)?;
         s.end()
