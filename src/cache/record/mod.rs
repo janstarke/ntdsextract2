@@ -16,7 +16,7 @@ use crate::esedb_mitigation::libesedb_count;
 use crate::ntds::NtdsAttributeId;
 use crate::EsedbInfo;
 
-use super::{EsedbRowId, ColumnsOfTable};
+use super::{ColumnsOfTable, EsedbRowId};
 
 #[derive(Getters)]
 #[getset(get = "pub")]
@@ -73,6 +73,10 @@ impl<'info, 'db> WithValue<ColumnIndex> for Record<'info, 'db> {
                 Ok(v) => function(
                     e.insert(match v {
                         libesedb::Value::Null(()) => None,
+                        libesedb::Value::Long => {
+                            let x = self.record.long(*index)?;
+                            Some(Value::Long(Box::new(x.vec()?)))
+                        }
                         v => Some(v.into()),
                     })
                     .as_ref(),
@@ -93,7 +97,7 @@ impl<'info, 'db> Record<'info, 'db> {
     ) -> std::io::Result<Self> {
         Ok(Self {
             values: Default::default(),
-            count: libesedb_count(||record.count_values())?,
+            count: libesedb_count(|| record.count_values())?,
             record,
             esedbinfo,
             table_id,

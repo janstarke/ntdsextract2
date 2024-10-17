@@ -28,7 +28,7 @@ impl SdTable {
                     .unwrap();
                 let sd_value = record
                     .with_value(*sd_value_column, |v| match v.unwrap() {
-                        Value::Binary(v) | Value::LargeBinary(v) => Ok(v.as_ref().clone()),
+                        Value::Long(v) | Value::Binary(v) | Value::LargeBinary(v) => Ok(v.as_ref().clone()),
                         v => unimplemented!("no support for {v} as sd_value"),
                     })
                     .unwrap();

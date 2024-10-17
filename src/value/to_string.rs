@@ -25,7 +25,7 @@ impl ToString for Value {
             Value::LargeText(v) => v.as_ref().to_owned(),
             Value::SuperLarge(v) => hex::encode(v.as_ref()).to_string(),
             Value::Guid(v) => hex::encode(v.as_ref()).to_string(),
-            Value::Long => "Long".to_string(),
+            Value::Long(_) => "Long".to_string(),
             Value::Multi => "Multi".to_string(),
         }
     }
