@@ -28,7 +28,9 @@ impl SdTable {
                     .unwrap();
                 let sd_value = record
                     .with_value(*sd_value_column, |v| match v.unwrap() {
-                        Value::Long(v) | Value::Binary(v) | Value::LargeBinary(v) => Ok(v.as_ref().clone()),
+                        Value::Long(v) | Value::Binary(v) | Value::LargeBinary(v) => {
+                            Ok(v.as_ref().clone())
+                        }
                         v => unimplemented!("no support for {v} as sd_value"),
                     })
                     .unwrap();
@@ -39,15 +41,12 @@ impl SdTable {
         Ok(Self { descriptors })
     }
 
-    pub fn descriptor(&self, sd_id: &i64) -> Option<SecurityDescriptor> {
+    pub fn descriptor(
+        &self,
+        sd_id: &i64,
+    ) -> Option<Result<SecurityDescriptor, crate::ntds::Error>> {
         self.descriptors
             .get(sd_id)
-            .and_then(|v| match SecurityDescriptor::try_from(&v[..]) {
-                Err(why) => {
-                    log::error!("security descriptor parser error: {why}");
-                    None
-                }
-                Ok(sd) => Some(sd),
-            })
+            .and_then(|v| Some(SecurityDescriptor::try_from(&v[..])))
     }
 }

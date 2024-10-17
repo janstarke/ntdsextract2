@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::value::FromValue;
 
 pub struct SecurityDescriptor(sddl::SecurityDescriptor);
@@ -17,6 +19,12 @@ impl FromValue for SecurityDescriptor {
                 Ok(None)
             }
         }
+    }
+}
+
+impl Display for SecurityDescriptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 

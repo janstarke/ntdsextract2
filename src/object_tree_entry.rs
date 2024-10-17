@@ -11,7 +11,7 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::{
-    cache::{MetaDataCache, RecordPointer, SpecialRecords}, ntds::SdTable, win32_types::Rdn
+    cache::{MetaDataCache, RecordPointer, SpecialRecords}, ntds::SdTable, win32_types::{Rdn, SecurityDescriptor}
 };
 lazy_static! {
     static ref DOMAINROOT_CHILDREN: HashSet<String> = HashSet::from_iter(vec![
@@ -31,7 +31,7 @@ pub struct ObjectTreeEntry {
     relative_distinguished_name: String,
     distinguished_name: String,
     record_ptr: RecordPointer,
-    sd_id: Option<String>,
+    sddl: Option<Result<SecurityDescriptor, crate::ntds::Error>>,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
     parent: Option<Weak<Self>>,
@@ -57,9 +57,13 @@ impl Display for ObjectTreeEntry {
         let is_deleted = self.name().deleted_from_container().is_some();
         let display_name = self.relative_distinguished_name();
         let sddl = self
-            .sd_id()
+            .sddl()
             .as_ref()
-            .map(|sddl| format!(";{sddl}"))
+            .map(|sddl| match sddl {
+                Ok(sddl) => format!(";{sddl}"),
+                Err(_why) => format!(";sddl-error")
+                }
+            )
             .unwrap_or_default();
 
         let flags = if is_deleted { "DELETED; " } else { "" };
@@ -126,10 +130,10 @@ impl ObjectTreeEntry {
             }
         };
 
-        let sd_id = entry
+        let sddl = entry
             .sd_id()
             .as_ref()
-            .map(|sd| sd.to_string());
+            .and_then(|sd_id| sd_table.descriptor(sd_id));
 
         let me = Rc::new(ObjectTreeEntry {
             name,
@@ -138,7 +142,7 @@ impl ObjectTreeEntry {
             record_ptr: *record_ptr,
             children: RefCell::new(HashSet::new()),
             parent,
-            sd_id,
+            sddl,
         });
 
         record_index.insert(*record_ptr, Rc::downgrade(&me));
