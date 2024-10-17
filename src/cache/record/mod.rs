@@ -77,6 +77,10 @@ impl<'info, 'db> WithValue<ColumnIndex> for Record<'info, 'db> {
                             let x = self.record.long(*index)?;
                             Some(Value::Long(Box::new(x.vec()?)))
                         }
+                        libesedb::Value::Multi => {
+                            let v = self.record.multi(*index)?.variant();
+                            Some(v.into())
+                        }
                         v => Some(v.into()),
                     })
                     .as_ref(),

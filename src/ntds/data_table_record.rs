@@ -132,6 +132,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_admin_count, AttAdminCount, i32);
     record_attribute!(att_is_deleted, AttIsDeleted, bool);
     record_attribute!(att_last_known_parent, AttLastKnownParent, RecordId);
+    record_attribute!(att_nt_security_descriptor, AttNtSecurityDescriptor, i64);
 
     pub fn mapping(&self) -> &ColumnInfoMapping {
         self.inner.esedbinfo().mapping()

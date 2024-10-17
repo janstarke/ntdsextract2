@@ -1,6 +1,6 @@
 use crate::cache::RecordPointer;
 use crate::cli::OutputOptions;
-use crate::win32_types::{Rdn, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
+use crate::win32_types::{Rdn, SecurityDescriptor, TimelineEntry, TruncatedWindowsFileTime, WindowsFileTime};
 use crate::win32_types::{SamAccountType, Sid, UserAccountControl};
 use crate::{FormattedValue, Membership, MembershipSet, SerializationType};
 use bodyfile::Bodyfile3Line;
@@ -58,8 +58,10 @@ where
     password_last_set: Option<WindowsFileTime>,
     bad_pwd_time: Option<WindowsFileTime>,
 
+    sddl: Option<String>,
     //#[serde(flatten)]
     specific_attributes: A,
+
 
     #[serde(skip)]
     _marker: PhantomData<O>,
@@ -147,6 +149,7 @@ where
         s.serialize_field("account_expires", self.account_expires())?;
         s.serialize_field("password_last_set", self.password_last_set())?;
         s.serialize_field("bad_pwd_time", self.bad_pwd_time())?;
+        s.serialize_field("sddl", self.sddl())?;
 
         self.specific_attributes().serialize_to::<S>(&mut s)?;
         s.end()
@@ -165,6 +168,7 @@ where
         data_table: &DataTable,
         link_table: &LinkTable,
         distinguished_name: FormattedValue<String>,
+        sd: Option<&SecurityDescriptor>
     ) -> Result<Self, anyhow::Error> {
         let object_id = dbrecord.ds_record_id()?;
 
@@ -230,6 +234,7 @@ where
             //aduser_objects: dbrecord.att_u()?,
             member_of: member_refs,
             specific_attributes,
+            sddl: sd.map(|sd| sd.to_string()),
             _marker: PhantomData,
             ptr: *dbrecord.ptr(),
         })

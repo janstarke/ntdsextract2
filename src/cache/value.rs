@@ -49,7 +49,7 @@ impl From<libesedb::Value> for Value {
             libesedb::Value::I64(v) => Self::I64(v),
             libesedb::Value::Guid(v) => Self::Guid(Box::new(Vec::from(&v[..]))),
             libesedb::Value::U16(v) => Self::U16(v),
-            _ => unimplemented!()
+            v => unimplemented!("unable to convert {v:?}")
         }
     }
 }
