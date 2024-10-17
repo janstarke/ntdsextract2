@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use base64::prelude::*;
+
 use crate::{
     cache::{self, Value, WithValue},
     win32_types::SecurityDescriptor,
@@ -47,6 +49,13 @@ impl SdTable {
     ) -> Option<Result<SecurityDescriptor, crate::ntds::Error>> {
         self.descriptors
             .get(sd_id)
-            .and_then(|v| Some(SecurityDescriptor::try_from(&v[..])))
+            .map(|v| match SecurityDescriptor::try_from(&v[..]) {
+                Ok(sd) => Ok(sd),
+                Err(why) => {
+                    log::error!("failed descriptor was: {}", BASE64_STANDARD.encode(v));
+                    log::error!("{why}");
+                    Err(why)
+                }
+            })
     }
 }

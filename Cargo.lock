@@ -125,6 +125,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c4b4d0bd25bd0b74681c0ad21497610ce1b7c91b1022cd21c80c6fbdd9476b0"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "binrw"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -880,6 +886,7 @@ version = "1.4.3"
 dependencies = [
  "anyhow",
  "assert_cmd",
+ "base64",
  "bitflags",
  "bodyfile",
  "byteorder",
@@ -1300,9 +1307,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "sddl"
-version = "0.0.7"
+version = "0.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d25d1ef76058742646e269afa0f7136a20bcd12b3a61bf89685ce7e2866ef8bc"
+checksum = "89120cb4fc0ef4122175e0ebf415b734f799b660f66369969deda2d4e2f3efb8"
 dependencies = [
  "binrw",
  "bitflags",

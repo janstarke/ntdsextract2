@@ -31,7 +31,7 @@ pub struct ObjectTreeEntry {
     relative_distinguished_name: String,
     distinguished_name: String,
     record_ptr: RecordPointer,
-    sddl: Option<Result<SecurityDescriptor, crate::ntds::Error>>,
+    _sddl: Option<Result<SecurityDescriptor, crate::ntds::Error>>,
     //parent: Option<Weak<ObjectTreeEntry>>,
     children: RefCell<HashSet<Rc<ObjectTreeEntry>>>,
     parent: Option<Weak<Self>>,
@@ -56,16 +56,18 @@ impl Display for ObjectTreeEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let is_deleted = self.name().deleted_from_container().is_some();
         let display_name = self.relative_distinguished_name();
+        /*
         let sddl = self
             .sddl()
             .as_ref()
             .map(|sddl| match sddl {
                 Ok(sddl) => format!(";{sddl}"),
-                Err(_why) => format!(";sddl-error")
+                Err(_why) => format!(";sddl-error: {_why}")
                 }
             )
             .unwrap_or_default();
-
+        */
+        let sddl = "";
         let flags = if is_deleted { "DELETED; " } else { "" };
 
         write!(f, "{display_name} ({flags}{}{sddl})", self.record_ptr)
@@ -130,7 +132,7 @@ impl ObjectTreeEntry {
             }
         };
 
-        let sddl = entry
+        let _sddl = entry
             .sd_id()
             .as_ref()
             .and_then(|sd_id| sd_table.descriptor(sd_id));
@@ -142,7 +144,7 @@ impl ObjectTreeEntry {
             record_ptr: *record_ptr,
             children: RefCell::new(HashSet::new()),
             parent,
-            sddl,
+            _sddl,
         });
 
         record_index.insert(*record_ptr, Rc::downgrade(&me));
