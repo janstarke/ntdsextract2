@@ -22,7 +22,7 @@ use maplit::hashset;
 use regex::Regex;
 use serde_json::json;
 
-use super::{Computer, Group, ObjectType, Person, Schema};
+use super::{Computer, Group, ObjectType, Person, Schema, SdTable};
 
 /// wraps a ESEDB Table.
 /// This class assumes the a NTDS datatable is being wrapped
@@ -34,6 +34,7 @@ pub struct DataTable<'info, 'db> {
     schema_record_id: RecordPointer,
     object_tree: Rc<ObjectTree>,
     link_table: Rc<LinkTable>,
+    sd_table: Rc<SdTable>,
     schema: Schema,
     special_records: SpecialRecords,
 }
@@ -45,6 +46,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         object_tree: Rc<ObjectTree>,
         schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
+        sd_table: Rc<SdTable>,
         schema: Schema,
         special_records: SpecialRecords,
     ) -> Result<Self> {
@@ -53,6 +55,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
             schema_record_id,
             object_tree,
             link_table,
+            sd_table,
             schema,
             special_records,
         })

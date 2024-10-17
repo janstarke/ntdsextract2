@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{
     cache::{self, MetaDataCache},
     cli::{EntryFormat, OutputOptions, TimelineFormat},
-    ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema},
+    ntds::{self, Computer, DataTable, Group, LinkTable, ObjectType, Person, Schema, SdTable},
     object_tree::ObjectTree,
     EntryId, EsedbInfo, SerializationType,
 };
@@ -12,13 +12,17 @@ pub struct CDatabase<'info, 'db> {
     _esedbinfo: &'info EsedbInfo<'db>,
     data_table: DataTable<'info, 'db>,
     link_table: Rc<LinkTable>,
+    sd_table: Rc<SdTable>
 }
 
 impl<'info, 'db> CDatabase<'info, 'db> {
     pub fn new(esedbinfo: &'info EsedbInfo<'db>) -> anyhow::Result<Self> {
+        let cached_sd_table = cache::SdTable::try_from("sd_table", esedbinfo)?;
+        let sd_table = Rc::new(SdTable::new(&cached_sd_table)?);
+
         let metadata_cache = MetaDataCache::try_from(esedbinfo)?;
 
-        let object_tree = Rc::new(ObjectTree::new(&metadata_cache));
+        let object_tree = Rc::new(ObjectTree::new(&metadata_cache, Rc::clone(&sd_table)));
 
         let special_records = object_tree.get_special_records()?;
         let schema_record_id = special_records.schema().record_ptr();
@@ -47,14 +51,17 @@ impl<'info, 'db> CDatabase<'info, 'db> {
             object_tree,
             *schema_record_id,
             Rc::clone(&link_table),
+            Rc::clone(&sd_table),
             schema,
             special_records,
         )?;
+
 
         Ok(Self {
             _esedbinfo: esedbinfo,
             link_table,
             data_table,
+            sd_table,
         })
     }
 

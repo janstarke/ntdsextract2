@@ -55,6 +55,8 @@ cap = "0.1.2"
 indicatif = "0.17"
 uuid = {version="1.6", features=["serde", "v4"]}
 flow-record = "0.4.9"
+#sddl = "0.0.7"
+sddl = {path="../sddl"}
 
 [dev-dependencies]
 assert_cmd = "2"

@@ -1,6 +1,7 @@
 mod bool;
 mod from_value;
 mod i32;
+mod i64;
 mod sam_account_type;
 mod sid;
 mod string;

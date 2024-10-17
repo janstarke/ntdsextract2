@@ -1,5 +1,6 @@
 mod data_table;
 mod link_table;
+mod sd_table;
 mod attribute_id;
 mod link_table_builder;
 mod object_type;
@@ -15,6 +16,7 @@ mod is_member_of;
 
 pub use data_table::*;
 pub use link_table::*;
+pub use sd_table::*;
 pub use attribute_id::*;
 pub use object_type::*;
 pub use data_table_record::*;

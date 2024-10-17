@@ -30,6 +30,8 @@ pub struct DataEntryCore {
 
     #[getset(skip)]
     distinguished_name: RefCell<Option<String>>,
+
+    sd_id: Option<i64>
 }
 
 impl Display for DataEntryCore {
@@ -70,6 +72,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
         let attribute_id_column = NtdsAttributeId::AttAttributeId.id(info);
         let ldap_display_name_column = NtdsAttributeId::AttLdapDisplayName.id(info);
         let sam_account_name_column = NtdsAttributeId::AttSamAccountName.id(info);
+        let sd_id_column = NtdsAttributeId::AttNtSecurityDescriptor.id(info);
 
         let mut records = Vec::new();
         let mut record_rows = HashMap::new();
@@ -95,6 +98,9 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             RecordId::from_record_opt(&record, object_category_column)?;
                         let sid = Sid::from_record_opt(&record, sid_column).unwrap_or(None);
                         let guid = Guid::from_record_opt(&record, guid_column)?;
+
+                        let sd_id = i64::from_record_opt(&record, sd_id_column)?;
+
                         let sam_account_name = match String::from_record_opt(
                             &record,
                             sam_account_name_column,
@@ -167,6 +173,7 @@ impl TryFrom<&EsedbInfo<'_>> for MetaDataCache {
                             rdn_typ_col,
                             relative_distinguished_name,
                             sam_account_name,
+                            sd_id,
                             distinguished_name: RefCell::new(None),
                         });
 
