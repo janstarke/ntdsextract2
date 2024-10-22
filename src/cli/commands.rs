@@ -77,7 +77,7 @@ pub enum Commands {
         member_of_attribute: MemberOfAttribute,
     },
 
-    /// create a timeline (in bodyfile format)
+    /// create a timeline (in flow-record format)
     Timeline {
         /// show objects of any type (this might be a lot)
         #[clap(long("all-objects"))]
