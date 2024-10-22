@@ -28,6 +28,7 @@ where
 
     sid: Option<Sid>,
     user_principal_name: Option<String>,
+    service_principal_name: Option<String>,
     rdn: Option<Rdn>,
     sam_account_name: Option<String>,
     sam_account_type: Option<SamAccountType>,
@@ -81,6 +82,7 @@ where
             static ref FIELDS: Vec<&'static str> = vec![
                 "sid",
                 "user_principal_name",
+                "service_principal_name",
                 "rdn",
                 "sam_account_name",
                 "sam_account_type",
@@ -100,7 +102,8 @@ where
                 "last_logon_time_stamp",
                 "account_expires",
                 "password_last_set",
-                "bad_pwd_time"
+                "bad_pwd_time",
+                "sddl"
             ];
         }
         &FIELDS
@@ -129,6 +132,7 @@ where
         }
 
         s.serialize_field("user_principal_name", self.user_principal_name())?;
+        s.serialize_field("service_principal_name", self.service_principal_name())?;
         s.serialize_field("rdn", self.rdn())?;
         s.serialize_field("sam_account_name", self.sam_account_name())?;
         s.serialize_field("sam_account_type", self.sam_account_type())?;
@@ -217,6 +221,7 @@ where
             sam_account_name: dbrecord.att_sam_account_name().ok(),
             rdn: dbrecord.att_object_name2().ok(),
             user_principal_name: dbrecord.att_user_principal_name().ok(),
+            service_principal_name: dbrecord.att_service_principal_name().ok(),
             sam_account_type: dbrecord.att_sam_account_type().ok(),
             user_account_control: dbrecord.att_user_account_control().ok(),
             last_logon: dbrecord.att_last_logon().ok(),

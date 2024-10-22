@@ -104,6 +104,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
     record_attribute!(att_sam_account_name, AttSamAccountName, String);
     record_attribute!(att_sam_account_type, AttSamAccountType, SamAccountType);
     record_attribute!(att_user_principal_name, AttUserPrincipalName, String);
+    record_attribute!(att_service_principal_name, AttServicePrincipalName, String);
     record_attribute!(
         att_user_account_control,
         AttUserAccountControl,
