@@ -21,7 +21,7 @@ pub enum Value {
     Guid(Box<Vec<u8>>),
     U16(u16),
     Long(Box<Vec<u8>>),
-    Multi
+    Multi(Vec<Self>)
 }
 
 impl Eq for Value {
@@ -76,7 +76,7 @@ impl Display for Value {
             Value::Guid(v) => write!(f, "Guid({v:?})"),
             Value::U16(v) => write!(f, "U16({v})"),
             Value::Long(v) => write!(f, "Long({v:?})"),
-            Value::Multi => write!(f, "Multi"),
+            Value::Multi(_) => write!(f, "Multi"),
         }
     }
 }
