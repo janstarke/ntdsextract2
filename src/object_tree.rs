@@ -17,9 +17,9 @@ pub struct ObjectTree {
 }
 
 impl ObjectTree {
-    pub fn new(metadata: &MetaDataCache, sd_table: Rc<SdTable>) -> Self {
+    pub fn new(metadata: &MetaDataCache, sd_table: Option<Rc<SdTable>>) -> Self {
         let mut record_index = HashMap::new();
-        let root = ObjectTreeEntry::populate_object_tree(metadata, &sd_table, &mut record_index);
+        let root = ObjectTreeEntry::populate_object_tree(metadata, sd_table, &mut record_index);
         Self {
             root,
             record_index,

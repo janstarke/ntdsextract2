@@ -88,17 +88,17 @@ impl ObjectTreeEntry {
 
     pub(crate) fn populate_object_tree(
         metadata: &MetaDataCache,
-        sd_table: &SdTable,
+        sd_table: Option<Rc<SdTable>>,
         record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-        Self::create_tree_node(metadata.root(), metadata, sd_table, None, record_index)
+        Self::create_tree_node(metadata.root(), metadata, sd_table.as_deref(), None, record_index)
     }
 
     fn create_tree_node(
         record_ptr: &RecordPointer,
         metadata: &MetaDataCache,
-        sd_table: &SdTable,
+        sd_table: Option<&SdTable>,
         parent: Option<Weak<Self>>,
         record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
@@ -132,10 +132,10 @@ impl ObjectTreeEntry {
             }
         };
 
-        let _sddl = entry
+        let _sddl = sd_table.and_then(|sd_table|entry
             .sd_id()
             .as_ref()
-            .and_then(|sd_id| sd_table.descriptor(sd_id));
+            .and_then(|sd_id| sd_table.descriptor(sd_id)));
 
         let me = Rc::new(ObjectTreeEntry {
             name,

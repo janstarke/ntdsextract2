@@ -12,17 +12,27 @@ pub struct CDatabase<'info, 'db> {
     _esedbinfo: &'info EsedbInfo<'db>,
     data_table: DataTable<'info, 'db>,
     link_table: Rc<LinkTable>,
-    _sd_table: Rc<SdTable>
+    _sd_table: Option<Rc<SdTable>>,
 }
 
 impl<'info, 'db> CDatabase<'info, 'db> {
-    pub fn new(esedbinfo: &'info EsedbInfo<'db>) -> anyhow::Result<Self> {
+    pub fn new(esedbinfo: &'info EsedbInfo<'db>, load_sd_table: bool) -> anyhow::Result<Self> {
         let cached_sd_table = cache::SdTable::try_from("sd_table", esedbinfo)?;
-        let sd_table = Rc::new(SdTable::new(&cached_sd_table)?);
+        let sd_table = if load_sd_table {
+            match SdTable::new(&cached_sd_table) {
+                Ok(sd_table) => Some(Rc::new(sd_table)),
+                Err(why) => {
+                    log::warn!("Error while reading table 'sd_table': {why}. Security descriptors will not be available");
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
         let metadata_cache = MetaDataCache::try_from(esedbinfo)?;
 
-        let object_tree = Rc::new(ObjectTree::new(&metadata_cache, Rc::clone(&sd_table)));
+        let object_tree = Rc::new(ObjectTree::new(&metadata_cache, sd_table.clone()));
 
         let special_records = object_tree.get_special_records()?;
         let schema_record_id = special_records.schema().record_ptr();
@@ -51,11 +61,10 @@ impl<'info, 'db> CDatabase<'info, 'db> {
             object_tree,
             *schema_record_id,
             Rc::clone(&link_table),
-            Rc::clone(&sd_table),
+            sd_table.clone(),
             schema,
             special_records,
         )?;
-
 
         Ok(Self {
             _esedbinfo: esedbinfo,

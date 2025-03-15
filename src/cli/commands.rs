@@ -24,6 +24,13 @@ pub enum Commands {
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
 
+        /// include the security descriptor in hte output
+        /// 
+        /// Note the not the raw value is show. Instead, an SDDL string is shown.
+        #[clap(short('S'), long("include-sd"))]
+        include_sd: bool,
+
+
         /// specify which attribute shall be used to display group memberships
         #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
         member_of_attribute: MemberOfAttribute,
@@ -48,6 +55,12 @@ pub enum Commands {
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
 
+        /// include the security descriptor in hte output
+        /// 
+        /// Note the not the raw value is show. Instead, an SDDL string is shown.
+        #[clap(short('S'), long("include-sd"))]
+        include_sd: bool,
+
         /// specify which attribute shall be used to display group memberships
         #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
         member_of_attribute: MemberOfAttribute,
@@ -71,6 +84,12 @@ pub enum Commands {
         /// all of its parents. That's why this property is normally not shown.
         #[clap(short('D'), long("include-dn"))]
         include_dn: bool,
+
+        /// include the security descriptor in hte output
+        /// 
+        /// Note the not the raw value is show. Instead, an SDDL string is shown.
+        #[clap(short('S'), long("include-sd"))]
+        include_sd: bool,
 
         /// specify which attribute shall be used to display group memberships
         #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
@@ -139,24 +158,28 @@ impl Commands {
                 format: OutputFormat::Json,
                 show_all,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute: _,
             }
             | Commands::User {
                 format: OutputFormat::JsonLines,
                 show_all,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute: _,
             }
             | Commands::Computer {
                 format: OutputFormat::Json,
                 show_all,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute: _,
             }
             | Commands::Computer {
                 format: OutputFormat::JsonLines,
                 show_all,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute: _,
             } => *show_all,
             _ => false,
@@ -169,20 +192,51 @@ impl Commands {
                 format: _,
                 show_all: _,
                 include_dn,
+                include_sd: _,
                 member_of_attribute: _,
             }
             | Commands::Group {
                 format: _,
                 show_all: _,
                 include_dn,
+                include_sd: _,
                 member_of_attribute: _,
             } => *include_dn,
             Commands::Computer {
                 format: _,
                 show_all: _,
                 include_dn,
+                include_sd: _,
                 member_of_attribute: _,
             } => *include_dn,
+            _ => false,
+        }
+    }
+
+
+    pub fn include_security_descriptor(&self) -> bool {
+        match self {
+            Commands::User {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                include_sd,
+                member_of_attribute: _,
+            }
+            | Commands::Group {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                include_sd,
+                member_of_attribute: _,
+            } => *include_sd,
+            Commands::Computer {
+                format: _,
+                show_all: _,
+                include_dn: _,
+                include_sd,
+                member_of_attribute: _,
+            } => *include_sd,
             _ => false,
         }
     }
@@ -193,18 +247,21 @@ impl Commands {
                 format: _,
                 show_all: _,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute,
             } => *member_of_attribute,
             Commands::Group {
                 format: _,
                 show_all: _,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute,
             } => *member_of_attribute,
             Commands::Computer {
                 format: _,
                 show_all: _,
                 include_dn: _,
+                include_sd: _,
                 member_of_attribute,
             } => *member_of_attribute,
             _ => MemberOfAttribute::Rdn,
