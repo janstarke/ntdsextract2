@@ -39,18 +39,18 @@ pub struct DataTableRecord<'info, 'db> {
 
 macro_rules! record_attribute {
     ($name: ident, $id: ident, $type: ty) => {
-        pub fn $name(&self) -> anyhow::Result<$type> {
+        pub fn $name(&self) -> crate::ntds::Result<$type> {
             self.get_value(NtdsAttributeId::$id)
         }
 
         concat_idents!(fn_name=$name, _opt {
-            pub fn fn_name(&self) -> anyhow::Result<Option<$type>> {
+            pub fn fn_name(&self) -> crate::ntds::Result<Option<$type>> {
                 self.get_value_opt(NtdsAttributeId::$id)
             }
         });
 
         concat_idents!(fn_name=has_, $name {
-            pub fn fn_name(&self, other: &$type) -> anyhow::Result<bool> {
+            pub fn fn_name(&self, other: &$type) -> crate::ntds::Result<bool> {
                 self.has_value(NtdsAttributeId::$id, other)
             }
         });
@@ -62,16 +62,16 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
         Self { inner, ptr }
     }
 
-    fn get_value<T>(&self, column: NtdsAttributeId) -> anyhow::Result<T>
+    fn get_value<T>(&self, column: NtdsAttributeId) -> crate::ntds::Result<T>
     where
         T: FromValue,
     {
         self.inner.with_value(column, |v| match v {
-            None => Err(anyhow::anyhow!(Error::ValueIsMissing)),
+            None => Err(Error::ValueIsMissing),
             Some(v) => Ok(<T>::from_value(v)?),
         })
     }
-    fn get_value_opt<T>(&self, column: NtdsAttributeId) -> anyhow::Result<Option<T>>
+    fn get_value_opt<T>(&self, column: NtdsAttributeId) -> crate::ntds::Result<Option<T>>
     where
         T: FromValue,
     {
@@ -80,7 +80,7 @@ impl<'info, 'db> DataTableRecord<'info, 'db> {
             Some(v) => Ok(Some(<T>::from_value(v)?)),
         })
     }
-    fn has_value<T>(&self, column: NtdsAttributeId, other: &T) -> anyhow::Result<bool>
+    fn has_value<T>(&self, column: NtdsAttributeId, other: &T) -> crate::ntds::Result<bool>
     where
         T: FromValue + Eq,
     {
@@ -276,8 +276,8 @@ impl<'info, 'db> WithValue<NtdsAttributeId> for DataTableRecord<'info, 'db> {
     fn with_value<T>(
         &self,
         index: NtdsAttributeId,
-        function: impl FnMut(Option<&cache::Value>) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        function: impl FnMut(Option<&cache::Value>) -> crate::ntds::Result<T>,
+    ) -> crate::ntds::Result<T> {
         self.inner.with_value(index, function)
     }
 }
@@ -286,8 +286,8 @@ impl<'info, 'db> WithValue<ColumnIndex> for DataTableRecord<'info, 'db> {
     fn with_value<T>(
         &self,
         index: ColumnIndex,
-        function: impl FnMut(Option<&cache::Value>) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        function: impl FnMut(Option<&cache::Value>) -> crate::ntds::Result<T>,
+    ) -> crate::ntds::Result<T> {
         self.inner.with_value(index, function)
     }
 }

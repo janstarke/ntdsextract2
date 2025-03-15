@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use anyhow::{anyhow, ensure, Result};
-
 use crate::cache::{self, MetaDataCache, RecordId, RecordPointer, Value, WithValue};
+use crate::ntds::Error;
 use crate::value::FromValue;
 
 use super::{LinkTable, NtdsAttributeId};
@@ -18,7 +17,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         link_table: cache::LinkTable<'info, 'db>,
         data_table: &'db cache::DataTable<'info, 'db>,
         schema_record_id: RecordPointer,
-    ) -> Result<Self> {
+    ) -> crate::ntds::Result<Self> {
         Ok(Self {
             link_table,
             data_table,
@@ -26,7 +25,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         })
     }
 
-    pub fn build(self, metadata: &MetaDataCache) -> Result<LinkTable> {
+    pub fn build(self, metadata: &MetaDataCache) -> crate::ntds::Result<LinkTable> {
         log::info!("building link table associations");
 
         let (member_link_id, _member_of_link_id) = self.find_member_link_id_pair()?;
@@ -48,7 +47,6 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         }) {
             if let Ok(Some(forward_link)) = record.with_value(*link_dnt_id, |v| {
                 RecordId::from_value(v.unwrap())
-                    .map_err(|e| anyhow!(e))
                     .map(|id| {
                         metadata.ptr_from_id(&id).or_else(|| {
                             log::warn!("I expected to find an entry for forward link {id}; but there was none. I'll ignore that entry.");
@@ -58,7 +56,6 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
             }) {
                 if let Ok(Some(backward_link)) = record.with_value(*backlink_dnt_id, |v| {
                     RecordId::from_value(v.unwrap())
-                        .map_err(|e| anyhow!(e))
                         .map(|id| {
                             metadata.ptr_from_id(&id).or_else(|| {
                                 log::warn!(
@@ -100,7 +97,7 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         })
     }
 
-    fn find_member_link_id_pair(&self) -> anyhow::Result<(u32, u32)> {
+    fn find_member_link_id_pair(&self) -> crate::ntds::Result<(u32, u32)> {
         log::info!("searching for link attributes 'Member' and 'Is-Member-Of-DL'");
 
         let member_link_id = self.find_link_id(&String::from("Member"))?;
@@ -109,22 +106,20 @@ impl<'info, 'db> LinkTableBuilder<'info, 'db> {
         let member_of_link_id = self.find_link_id(&String::from("Is-Member-Of-DL"))?;
         log::info!("'Is-Member-Of-DL' has Link-ID '{member_of_link_id}'");
 
-        ensure!(
-            member_link_id & 1 == 0,
-            "the forward LinkID must be a even number"
-        );
+        if member_link_id & 1 != 0 {
+            return Err(Error::InvalidForwardLinkId(member_link_id));
+        }
 
-        ensure!(
-            member_link_id + 1 == member_of_link_id,
-            "invalid LinkID values: {} and {}",
-            member_link_id,
-            member_of_link_id
-        );
+        if member_link_id + 1 != member_of_link_id {
+            return Err(Error::InvalidLinkIdValues {
+                member_link_id, member_of_link_id
+            });
+        }
 
         Ok((member_link_id, member_of_link_id))
     }
 
-    fn find_link_id(&self, attribute_name: &String) -> anyhow::Result<u32> {
+    fn find_link_id(&self, attribute_name: &String) -> crate::ntds::Result<u32> {
         let entry = self
             .data_table
             .metadata()

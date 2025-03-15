@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 
 use crate::cache::RecordPointer;
@@ -22,7 +21,7 @@ impl LinkTable {
         link_table: cache::LinkTable<'info, 'db>,
         data_table: &cache::DataTable<'info, 'db>,
         schema_record_id: RecordPointer,
-    ) -> Result<Self> {
+    ) -> crate::ntds::Result<Self> {
         log::info!("reading link information and creating link_table cache");
 
         let builder = LinkTableBuilder::from(link_table, data_table, schema_record_id)?;

@@ -35,7 +35,13 @@ pub enum Error {
     UuidError(#[from] uuid::Error),
 
     #[error("Invalid SDDL: {0}")]
-    SddlError(#[from] sddl::Error)
+    SddlError(#[from] sddl::Error),
+
+    #[error("Invalid forward LinkID: {0}, the forward LinkID must be a even number")]
+    InvalidForwardLinkId(u32),
+
+    #[error("invalid LinkID values: {member_link_id} and {member_of_link_id}")]
+    InvalidLinkIdValues{member_link_id: u32, member_of_link_id: u32}
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
