@@ -34,7 +34,7 @@ pub struct DataTable<'info, 'db> {
     schema_record_id: RecordPointer,
     object_tree: Rc<ObjectTree>,
     link_table: Rc<LinkTable>,
-    sd_table: Rc<SdTable>,
+    sd_table: Option<Rc<SdTable>>,
     schema: Schema,
     special_records: SpecialRecords,
 }
@@ -46,7 +46,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
         object_tree: Rc<ObjectTree>,
         schema_record_id: RecordPointer,
         link_table: Rc<LinkTable>,
-        sd_table: Rc<SdTable>,
+        sd_table: Option<Rc<SdTable>>,
         schema: Schema,
         special_records: SpecialRecords,
     ) -> Result<Self> {
@@ -323,9 +323,13 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 FormattedValue::Hide
             };
 
-            let sd = record
-                .att_nt_security_descriptor_opt()?
-                .and_then(|sd_id| self.sd_table().descriptor(&sd_id).map(Result::unwrap));
+            let sd = match &self.sd_table {
+                Some(sd_table) => record
+                    .att_nt_security_descriptor_opt()?
+                    .and_then(|sd_id| sd_table.descriptor(&sd_id))
+                    .map(Result::unwrap),
+                None => None,
+            };
 
             let mut record = O::new(record, options, self, &self.link_table, dn, sd.as_ref())?;
 
@@ -373,7 +377,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
-                None
+                None,
             )?),
             ObjectType::Group => Vec::<Bodyfile3Line>::from(Group::<CsvSerialization>::new(
                 record,
@@ -381,7 +385,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
-                None
+                None,
             )?),
             ObjectType::Computer => Vec::<Bodyfile3Line>::from(Computer::<CsvSerialization>::new(
                 record,
@@ -389,7 +393,7 @@ impl<'info, 'db> DataTable<'info, 'db> {
                 self,
                 link_table,
                 distinguished_name,
-                None
+                None,
             )?),
         })
     }

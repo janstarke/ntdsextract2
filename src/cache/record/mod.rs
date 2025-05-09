@@ -54,8 +54,8 @@ impl<'info, 'db> WithValue<NtdsAttributeId> for Record<'info, 'db> {
     fn with_value<T>(
         &self,
         attribute_id: NtdsAttributeId,
-        function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        function: impl FnMut(Option<&Value>) -> crate::ntds::Result<T>,
+    ) -> crate::ntds::Result<T> {
         let column_id = *self.esedbinfo().mapping().index(attribute_id).id();
         self.with_value(column_id, function)
     }
@@ -65,8 +65,8 @@ impl<'info, 'db> WithValue<ColumnIndex> for Record<'info, 'db> {
     fn with_value<T>(
         &self,
         index: ColumnIndex,
-        mut function: impl FnMut(Option<&Value>) -> anyhow::Result<T>,
-    ) -> anyhow::Result<T> {
+        mut function: impl FnMut(Option<&Value>) -> crate::ntds::Result<T>,
+    ) -> crate::ntds::Result<T> {
         match self.values.borrow_mut().entry(index) {
             Entry::Occupied(e) => function(e.get().as_ref()),
             Entry::Vacant(e) => match self.record.value(*index) {
@@ -85,7 +85,7 @@ impl<'info, 'db> WithValue<ColumnIndex> for Record<'info, 'db> {
                     })
                     .as_ref(),
                 ),
-                Err(why) => Err(anyhow::anyhow!(why)),
+                Err(why) => Err(why.into()),
             },
         }
     }

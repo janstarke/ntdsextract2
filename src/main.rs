@@ -44,7 +44,7 @@ fn main() -> Result<()> {
 
     let esedb = EseDb::open(cli.ntds_file())?;
     let info = EsedbInfo::try_from(&esedb)?;
-    let database = CDatabase::new(&info)?;
+    let database = CDatabase::new(&info, cli.command().include_security_descriptor())?;
 
     let mut options = OutputOptions::default();
     options.set_display_all_attributes(cli.command().display_all_attributes());

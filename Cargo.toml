@@ -1,6 +1,6 @@
 [package]
 name = "ntdsextract2"
-version = "1.4.7"
+version = "1.4.8"
 edition = "2021"
 description = "Display contents of Active Directory database files (ntds.dit)"
 repository = "https://github.com/janstarke/ntdsextract2"
@@ -25,7 +25,7 @@ concat-idents = "1"
 simplelog = "0.12"
 anyhow = "1.0"
 clap = "4"
-clap-verbosity-flag = "2.0.0"
+clap-verbosity-flag = "3"
 maplit = "1.0.2"
 byteorder = "1.4.3"
 hex = "0.4"
@@ -56,7 +56,7 @@ cap = "0.1.2"
 indicatif = "0.17"
 uuid = {version="1.6", features=["serde", "v4"]}
 flow-record = "0.4.9"
-sddl = "0.0.14"
+sddl = ">=0.0.16"
 base64 = "0.22.1"
 #sddl = {path="../sddl"}
 
@@ -66,6 +66,6 @@ serde_test = "1"
 
 [build-dependencies]
 lazy-regex = "3"
-hex = "0"
+hex = ">=0.4"
 byteorder = "1"
 convert_case = "0"
