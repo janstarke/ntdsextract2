@@ -25,11 +25,10 @@ pub enum Commands {
         include_dn: bool,
 
         /// include the security descriptor in hte output
-        /// 
+        ///
         /// Note the not the raw value is show. Instead, an SDDL string is shown.
         #[clap(short('S'), long("include-sd"))]
         include_sd: bool,
-
 
         /// specify which attribute shall be used to display group memberships
         #[clap(long("member-of"), default_value_t=MemberOfAttribute::Rdn)]
@@ -56,7 +55,7 @@ pub enum Commands {
         include_dn: bool,
 
         /// include the security descriptor in hte output
-        /// 
+        ///
         /// Note the not the raw value is show. Instead, an SDDL string is shown.
         #[clap(short('S'), long("include-sd"))]
         include_sd: bool,
@@ -86,7 +85,7 @@ pub enum Commands {
         include_dn: bool,
 
         /// include the security descriptor in hte output
-        /// 
+        ///
         /// Note the not the raw value is show. Instead, an SDDL string is shown.
         #[clap(short('S'), long("include-sd"))]
         include_sd: bool,
@@ -213,7 +212,6 @@ impl Commands {
         }
     }
 
-
     pub fn include_security_descriptor(&self) -> bool {
         match self {
             Commands::User {
@@ -297,12 +295,11 @@ impl Commands {
 
 #[derive(ValueEnum, Clone, Display)]
 pub enum TimelineFormat {
-
     /// bodyfile format
     #[strum(serialize = "bodyfile")]
     Bodyfile,
 
     /// flow record format (<https://docs.rs/flow-record>)
     #[strum(serialize = "record")]
-    Record
+    Record,
 }

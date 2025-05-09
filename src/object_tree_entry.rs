@@ -11,7 +11,9 @@ use getset::Getters;
 use lazy_static::lazy_static;
 
 use crate::{
-    cache::{MetaDataCache, RecordPointer, SpecialRecords}, ntds::SdTable, win32_types::{Rdn, SecurityDescriptor}
+    cache::{MetaDataCache, RecordPointer, SpecialRecords},
+    ntds::SdTable,
+    win32_types::{Rdn, SecurityDescriptor},
 };
 lazy_static! {
     static ref DOMAINROOT_CHILDREN: HashSet<String> = HashSet::from_iter(vec![
@@ -92,7 +94,13 @@ impl ObjectTreeEntry {
         record_index: &mut HashMap<RecordPointer, Weak<Self>>,
     ) -> Rc<ObjectTreeEntry> {
         log::info!("populating the object tree");
-        Self::create_tree_node(metadata.root(), metadata, sd_table.as_deref(), None, record_index)
+        Self::create_tree_node(
+            metadata.root(),
+            metadata,
+            sd_table.as_deref(),
+            None,
+            record_index,
+        )
     }
 
     fn create_tree_node(
@@ -132,10 +140,12 @@ impl ObjectTreeEntry {
             }
         };
 
-        let _sddl = sd_table.and_then(|sd_table|entry
-            .sd_id()
-            .as_ref()
-            .and_then(|sd_id| sd_table.descriptor(sd_id)));
+        let _sddl = sd_table.and_then(|sd_table| {
+            entry
+                .sd_id()
+                .as_ref()
+                .and_then(|sd_id| sd_table.descriptor(sd_id))
+        });
 
         let me = Rc::new(ObjectTreeEntry {
             name,
