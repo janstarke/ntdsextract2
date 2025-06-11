@@ -1,3 +1,22 @@
+> [!CAUTION]
+> # `ntdsextract2` is leaving github
+> 
+> ## Why?
+>
+> I believe that all men (and women, and all human between and above) are created equal. In this mindset, it does not make sense to judge people based on their birthplace, or their language, color, religion, or whatsoever.
+> 
+> I believe that who you are is made up of what you do. If you are caring towards other people, then that's you are. If you do harm to other people, then that's who you are.
+> 
+> I'm concerned of what is currently happening in the United States. I don't like it when a government thinks it is above the law. I don't like it when a government doesn't serve the people, but sees people as a threat. But that's politics.
+> 
+> Github is part of Microsoft, and Microsoft is supporting this government. For example, Microsoft blocked the mail accounts of ICC members because of political reasons. I don't want to get my accounts blocked or deleted arbitrarily. Therefore, I'going to not support Microsoft in any way. That's why I'll move all my repositories away from github.
+> 
+> We had a good time. Cheers.
+>
+> ## Where?
+> 
+> The new place-to-be for `ntdsextract2` is <https://codeberg.org/janstarke/ntdsextract2>.
+
 [![Crates.io](https://img.shields.io/crates/v/ntdsextract2)](https://crates.io/crates/ntdsextract2)
 ![Crates.io](https://img.shields.io/crates/l/ntdsextract2)
 ![Crates.io (latest)](https://img.shields.io/crates/dv/ntdsextract2)
